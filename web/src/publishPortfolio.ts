@@ -1,4 +1,5 @@
 import { getAuthenticatedUser, getSupabase } from './supabaseClient';
+import type { PortfolioPhoto } from './photoProcessing';
 
 import { publicPath, publicGalleryPath, selectedForPublication, type PortfolioPublication, type PublicPhoto } from './portfolioPublicationModel';
 
