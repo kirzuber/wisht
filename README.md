@@ -79,7 +79,7 @@ Migration: `supabase/migrations/20261114235000_work_receipts.sql` (**applied to 
 
 The visitor can browse without signing in. Saving results creates/reuses one photography wish, inserts a user-owned `opportunity_shortlists` row and records a truthful `OPPORTUNITY_SHORTLIST_SAVED` Work Receipt. The same wish can own multiple portfolios and research shortlists. One saved shortlist per wish per UTC day prevents redundant research records; next-day runs can be saved again.
 
-Migration: `supabase/migrations/20261115010000_opportunity_shortlists.sql`; story and acceptance: `docs/11-jinn-003-2-opportunity-scout.md`.
+Migration: `supabase/migrations/20261115010000_opportunity_shortlists.sql` (**applied to wisht-dev**); story and acceptance: `docs/11-jinn-003-2-opportunity-scout.md`.
 
 This is one reusable scout shape, with an initial photography-specific provider adapter. Career and soccer will need their own permitted, reliable sources. It is not yet a scheduled autonomous watch and it does not contact organizers or submit photographs.
 

@@ -58,8 +58,10 @@ export function parseIcalendar(text:string,options:ScoutOptions,now:Date=new Dat
  for(const event of events.slice(0,1000)){
   const title=field(event,'SUMMARY').slice(0,145);
   const deadline=deadlineFrom(field(event,'DTSTART'));
-  const summary=field(event,'DESCRIPTION').slice(0,280);
-  const sourceUrl=safeListingUrl(field(event,'URL'));
+  const description=field(event,'DESCRIPTION').slice(0,1200);
+  const summary=description.slice(0,280);
+  const embeddedLink=description.match(/https:\/\/(?:www\.)?pixcontests\.com\/[^\s,)]+/i)?.[0]||'';
+  const sourceUrl=safeListingUrl(field(event,'URL'))||safeListingUrl(embeddedLink);
   if(!title||!deadline||deadline<today||!sourceUrl)continue;
   const text=title+' '+summary;
   if(options.genre!=='any'&&!KEYWORDS[options.genre].test(text))continue;

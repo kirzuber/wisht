@@ -14,6 +14,15 @@ describe('Bounded public opportunity scout',()=>{
  it('filters to a photographic subject',()=>{
   assert.deepEqual(parseIcalendar(fixture,{genre:'nature',freeOnly:true},clock).opportunities.map(x=>x.title),['Wildlife Nature Photography Awards']);
  });
+ it('accepts a source-index listing URL in the event description when URL field is omitted',()=>{
+  const modified=fixture
+    .replace('URL:https://pixcontests.com/contests/open-theme-photo','')
+    .replace('DESCRIPTION:Open theme. Everyone can submit to this free exhibition.',
+      'DESCRIPTION:Open theme. Learn more at https://pixcontests.com/contests/open-theme-photo');
+  const result=parseIcalendar(modified,{genre:'open',freeOnly:true},clock);
+  assert.equal(result.opportunities.length,1);
+  assert.equal(result.opportunities[0].sourceUrl,'https://pixcontests.com/contests/open-theme-photo');
+ });
  it('rejects arbitrary/unsafe URLs from a calendar',()=>{
   const hostile=fixture.replace('https://pixcontests.com/contests/open-theme-photo','http://127.0.0.1/admin');
   assert.equal(parseIcalendar(hostile,{genre:'any',freeOnly:true},clock).opportunities.length,1);
