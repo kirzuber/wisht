@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { publicPath, publicGalleryPath, selectedForPublication } from '../../web/src/publishPortfolio.ts';
+import { publicPath, publicGalleryPath, selectedForPublication } from '../../web/src/portfolioPublicationModel.ts';
 
 describe('Public portfolio snapshot', () => {
   it('uses a stable owner/portfolio/photo storage path',()=>{
