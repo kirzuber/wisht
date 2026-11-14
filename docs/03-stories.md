@@ -52,3 +52,7 @@ Planned actions (not performed):
 ## LATER — real agent engine
 
 Persistent goal/mission state, job queue, opt-in monitoring, use-based billing, approved third-party integrations, user deletion and per-mission budget governor. These are architecture destinations, not near-term stories.
+
+
+## CLOUD-001 — One deploy + private wish storage + selective LLM
+One Netlify app hosts React and API functions. Supabase stores explicit saved wishes with owner RLS. LLM is used only for catalog-unsupported inputs, and can never invent a skill or run a mission. No Railway or background workers. See docs/06-cloud-foundation.md.

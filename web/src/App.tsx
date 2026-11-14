@@ -1,3 +1,4 @@
+import { saveWish } from './saveWish';
 import { useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, ChevronRight, Compass, LockKeyhole, RotateCcw, Sparkles, WandSparkles } from 'lucide-react';
 
@@ -14,8 +15,10 @@ function App(){
  const [selected,setSelected]=useState<Mission|null>(null);
  const [answer,setAnswer]=useState('');
  const [busy,setBusy]=useState(false);
+ const [saving,setSaving]=useState(false);
+ const [saved,setSaved]=useState(false);
  const [error,setError]=useState('');
- const reset=()=>{setStage('wish');setWish('');setUnderstood(null);setSelected(null);setAnswer('');setError('');};
+ const reset=()=>{setStage('wish');setWish('');setUnderstood(null);setSelected(null);setAnswer('');setError('');setSaved(false);};
  const interpret=async()=>{
   if(wish.trim().length<2)return;
   setBusy(true);setError('');
@@ -28,6 +31,13 @@ function App(){
   finally{setBusy(false);}
  };
  const choose=(mission:Mission)=>{setSelected(mission);setAnswer('');setStage('question');};
+ const save = async()=>{
+  if(!understood || !selected || !answer || saving)return;
+  setSaving(true);setError('');
+  try{await saveWish({aspiration:wish.trim(),kind:understood.kind,missionId:selected.id,answer});setSaved(true);}
+  catch(e){setError(e instanceof Error?e.message:'Could not save the wish.');}
+  finally{setSaving(false);}
+ };
  const currentStageIndex=stage==='wish'?0:stage==='choose'?1:stage==='question'?2:3;
  return <div className="app">
    <header className="topbar">
@@ -49,7 +59,7 @@ function App(){
       <p className="try-label">Need a little inspiration?</p>
       <div className="chips">{examples.map(x=><button key={x} type="button" className="chip" onClick={()=>setWish(x)}>{x}<ChevronRight size={13}/></button>)}</div>
       {error&&<p className="error" role="alert">{error}</p>}
-      <div className="mini-note"><LockKeyhole size={14}/> No sign-up. No connected accounts. Nothing is saved yet.</div>
+      <div className="mini-note"><LockKeyhole size={14}/> No sign-up to explore. An unrecognized wish may be sent to our configured AI model for classification.</div>
     </section>}
     {stage==='choose' && understood && <section className="content entrance">
       <p className="eyebrow">YOUR WISH, UNDERSTOOD</p>
@@ -91,6 +101,9 @@ function App(){
        <p className="detail">{selected.permission}</p>
       </div>
       <div className="honesty"><LockKeyhole size={17}/><span><strong>Nothing was run, sent, published or charged.</strong> This is JINN-001: mission planning. Real action execution and Work Receipts come in JINN-002/003.</span></div>
+      <button className="primary" onClick={()=>void save()} disabled={saving||saved}>{saved?'Wish saved privately':saving?'Saving…':'Save this wish'} <ArrowRight size={18}/></button>
+      {error&&<p className="error" role="alert">{error}</p>}
+      <p className="subtle">Saving uses a private anonymous session when configured. It is tied to this browser; no mission will execute.</p>
       <button className="primary muted" disabled>Execute this mission <span className="coming">NEXT STORY</span></button>
       <button className="back" onClick={reset}><RotateCcw size={16}/> Try another wish</button>
     </section>}
