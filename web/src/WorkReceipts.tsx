@@ -53,6 +53,9 @@ export default function WorkReceipts({ wishId, portfolioId, refreshKey=0 }: Prop
               <Database size={12}/>
               <span>{event.source==='database_event'?'Database event confirmed':'Reconstructed from an existing database record'}</span>
               <span>·</span><time dateTime={event.recorded_at}>{new Date(event.recorded_at).toLocaleString()}</time>
+              <span>·</span><span>{event.public_slug
+                ? `Listing ID: ${event.public_slug}`
+                : `Gallery ID: ${event.portfolio_id.slice(0,8)}`}</span>
             </div>
           </div>
         </li>;
