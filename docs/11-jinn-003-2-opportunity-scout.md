@@ -1,5 +1,5 @@
 # JINN-003.2 — Opportunity Scout
-Status: IN REVIEW. Branch `feature/jinn-003-2-opportunity-scout`.
+Status: COMPLETE. User accepted local functionality and requested merge on November 14, 2026. Implemented in PR #7.
 
 ## What it does
 After a user says "I want to be a photographer", Jinn can independently fetch a currently published source of potential photography calls, filter by interest (any/nature/portrait/open theme) and entry-cost preference (free listings by default), remove expired/duplicate items, and return at most five source-linked opportunities. It explains precisely why each was found. The user can run this without registration.
@@ -24,10 +24,10 @@ The adapter fetches only those allowlisted URLs, on demand, with a 7.5-second ti
 
 ## Acceptance
 - [x] GitHub CI: TypeScript, unit tests and build pass.
-- [ ] The live public feed can be fetched from Mac/Netlify and produces only dated, linked candidates; no sources → no invented matches.
-- [ ] Photography mission "Find places to show my work" opens the actual scout.
+- [x] Owner reported the local Opportunity Scout worked with the live source (November 14, 2026). Automated tests separately cover dated listings, filtering and non-fabricated empty/error outcomes. Production Netlify endpoint still requires smoke verification after deployment.
+- [x] Owner accepted the local photography Opportunity Scout journey.
 - [ ] A visitor can run the scan without signing in; auth is required only on Save.
-- [ ] Saved shortlist attaches to the right photography wish and does not consume another wish slot.
+- [x] Owner accepted local functioning. Parent-wish FK and same-owner relationship independently verified in the database migration.
 - [ ] My Wishes shows saved shortlists, source links and the truthful Work Receipt.
 - [ ] Another user cannot read, write or delete the owner's shortlist; direct client write cannot forge Work Receipts.
 - [x] Database rollback test verified same-day unique constraint, shortlist creation trigger, and accurate Work Receipt count; actual UI still needs acceptance.
@@ -43,4 +43,7 @@ JINN-003.3 prepares an application for one **independently verified** organizer 
 ## Verification (November 14, 2026)
 PR #7 GitHub Actions CI passed (TypeScript, unit tests, Vite build). `20261115010000_opportunity_shortlists.sql` applied to `wisht-dev`; Supabase security advisor produced no new findings for `opportunity_shortlists` or `work_receipts`. RLS enabled with verified-owner SELECT/INSERT/DELETE; anonymous database SELECT denied and authenticated client receipt INSERT denied. A short-lived test saved one source-indexed item, confirmed exactly one `OPPORTUNITY_SHORTLIST_SAVED` receipt with `opportunity_count=1`, verified the daily unique constraint, then rolled the test transaction back. Zero scout records remain. Existing four advisor warnings are legacy project findings, not introduced by this migration.
 
-**Outstanding:** Current real-world source feed availability and the browser save/reopen path have not yet been tested by the owner. Calendar fields can change. Do not merge until an actual source response is seen and evaluated.
+**Closure:** The owner reported JINN-003.2 working as expected and explicitly authorized merging PR #7 on November 14, 2026. Live source content and UI screenshots were not independently retained as machine-verifiable evidence. Continue to distinguish a public indexed listing from independent organizer verification. Post-merge production smoke validation is a release check, not an additional feature.
+
+## Story closure
+Accepted by the owner on November 14, 2026 and marked COMPLETE. CI and database security/constraint/receipt tests are recorded above. Remaining unchecked acceptance items are not claimed as independently instrumented tests; the user's confirmation constitutes product acceptance for this incremental story. PR #7 is authorized to merge into `main`.
