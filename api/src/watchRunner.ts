@@ -38,6 +38,11 @@ export async function runDuePhotoWatches(
    if(historyError)throw historyError;
    const past=(history||[]).map((r:{matches:Opportunity[]})=>r.matches);
    const diff=diffWatchResults(scout.opportunities,past);
+   // Pause/cancel may arrive while the public feed request is in flight.
+   const {data:latestState,error:stateError}=await db.from('photo_watches')
+     .select('status').eq('id',w.id).single();
+   if(stateError)throw stateError;
+   if(latestState?.status!=='active')return;
    const {error:writeError}=await db.from('photo_watch_runs').insert({
     watch_id:w.id,user_id:w.user_id,wish_id:w.wish_id,
     state:'succeeded',matches:scout.opportunities,
@@ -56,6 +61,13 @@ export async function runDuePhotoWatches(
    });
    if(failureError)throw new Error('Could not record watch failure.');
    tally.failed++;
+  } finally {
+   // Mark exhausted watches complete immediately, not one day later.
+   if(w.check_count>=7){
+    const {error:finishError}=await db.from('photo_watches')
+     .update({status:'completed'}).eq('id',w.id).eq('status','active');
+    if(finishError)throw new Error('Could not finalize an exhausted watch.');
+   }
   }
  };
  // Max 6 watches, two groups of 3; each source check has a 7.5s timeout.
