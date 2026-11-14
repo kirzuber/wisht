@@ -4,6 +4,7 @@ import { getAuthenticatedUser, getSupabase } from './supabaseClient';
 import { duplicateWishGroups } from './wishDedup';
 import { artifactsForWish } from './wishArtifacts';
 import WorkReceipts from './WorkReceipts';
+import type { SavedShortlist } from './opportunityTypes';
 import { MAX_SAVED_WISHES, wishesRemaining } from './wishLimit';
 import './myWishes.css';
 
@@ -29,6 +30,7 @@ type Props = {
   email: string;
   onOpenPortfolio: (id: string) => void;
   onNewPortfolio: (wishId: string) => void;
+  onOpenScout: (wishId: string) => void;
   onNewWish: () => void;
 };
 
@@ -36,9 +38,10 @@ function readable(value: string): string {
   return value.replace(/[-_]+/g, ' ').replace(/^\w/, letter => letter.toUpperCase());
 }
 
-export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onNewWish }: Props) {
+export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onOpenScout, onNewWish }: Props) {
   const [wishes, setWishes] = useState<SavedWish[]>([]);
   const [portfolios, setPortfolios] = useState<SavedPortfolio[]>([]);
+  const [shortlists,setShortlists]=useState<SavedShortlist[]>([]);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -53,14 +56,18 @@ export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onNew
       try {
         const user = await getAuthenticatedUser();
         const db = getSupabase();
-        const [wishResult, portfolioResult] = await Promise.all([
+        const [wishResult, portfolioResult, shortlistResult] = await Promise.all([
           db.from('wishes').select('id,aspiration,kind,mission_id,answer,status,created_at')
             .eq('user_id', user.id).order('created_at', { ascending: false }).limit(50),
           db.from('portfolios').select('id,wish_id,title,photos,status,created_at')
-            .eq('user_id', user.id).order('created_at', { ascending: false }).limit(50)
+            .eq('user_id', user.id).order('created_at', { ascending: false }).limit(50),
+          db.from('opportunity_shortlists')
+            .select('id,wish_id,genre,free_only,source,feed_url,fetched_at,matches,created_at')
+            .eq('user_id',user.id).order('created_at',{ascending:false}).limit(20)
         ]);
         if (wishResult.error) throw wishResult.error;
         if (portfolioResult.error) throw portfolioResult.error;
+        if (shortlistResult.error) throw shortlistResult.error;
         const galleryIds=(portfolioResult.data || []).map((p:{id:string})=>p.id);
         const publishedResult=galleryIds.length
           ? await db.from('portfolio_publications').select('portfolio_id').in('portfolio_id',galleryIds)
@@ -69,6 +76,7 @@ export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onNew
         const liveIds=new Set((publishedResult.data || []).map((p:{portfolio_id:string})=>p.portfolio_id));
         if (active) {
           setWishes((wishResult.data || []) as SavedWish[]);
+          setShortlists((shortlistResult.data||[]) as SavedShortlist[]);
           setPortfolios((portfolioResult.data || []).map((p:{id:string})=>({...p,published:liveIds.has(p.id)})) as SavedPortfolio[]);
           const photoWish=(wishResult.data||[]).find((wish:{kind:string})=>wish.kind==='photography');
           setExpanded(previous=>previous??photoWish?.id??null);
@@ -83,9 +91,19 @@ export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onNew
     return () => { active = false; };
   }, [refresh]);
 
+  const deleteShortlist=async(record:SavedShortlist)=>{
+    if(!window.confirm('Remove this saved opportunity shortlist? Its historical Work Receipt will remain.'))return;
+    setError('');
+    try{
+      await getAuthenticatedUser();
+      const {error:removeError}=await getSupabase().from('opportunity_shortlists').delete().eq('id',record.id);
+      if(removeError)throw removeError;
+      setShortlists(current=>current.filter(item=>item.id!==record.id));
+    }catch(cause){setError(cause instanceof Error?cause.message:'Could not remove this shortlist.');}
+  };
   const deleteWish = async (wish: SavedWish) => {
-    if (artifactsForWish(wish,portfolios).length) {
-      setError('Delete the portfolios under this wish before deleting the wish itself.');
+    if (artifactsForWish(wish,portfolios).length || shortlists.some(s=>s.wish_id===wish.id)) {
+      setError('Remove portfolios and saved opportunity shortlists before deleting this wish.');
       return;
     }
     if (deleting || !window.confirm('Delete this wish? This cannot be undone.')) return;
@@ -134,17 +152,19 @@ export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onNew
         ? <p className="my-work-empty">No saved wishes yet. Your next one starts with a single sentence.</p>
         : <div className="my-work-list">{wishes.map(wish=>{
             const owned=artifactsForWish(wish,portfolios);
+            const savedScouts=shortlists.filter(item=>item.wish_id===wish.id);
+            const hasDeeds=owned.length>0||savedScouts.length>0;
             const opened=expanded===wish.id;
             return <article className="my-work-card" key={wish.id}>
               <button type="button" className="my-work-card-main" aria-expanded={opened}
                 onClick={()=>setExpanded(current=>current===wish.id?null:wish.id)}>
                 <span className="my-work-card-text">
-                  <span className="my-work-status-label">{owned.length
-                    ? `${owned.length} PORTFOLIO${owned.length===1?'':'S'} · WORK SAVED`
+                  <span className="my-work-status-label">{hasDeeds
+                    ? 'WORK SAVED · MULTIPLE DEEDS'
                     : 'WISH PLANNED · NO COMPLETED DEEDS'}</span>
                   <strong>{wish.aspiration}</strong>
-                  <small>{owned.length
-                    ? `${owned.length} portfolio${owned.length===1?'':'s'} · multiple deeds under one wish`
+                  <small>{hasDeeds
+                    ? owned.length+' portfolio(s) · '+savedScouts.length+' opportunity shortlist(s)'
                     : readable(wish.mission_id)}</small>
                 </span>
                 <ArrowRight size={17} className={opened?'turned':''}/>
@@ -164,20 +184,39 @@ export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onNew
                     <ArrowRight size={16}/>
                   </button>)}
                 </div>}
-                {owned.length > 0 && <WorkReceipts wishId={wish.id}/>}
+                {hasDeeds && <WorkReceipts wishId={wish.id}/>}
+                {savedScouts.length>0 && <div className="my-work-nested">
+                  <p className="my-work-nested-label">SAVED OPPORTUNITY SHORTLISTS</p>
+                  {savedScouts.map(list=><div key={list.id} className="my-work-scout-card">
+                    <strong>{list.matches.length} potential opportunities · {list.genre==='any'?'All photography':list.genre}</strong>
+                    <small>Checked {new Date(list.fetched_at).toLocaleDateString()} · Indexed listings, not verified organizer terms</small>
+                    <div className="my-work-scout-links">
+                      {list.matches.map(m=><a href={m.sourceUrl} key={m.id} target="_blank" rel="noopener noreferrer">
+                         {m.title} · {m.deadline}
+                      </a>)}
+                    </div>
+                    <button type="button" className="my-work-delete" onClick={()=>void deleteShortlist(list)}>
+                      <Trash2 size={13}/> Remove shortlist
+                    </button>
+                  </div>)}
+                </div>}
+                {wish.kind==='photography' && <button type="button" className="my-work-add-portfolio"
+                  onClick={()=>onOpenScout(wish.id)}>
+                  <ArrowRight size={15}/> Find photography opportunities
+                </button>}
                 {wish.kind==='photography' && <button type="button"
                   className="my-work-add-portfolio" onClick={()=>onNewPortfolio(wish.id)}>
                   <Images size={15}/> Build another portfolio under this wish <ArrowRight size={14}/>
                 </button>}
-                {owned.length===0 && <>
+                {!hasDeeds && <>
                   <p><strong>First planned deed:</strong> {readable(wish.mission_id)}</p>
                   <p><strong>Your choice:</strong> {readable(wish.answer)}</p>
                   <p>We have not executed this mission yet.</p>
                   <button type="button" className="my-work-delete" disabled={deleting===wish.id}
                     onClick={()=>void deleteWish(wish)}><Trash2 size={13}/> Delete wish</button>
                 </>}
-                {owned.length>0 && <p className="my-work-nested-note">
-                  To delete this wish, delete its portfolios first. Your public links stay unchanged.
+                {hasDeeds && <p className="my-work-nested-note">
+                  To delete this wish, remove the linked portfolios and saved shortlists first. Public gallery links stay unchanged until you unpublish.
                 </p>}
               </div>}
             </article>;
