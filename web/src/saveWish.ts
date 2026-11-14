@@ -1,15 +1,39 @@
-import { createClient } from '@supabase/supabase-js';
+import { getAuthenticatedUser, getSupabase } from './supabaseClient';
+import { matchingWish } from './wishDedup';
+import { MAX_SAVED_WISHES, wishesRemaining } from './wishLimit';
 
-/** Explicit private save, using a browser-bound anonymous session. */
-export async function saveWish(input:{aspiration:string;kind:string;missionId:string;answer:string}):Promise<void>{
-  const url=import.meta.env.VITE_SUPABASE_URL;
-  const key=import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-  if(!url||!key)throw new Error('Saving is not configured yet. Your wish remains on this page.');
-  const client=createClient(url,key);
-  const {data:session}=await client.auth.getUser();
-  let user=session.user;
-  if(!user){const {data,error}=await client.auth.signInAnonymously();if(error)throw error;user=data.user;}
-  if(!user)throw new Error('Could not establish a private session.');
-  const {error}=await client.from('wishes').insert({user_id:user.id,aspiration:input.aspiration,kind:input.kind,mission_id:input.missionId,answer:input.answer,status:'PLANNED'});
-  if(error)throw error;
+export class WishAlreadySavedError extends Error {
+  constructor(public readonly existingAspiration?: string) {
+    super('You already have a wish for this goal. Open My wishes to continue with it instead of saving another.');
+    this.name = 'WishAlreadySavedError';
+  }
+}
+
+const LIMIT_ERROR = 'Your three wishes are already saved. Open My wishes and delete one before saving another.';
+
+/** Check for an existing aspiration before the three-wish limit; DB trigger is authoritative. */
+export async function saveWish(input: {
+  aspiration: string; kind: string; missionId: string; answer: string;
+}): Promise<void> {
+  const user = await getAuthenticatedUser();
+  const db = getSupabase();
+  const { data: existing, error: readError } = await db.from('wishes')
+    .select('id,aspiration,kind').eq('user_id', user.id);
+  if (readError) throw readError;
+
+  const found = matchingWish(input, existing || []);
+  if (found) throw new WishAlreadySavedError(found.aspiration);
+  if (wishesRemaining(existing?.length ?? MAX_SAVED_WISHES) === 0) {
+    throw new Error(LIMIT_ERROR);
+  }
+
+  const { error } = await db.from('wishes').insert({
+    user_id: user.id, aspiration: input.aspiration, kind: input.kind,
+    mission_id: input.missionId, answer: input.answer, status: 'PLANNED'
+  });
+  if (error) {
+    if (error.message.includes('WISH_ALREADY_EXISTS')) throw new WishAlreadySavedError();
+    if (error.message.includes('WISH_LIMIT_REACHED')) throw new Error(LIMIT_ERROR);
+    throw error;
+  }
 }

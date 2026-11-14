@@ -1,35 +1,68 @@
 # Wisht — Three wishes. Real work.
 
-**Current scope:** a small wish-to-mission prototype. It selects supported missions but does **not** execute external actions.
+Wisht is an early wish-to-action prototype. **Only photography private portfolio creation is executable.** Other mission cards remain plans, not performed actions.
 
-## Local development
+## Run locally
 
-Node.js 22+ and npm 10+:
+Requirements: Node.js 22+ and npm.
 
 ```bash
 npm install
-npm run dev
 npm run typecheck
 npm test
 npm run build
+npm run dev
 ```
 
-Open http://localhost:5173. Vite proxies /api to the local Express server at http://localhost:3001. For Netlify Functions emulation use `npx netlify dev`.
+Open http://localhost:5173. Vite proxies `/api` to Express at http://localhost:3001.
+
+Use `web/.env.local` for `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (public, **not** the Supabase secret key). For the local Express LLM classifier, export `LLM_PROVIDER=deepseek`, `DEEPSEEK_API_KEY`, and optional `LLM_MODEL=deepseek-flash` into the shell before `npm run dev`. Never commit secrets.
+
+## Current action — JINN-002.1
+
+“I want to be a photographer” → Build my portfolio → On my device → Build my private portfolio.
+
+Upload 3–15 JPEG/PNG/WebP photos. Wisht processes previews locally, skips exact duplicates, picks an initial technically ranked selection, saves optimized WebP previews in private Supabase Storage, and opens a gallery you can edit, bookmark, reload and delete. The original files stay on your device. No image is published or automatically shared.
+
+The feature requires `supabase/migrations/20261114180000_private_portfolio.sql`, already applied to `wisht-dev`. **Do not apply** `20261114190000_require_verified_users.sql` until the matching email sign-in UI is deployed; it blocks legacy anonymous sessions, including on current `main`.
+
+**Auth setup**: Supabase → Authentication → Email Templates → **both Confirm signup and Magic Link / OTP**: include `{{ .Token }}` in the email template body so Wisht's verification-code form works. Example:
+
+```html
+<h2>Your Wisht verification code</h2>
+<p>Enter this code in Wisht: {{ .Token }}</p>
+```
+
+First-time `signInWithOtp` requests can send the Confirm signup template; returning users receive Magic Link / OTP. The existing confirmation link returns to the Wisht homepage and does not preserve the in-progress mission. Enter the **complete code** in the open Wisht screen. Some Supabase projects generate eight-digit codes; the UI accepts numeric OTPs from 6 to 10 digits. Never truncate the email code. The email provider must be enabled and able to send messages. Default Supabase mail delivery is rate-limited and suitable only for early tests. Supabase → Authentication → Providers → **disable Anonymous Sign-ins** after the UI and RLS migration are deployed. Prior anonymous content isn't automatically deleted or transferred to new verified identities; review it separately before any cleanup.
+
+**OTP input validation:** `web/src/AuthGate.tsx` accepts 6–10 numeric digits; project email currently sends eight digits. If you see “expired or invalid,” check the full code and request a fresh one.\n\n## Returning to your work
+
+Wisht keeps the Supabase browser session through reloads and refreshes it automatically. The top bar shows **My wishes** and **Sign out** for verified users, or **Sign in** for visitors. After login, **My wishes** loads saved aspirations and private portfolios from owner-protected tables. You can expand a planned wish, delete it, or reopen a portfolio. Signing in with the same email on another device gives access to the same account data, though individual signed image URLs are temporary and refreshed on opening the portfolio.
+
+Exploring wishes still requires no account and writes no persistent user data. Earlier **anonymous** test records do not belong to newly verified email accounts and are not migrated automatically.
+
+## Three-wish limit
+
+Each saved mission card occupies **one of three slots** in a verified account. Exploring new ideas never requires sign-in or consumes a slot. Portfolios are artifacts, not additional wishes. After three are saved, the app explains the limit and offers deletion of a saved wish. The database enforces the cap even against direct API calls and concurrent requests; a frontend count provides an early friendly message. Legacy over-limit records are preserved rather than silently deleted.
+
+Migration: `supabase/migrations/20261114210000_three_saved_wishes.sql` — already applied to the separate `wisht-dev` database. No existing records were removed.
+
+## Duplicate wishes
+
+A saved mission is provisionally one wish. Before storing it, Wisht checks whether the user has the same aspiration already. Different wording and mission choices are matched using the existing supported intent category (soccer, photography, career, independence or finance); other categories are checked for identical normalized text. Existing duplicates remain visible with a warning and can be removed manually; they are never deleted without consent. Database trigger migration: `supabase/migrations/20261114220000_prevent_duplicate_wishes.sql` — already applied to `wisht-dev`. Verified using a rejected same-goal insert, with no test data inserted.
+
+This is a deliberately narrow goal model, not unrestricted semantic search. Different career objectives may currently share a goal family; we will refine goal identity when we add multiple deeds per wish.
 
 ## Deployment
 
-One Netlify site (React + TypeScript API Functions), one separate Supabase project `wisht-dev` (RLS-protected wish storage). Deployment status and exact settings: [docs/06-cloud-foundation.md](docs/06-cloud-foundation.md).
+One Netlify project serves Vite and serverless API Functions. **Only main is built/deployed by Netlify**: `netlify.toml` ignores branch and PR preview builds. GitHub Actions validates each PR. Never merge a feature branch until CI and owner acceptance pass.
 
-### LLM
+## Documentation
 
-Known aspirations are classified by deterministic catalog logic at no token cost. Unknown aspirations may be classified by one small external model, which can only choose existing skill categories. No model-generated tool execution.
+- `docs/01-product-manifesto.md` — product principles
+- `docs/02-foundation-architecture.md` — baseline architecture
+- `docs/03-stories.md` — current backlog
+- `docs/06-cloud-foundation.md` — deployed infrastructure
+- `docs/07-jinn-002-1-private-portfolio.md` — first real action and acceptance criteria
 
-Use `DEEPSEEK_API_KEY` and `LLM_PROVIDER=deepseek` (default `deepseek-flash`) **or** `OPENAI_API_KEY` and `LLM_PROVIDER=openai`. No API key means deterministic fallback. Never use `VITE_` for API secrets. Free-tier services require separate privacy and availability review before production.
-
-### Supabase
-
-Provide `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` at build time. Enable Anonymous Sign-ins in Supabase Auth. Only clicking **Save this wish** should start an anonymous session and insert a row. Browser-bound anonymous identities are not recoverable after cleared storage.
-
-## Boundaries
-
-No job monitoring, payments, publishing, long-running agents or real-world actions implemented yet. Keep sensitive wishes private, and do not present planned work as completed.
+No Railway, scheduler, public hosting, payment, third-party posting or autonomous tool chain has been added.
