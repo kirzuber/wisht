@@ -1,27 +1,35 @@
 # Wisht — Three wishes. Real work.
 
-**Prototype only:** understands and plans wishes, but does not execute external missions.
+**Current scope:** a small wish-to-mission prototype. It selects supported missions but does **not** execute external actions.
 
-## Local
+## Local development
 
-Node 22+ and npm:
+Node.js 22+ and npm 10+:
 
 ```bash
 npm install
 npm run dev
-npm test
 npm run typecheck
+npm test
 npm run build
 ```
 
-Open http://localhost:5173. The Vite dev server proxies /api to local Express port 3001. Run `npx netlify dev` for production-style function routing.
+Open http://localhost:5173. Vite proxies /api to the local Express server at http://localhost:3001. For Netlify Functions emulation use `npx netlify dev`.
 
 ## Deployment
 
-One Netlify site hosts `web/dist` and `netlify/functions`. Supabase is a **separate** project with one owner-protected `wishes` table. The optional LLM classifier runs server-side only, after deterministic catalog routing fails. No secrets in `VITE_` variables. Deployment and configuration instructions: [docs/06-cloud-foundation.md](docs/06-cloud-foundation.md).
+One Netlify site (React + TypeScript API Functions), one separate Supabase project `wisht-dev` (RLS-protected wish storage). Deployment status and exact settings: [docs/06-cloud-foundation.md](docs/06-cloud-foundation.md).
 
-Local server credentials: `OPENAI_API_KEY`, optional `OPENAI_MODEL` (default gpt-4o-mini). Web public configuration (web/.env.local): `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`. If no Supabase is configured, the experience runs but Save is unavailable. If no AI key exists, deterministic wish routing still works.
+### LLM
+
+Known aspirations are classified by deterministic catalog logic at no token cost. Unknown aspirations may be classified by one small external model, which can only choose existing skill categories. No model-generated tool execution.
+
+Use `DEEPSEEK_API_KEY` and `LLM_PROVIDER=deepseek` (default `deepseek-flash`) **or** `OPENAI_API_KEY` and `LLM_PROVIDER=openai`. No API key means deterministic fallback. Never use `VITE_` for API secrets. Free-tier services require separate privacy and availability review before production.
+
+### Supabase
+
+Provide `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` at build time. Enable Anonymous Sign-ins in Supabase Auth. Only clicking **Save this wish** should start an anonymous session and insert a row. Browser-bound anonymous identities are not recoverable after cleared storage.
 
 ## Boundaries
 
-No mission execution, third-party writes, payments, file uploads, or scheduler. Saving requires an explicit click, uses anonymous Supabase Auth, and is browser-bound until durable sign-in is added. Handle private wishes carefully. Read `docs/` for product manifesto, architecture and stories.
+No job monitoring, payments, publishing, long-running agents or real-world actions implemented yet. Keep sensitive wishes private, and do not present planned work as completed.
