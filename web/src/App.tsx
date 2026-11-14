@@ -1,3 +1,4 @@
+import PublicPortfolio from './PublicPortfolio';
 import AuthGate from './AuthGate';
 import MyWishes from './MyWishes';
 import { getAuthenticatedUser, getSupabase, isVerifiedAccount } from './supabaseClient';
@@ -13,7 +14,7 @@ type Stage='wish'|'choose'|'question'|'ready'|'portfolio'|'library';
 const examples=['I want to be a photographer','I want a new career','I want to play soccer','I want to be independent'];
 const API=import.meta.env.VITE_API_BASE_URL || '';
 
-function App(){
+function WishApp(){
  const [stage,setStage]=useState<Stage>(()=>new URLSearchParams(window.location.search).has('portfolio')?'portfolio':'wish');
  const [openedPortfolioId,setOpenedPortfolioId]=useState<string|null>(()=>new URLSearchParams(window.location.search).get('portfolio'));
  const [wish,setWish]=useState('');
@@ -206,5 +207,9 @@ function App(){
    </main>
    <footer className="footer"><span>Three wishes. Real work.</span><div className="step-dots" aria-label={`Experience step ${currentStageIndex+1} of 4`}>{[0,1,2,3].map(i=><span key={i} className={i===currentStageIndex?'on':''}/>)}</div><span>WISHT / BETA</span></footer>
  </div>;
+}
+function App(){
+ const match=window.location.pathname.match(/^\/p\/([a-f0-9]{16})\/?$/);
+ return match?<PublicPortfolio slug={match[1]}/>:<WishApp/>;
 }
 export default App;

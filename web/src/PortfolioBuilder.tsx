@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, ImagePlus, LockKeyhole, RefreshCw, ShieldCheck, Sparkles, Trash2, UploadCloud } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ImagePlus, LockKeyhole, RefreshCw, ShieldCheck, Sparkles, Trash2, UploadCloud, Globe, ExternalLink, Copy } from 'lucide-react';
 import { getSupabase, getAuthenticatedUser } from './supabaseClient';
 import { preparePhoto, type PortfolioPhoto, type PreparedPhoto, MAX_PHOTOS } from './photoProcessing';
 import { pickInitialSelection } from './photoQuality';
+import { findPublication, publishPortfolio, unpublishPortfolio, publicGalleryPath, type PortfolioPublication } from './publishPortfolio';
 import './portfolio.css';
 
 const BUCKET = 'portfolio-previews';
@@ -48,6 +49,11 @@ export default function PortfolioBuilder({ initialId, onBack, onCreated }: Props
   const [error, setError] = useState('');
   const [edited, setEdited] = useState(false);
   const [rendered, setRendered] = useState<string[]>([]);
+  const [publication, setPublication] = useState<PortfolioPublication|null>(null);
+  const [publishApproved,setPublishApproved]=useState(false);
+  const [publishedMessage,setPublishedMessage]=useState('');
+  const [copyStatus,setCopyStatus]=useState('');
+  const publicUrl = publication ? window.location.origin + publicGalleryPath(publication.slug) : '';
   const selected = photos.filter(photo => photo.selected);
 
   useEffect(() => {
@@ -63,8 +69,9 @@ export default function PortfolioBuilder({ initialId, onBack, onCreated }: Props
           .eq('id', initialId).single();
         if (readError || !data) throw new Error('Private portfolio not found for this session.');
         const loaded = data as Portfolio;
-        const links = await signedPhotoUrls(loaded.photos);
+        const [links, published]=await Promise.all([signedPhotoUrls(loaded.photos),findPublication(loaded.id)]);
         if (cancelled) return;
+        setPublication(published);
         setPortfolio(loaded); setPhotos(loaded.photos); setUrls(links);
         setTitle(loaded.title); setIntroduction(loaded.introduction);
       } catch (cause) {
@@ -125,7 +132,7 @@ export default function PortfolioBuilder({ initialId, onBack, onCreated }: Props
       committed = true;
       const saved = data as Portfolio;
       setPortfolio(saved); setPhotos(saved.photos); setUrls(links);
-      setEdited(false); setRendered([]);
+      setEdited(false); setRendered([]);setPublication(null);
       onCreated(saved.id);
     } catch (cause) {
       if (!committed && uploaded.length) {
@@ -138,7 +145,7 @@ export default function PortfolioBuilder({ initialId, onBack, onCreated }: Props
 
   const togglePhoto = (id: string) => {
     setPhotos(current => current.map(photo => photo.id === id ? { ...photo, selected: !photo.selected } : photo));
-    setEdited(true);
+    setEdited(true);setPublishApproved(false);
   };
 
   const saveChanges = async () => {
@@ -156,10 +163,39 @@ export default function PortfolioBuilder({ initialId, onBack, onCreated }: Props
     finally { setBusy(false); }
   };
 
+  const publish=async()=>{
+    if (!portfolio || busy || !publishApproved || edited || !selected.length) return;
+    setBusy(true);setError('');setPublishedMessage('');
+    try{
+      const snapshot=await publishPortfolio(portfolio.id);
+      setPublication(snapshot);setPublishApproved(false);
+      setPublishedMessage('Published and verified. You can now share the public gallery link.');
+    }catch(cause){setError(friendlyError(cause));}
+    finally{setBusy(false);}
+  };
+
+  const unpublish=async()=>{
+    if(!portfolio || busy || !window.confirm('Remove the public gallery and public image copies? Your private draft will remain.'))return;
+    setBusy(true);setError('');setPublishedMessage('');
+    try{
+      await unpublishPortfolio(portfolio.id);
+      setPublication(null);setPublishApproved(false);
+      setPublishedMessage('Public gallery removed. Your private draft remains.');
+    }catch(cause){setError(friendlyError(cause));}
+    finally{setBusy(false);}
+  };
+
+  const copyPublicLink=async()=>{
+    if(!publicUrl)return;
+    try{await navigator.clipboard.writeText(publicUrl);setCopyStatus('Link copied');}
+    catch{setCopyStatus('Copy the link manually from the address above');}
+  };
+
   const deletePortfolio = async () => {
-    if (!portfolio || busy || !window.confirm('Delete this private portfolio and all its uploaded previews? This cannot be undone.')) return;
+    if (!portfolio || busy || !window.confirm('Delete this portfolio, all private previews and its public page (if published)? This cannot be undone.')) return;
     setBusy(true); setError('');
     try {
+      if (publication) await unpublishPortfolio(portfolio.id);
       const storage = getSupabase().storage.from(BUCKET);
       const paths = photos.map(photo => photo.path);
       const { error: removeError } = await storage.remove(paths);
@@ -217,10 +253,10 @@ export default function PortfolioBuilder({ initialId, onBack, onCreated }: Props
       <div className="portfolio-form">
         <label htmlFor="portfolio-title-edit">Portfolio title</label>
         <input id="portfolio-title-edit" value={title} maxLength={100}
-          onChange={event => { setTitle(event.target.value); setEdited(true); }}/>
+          onChange={event => { setTitle(event.target.value); setEdited(true);setPublishApproved(false); }}/>
         <label htmlFor="portfolio-intro-edit">Introduction</label>
         <textarea id="portfolio-intro-edit" rows={2} value={introduction} maxLength={600}
-          onChange={event => { setIntroduction(event.target.value); setEdited(true); }}/>
+          onChange={event => { setIntroduction(event.target.value); setEdited(true);setPublishApproved(false); }}/>
       </div>
       <div className="portfolio-gallery-head">
         <strong>Your collection</strong>
@@ -241,13 +277,40 @@ export default function PortfolioBuilder({ initialId, onBack, onCreated }: Props
         <div><span>Optimized photos stored privately</span><strong>{photos.length}</strong></div>
         <div><span>Gallery entries rendered in browser</span><strong>{rendered.length} / {photos.length}</strong></div>
         <div><span>Exact duplicates</span><strong>Skipped</strong></div>
-        <div><span>Publication</span><strong>Not published</strong></div>
+        <div><span>Publication</span><strong>{publication ? 'Live · verified snapshot' : 'Not published'}</strong></div>
         <p>This gallery was actually saved. Image ordering uses basic exposure, resolution and detail signals; it does not assess artistic merit.</p>
       </div>
       <button type="button" className="primary" disabled={!edited || busy || !selected.length || !title.trim()} onClick={() => void saveChanges()}>
         {busy ? 'Saving...' : edited ? 'Save gallery changes' : 'All changes saved'} <Check size={16}/>
       </button>
-      <p className="subtle"><LockKeyhole size={13}/> This is private to your verified account. The URL is a bookmark, not a public share link.</p>
+      <p className="subtle"><LockKeyhole size={13}/> Your draft stays private even if you publish an approved gallery snapshot.</p>
+      <div className="portfolio-publish">
+        <div className="portfolio-receipt-head"><Globe size={20}/><strong>{publication?'Your gallery is live':'Ready to share your work?'}</strong></div>
+        {publication ? <>
+          <p>You published a snapshot of {publication.photos.length} selected photographs. Only the approved copies are public.</p>
+          <p className="portfolio-live-url"><a href={publicUrl} target="_blank" rel="noreferrer">{publicUrl} <ExternalLink size={13}/></a></p>
+          <button type="button" className="portfolio-outline-button" onClick={()=>void copyPublicLink()}><Copy size={15}/> Copy public link</button>
+          {copyStatus && <small>{copyStatus}</small>}
+          <button type="button" className="portfolio-outline-button danger" onClick={()=>void unpublish()} disabled={busy}>
+            {busy?'Removing public images…':'Unpublish gallery'}
+          </button>
+          {edited && <p className="portfolio-publish-note">Your draft has unsaved changes. The live gallery is a fixed snapshot; unpublish and publish again to update it.</p>}
+        </> : <>
+          <p>Only the photographs selected below and your saved title and introduction will appear publicly. Unselected photos stay private.</p>
+          <div className="portfolio-public-preview">
+            <strong>{title}</strong>
+            <span>{introduction}</span>
+            <div>{selected.map(photo=><img key={photo.id} src={urls[photo.id]} alt="" loading="lazy"/>)}</div>
+          </div>
+          <label className="portfolio-approval"><input type="checkbox" checked={publishApproved}
+             onChange={event=>setPublishApproved(event.target.checked)} disabled={busy||edited||!selected.length}/>
+             <span>I have reviewed these images and approve publishing them publicly.</span></label>
+          <button type="button" className="primary" onClick={()=>void publish()}
+            disabled={busy||edited||!selected.length||!publishApproved}>{busy?'Publishing…':'Publish this gallery'} <Globe size={16}/></button>
+          {edited && <p className="portfolio-publish-note">Save your gallery changes before approving publication.</p>}
+        </>}
+        {publishedMessage && <p className="portfolio-publish-success">{publishedMessage}</p>}
+      </div>
       <div className="portfolio-secondary-actions">
         <button type="button" onClick={() => void deletePortfolio()} disabled={busy}><Trash2 size={15}/> Delete portfolio</button>
         <button type="button" onClick={() => window.location.reload()} disabled={busy}><RefreshCw size={15}/> Reload saved draft</button>

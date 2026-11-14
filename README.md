@@ -1,6 +1,6 @@
 # Wisht — Three wishes. Real work.
 
-Wisht is an early wish-to-action prototype. **Only photography private portfolio creation is executable.** Other mission cards remain plans, not performed actions.
+Wisht is an early wish-to-action prototype. **Photography portfolio creation and user-approved publication are executable.** Other mission cards remain plans, not performed actions.
 
 ## Run locally
 
@@ -22,9 +22,9 @@ Use `web/.env.local` for `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`
 
 “I want to be a photographer” → Build my portfolio → On my device → Build my private portfolio.
 
-Upload 3–15 JPEG/PNG/WebP photos. Wisht processes previews locally, skips exact duplicates, picks an initial technically ranked selection, saves optimized WebP previews in private Supabase Storage, and opens a gallery you can edit, bookmark, reload and delete. The original files stay on your device. No image is published or automatically shared.
+Upload 3–15 JPEG/PNG/WebP photos. Wisht processes previews locally, skips exact duplicates, picks an initial technically ranked selection, saves optimized WebP previews in private Supabase Storage, and opens a gallery you can edit, bookmark, reload and delete. The original files stay on your device. No image is published without an explicit review and approval.
 
-The feature requires `supabase/migrations/20261114180000_private_portfolio.sql`, already applied to `wisht-dev`. **Do not apply** `20261114190000_require_verified_users.sql` until the matching email sign-in UI is deployed; it blocks legacy anonymous sessions, including on current `main`.
+The feature requires `supabase/migrations/20261114180000_private_portfolio.sql`, already applied to `wisht-dev`. The verified-account migration `20261114190000_require_verified_users.sql` is applied; legacy anonymous sessions are blocked from user-content writes.
 
 **Auth setup**: Supabase → Authentication → Email Templates → **both Confirm signup and Magic Link / OTP**: include `{{ .Token }}` in the email template body so Wisht's verification-code form works. Example:
 
@@ -52,6 +52,14 @@ Migration: `supabase/migrations/20261114210000_three_saved_wishes.sql` — alrea
 A saved mission is provisionally one wish. Before storing it, Wisht checks whether the user has the same aspiration already. Different wording and mission choices are matched using the existing supported intent category (soccer, photography, career, independence or finance); other categories are checked for identical normalized text. Existing duplicates remain visible with a warning and can be removed manually; they are never deleted without consent. Database trigger migration: `supabase/migrations/20261114220000_prevent_duplicate_wishes.sql` — already applied to `wisht-dev`. Verified using a rejected same-goal insert, with no test data inserted.
 
 This is a deliberately narrow goal model, not unrestricted semantic search. Different career objectives may currently share a goal family; we will refine goal identity when we add multiple deeds per wish.
+
+## Publishing — JINN-002.2
+
+Private portfolios remain in `portfolio-previews`. The user previews selected photographs, approves publication explicitly, and clicks Publish. A separate `portfolio-public` Storage bucket holds **only approved WebP copies**, while `portfolio_publications` holds the public title, introduction and selected image paths. Public gallery URLs are `/p/<slug>`; visitors can open them without signing in. The private draft remains private. Unpublish removes public image copies and the public snapshot; deleting a private portfolio also unpublishes it first.
+
+Migration: `supabase/migrations/20261114230000_published_portfolios.sql`. The public bucket and snapshot table should not be created for production until this story passes review. The share link created locally uses `localhost`; the real external URL becomes functional once merged to Netlify `main`.
+
+Before a public pilot, add moderation/abuse controls, usage quotas, and clear wording about CDN caching after unpublish. Public files may remain cached briefly even after deletion. No service-role key, queue or publishing function is required.
 
 ## Deployment
 
