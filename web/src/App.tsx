@@ -26,18 +26,24 @@ function App(){
 
  // Supabase persists and refreshes sessions automatically; subscribe to changes for the UI.
  useEffect(()=>{
-  const client=getSupabase();
   let active=true;
-  const { data: { subscription } } = client.auth.onAuthStateChange((_event,session)=>{
-   if(!active)return;
-   const user=session?.user??null;
-   setAccount(isVerifiedAccount(user)?user:null);
+  try {
+   const client=getSupabase();
+   const { data: { subscription } } = client.auth.onAuthStateChange((_event,session)=>{
+    if(!active)return;
+    const user=session?.user??null;
+    setAccount(isVerifiedAccount(user)?user:null);
+    setSessionReady(true);
+   });
+   void client.auth.getUser().then(({data:{user}})=>{
+    if(active){setAccount(isVerifiedAccount(user)?user:null);setSessionReady(true);}
+   }).catch(()=>{if(active)setSessionReady(true);});
+   return ()=>{active=false;subscription.unsubscribe();};
+  } catch {
+   // Free wish discovery must still work without configured persistence.
    setSessionReady(true);
-  });
-  void client.auth.getUser().then(({data:{user}})=>{
-   if(active){setAccount(isVerifiedAccount(user)?user:null);setSessionReady(true);}
-  }).catch(()=>{if(active)setSessionReady(true);});
-  return ()=>{active=false;subscription.unsubscribe();};
+   return ()=>{active=false;};
+  }
  },[]);
  const [saving,setSaving]=useState(false);
  const [saved,setSaved]=useState(false);
