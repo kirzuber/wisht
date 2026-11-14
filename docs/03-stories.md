@@ -20,7 +20,7 @@ After inspecting the exact gallery preview, user grants explicit publication con
 ## JINN-003.1 — Durable Work Receipts — COMPLETE
 Record true private-create, public-publish, and unpublish events through database triggers, and show their evidence under the parent wish and the portfolio. See docs/10-jinn-003-1-work-receipts.md.
 
-## JINN-003.2 — Opportunity Scout — IN REVIEW
+## JINN-003.2 — Opportunity Scout — COMPLETE
 Fetch current dated listings from an advertised public photography calendar; filter by subject and entry-cost preference, deduplicate and rank near-term deadlines. Show evidence limits. Save a short list under the existing photography wish only after verified email sign-in; create a Work Receipt for the saved research. **No scheduler or organizer-certification claims yet.** Details: docs/11-jinn-003-2-opportunity-scout.md.
 
 ## JINN-003.3 — Prepare Submission — PLANNED
