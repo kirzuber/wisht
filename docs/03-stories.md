@@ -23,7 +23,7 @@ Record true private-create, public-publish, and unpublish events through databas
 ## JINN-003.2 — Opportunity Scout — COMPLETE
 Fetch current dated listings from an advertised public photography calendar; filter by subject and entry-cost preference, deduplicate and rank near-term deadlines. Show evidence limits. Save a short list under the existing photography wish only after verified email sign-in; create a Work Receipt for the saved research. **No scheduler or organizer-certification claims yet.** Details: docs/11-jinn-003-2-opportunity-scout.md.
 
-## JINN-003.3 — Prepare Submission — IN REVIEW
+## JINN-003.3 — Prepare Submission — COMPLETE
 From a saved photography opportunity, inspect the source listing, locate the official organizer page when possible, guide user confirmation of rules, combine a chosen private portfolio with an editable artist statement and cover note, then persist an owner-owned submission draft and export a ZIP of selected WebP previews and a preparation brief. Work Receipt attests the saved **draft**, not an external submission. Organizer rules remain explicitly user-reviewed, not independently certified. See docs/12-jinn-003-3-submission-pack.md.
 
 ### Follow-up: authoritative organizer verification — DEFERRED
