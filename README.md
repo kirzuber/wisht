@@ -99,6 +99,14 @@ Migration: `supabase/migrations/20261115040000_autonomous_photo_watch.sql` (**ap
 
 **Production activation requires a new Netlify Functions-only `SUPABASE_SERVICE_ROLE_KEY` secret** (never a `VITE_` variable, never committed). Netlify Scheduled Functions run on published main only, at 12:00 UTC daily. Until the credential, published deployment, and first actual scheduled run are verified, this story stays IN REVIEW; the worker fails closed. No Netlify branch previews run a schedule.
 
+## Career Opportunity Scout — JINN-004.1
+
+`POST /api/career-scout` performs a bounded **remote-only** role search using the published Himalayas Jobs API. Supported region filters: Canada, United States and worldwide; search by target role/skill, up to five real indexed vacancies with original Himalayas listing and unchanged source-provided application URLs. Source credit is always displayed. Availability and eligibility remain unverified; no local or hybrid job promise is made. Public search requires no sign-in.
+
+Optional opt-in AI fit analysis is available **only to verified signed-in users**. The frontend explicitly asks permission to send up to 650 characters of user-supplied experience plus five descriptions to DeepSeek/OpenAI in one short JSON response. It maps reasoning only to real returned job identifiers; if unavailable, it shows unassessed real jobs rather than inventing fit. Experience text is **not stored** in a shortlist. The server uses the published Supabase key to validate the user JWT, without exposing server secrets.
+
+Saving findings creates or reuses one career root wish and a private owner-RLS `career_shortlists` record with source links, source timestamp, optional advisory AI fit, one saved list per UTC day. A database trigger writes `CAREER_SHORTLIST_SAVED` Work Receipt (persistence proof, not employer approval). Database migration `supabase/migrations/20261115061000_career_shortlists.sql` and story details `docs/14-jinn-004-1-career-scout.md`.
+
 ## Deployment
 
 One Netlify project serves Vite and serverless API Functions. **Only main is built/deployed by Netlify**: `netlify.toml` ignores branch and PR preview builds. GitHub Actions validates each PR. Never merge a feature branch until CI and owner acceptance pass.
