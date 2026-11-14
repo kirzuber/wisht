@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, BookOpenCheck, Check, Download, ExternalLink, FileText, Images, LockKeyhole, RefreshCw, ShieldAlert, Sparkles, Trash2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Download, ExternalLink, FileText, Images, LockKeyhole, RefreshCw, ShieldAlert, Trash2 } from 'lucide-react';
 import { getAuthenticatedUser, getSupabase } from './supabaseClient';
 import type { PortfolioPhoto } from './photoProcessing';
 import type { Opportunity, SavedShortlist } from './opportunityTypes';
