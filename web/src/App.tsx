@@ -143,7 +143,7 @@ function WishApp(){
  const backFromPortfolio=()=>{
   window.history.replaceState(null,'',window.location.pathname);
   setOpenedPortfolioId(null);
-  setStage(account?'library':'wish');
+  setStage(understood?.kind==='photography'?'choose':account?'library':'wish');
  };
  const showMyWishes=()=>{
   // Navigating inside the app should not leave an old portfolio bookmark in the URL.
@@ -220,26 +220,26 @@ function WishApp(){
       onSaved={showMyWishes}/>}
     {stage==='soccer-scout' && <div style={{display:authIntent?'none':'contents',width:'100%'}}>
       <SoccerScout wishId={soccerWishId||undefined} aspiration={wish.trim()||undefined}
-       answer={answer||undefined} onBack={()=>setStage(account?'library':'ready')}
+       onBack={()=>setStage(soccerWishId?'library':'wish')}
        onRequireAuth={()=>setAuthIntent('soccer-scout')} onSaved={showMyWishes}/>
      </div>}
     {stage==='career-scout' && <div style={{display:authIntent?'none':'contents',width:'100%'}}>
       <CareerScout wishId={careerWishId||undefined} aspiration={wish.trim()||undefined}
-       answer={answer||undefined} onBack={()=>setStage(account?'library':'ready')}
+       onBack={()=>setStage(careerWishId?'library':'wish')}
        onRequireAuth={()=>setAuthIntent('career-scout')} onSaved={showMyWishes}/>
      </div>}
      {stage==='scout' && <div style={{display:authIntent?'none':'contents',width:'100%'}}>
       <OpportunityScout wishContext={scoutWishId
          ? {wishId:scoutWishId}
-         : {aspiration:wish.trim()||undefined,missionId:'find-photo-opportunities',answer:answer||undefined}}
-       initialGenre={['any','nature','portrait','open'].includes(answer)?answer as PhotoGenre:'any'}
+         : {aspiration:wish.trim()||undefined,missionId:'find-photo-opportunities'}}
+       initialGenre="any"
        preview={scoutPreview} onPreview={setScoutPreview}
        onBack={backFromScout} onRequireAuth={()=>setAuthIntent('scout')} onSaved={showMyWishes}/>
     </div>}
     {!authIntent && stage==='portfolio' && <PortfolioBuilder initialId={openedPortfolioId}
       wishContext={portfolioWishId
         ? {wishId:portfolioWishId}
-        : {aspiration:wish.trim() || undefined,missionId:selected?.id,answer:answer||undefined}}
+        : {aspiration:wish.trim() || undefined,missionId:selected?.id}}
       onBack={backFromPortfolio} onCreated={id=>{
       setOpenedPortfolioId(id);
       const url=new URL(window.location.href);
