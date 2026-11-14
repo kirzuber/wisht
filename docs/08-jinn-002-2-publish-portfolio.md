@@ -16,7 +16,7 @@ A user with a saved, private photography gallery can choose to share selected op
 - **No new infrastructure:** reuse Netlify SPA, Supabase DB/Auth/Storage and current browser app. No Netlify Functions, service key, worker, AI image model, or billing.
 
 ## Acceptance checklist
-- [ ] PR CI typecheck, tests and Vite build pass.
+- [x] PR CI typecheck, tests and Vite build pass.
 - [ ] Public URL from an anonymous browser loads ONLY approved pictures and text.
 - [ ] A second account cannot change or delete another user's public gallery.
 - [ ] Unselected private images never appear in public storage or public snapshot metadata.
@@ -28,7 +28,7 @@ A user with a saved, private photography gallery can choose to share selected op
 - [ ] Owner visually approves desktop/mobile public page.
 
 ## Release and data caveats
-The migration is checked into Git and must be applied to `wisht-dev` for local acceptance tests; do not merge until it is verified. Public files can persist temporarily in CDN caches after deletion; do not promise immediate erasure of every cached copy. Before opening publishing to untrusted public users, add rate/quantity quotas and a content-abuse policy.
+The migration is checked into Git and **has been applied to `wisht-dev`** for local acceptance testing. Verified: private bucket remains private, public bucket is separate, anonymous public-title reads work while owner ID/private portfolio SELECT are denied, and a database trigger blocks deleting a published private draft without unpublishing. Do not merge until the UI is tested with real photographs. Public files can persist temporarily in CDN caches after deletion; do not promise immediate erasure of every cached copy. Before opening publishing to untrusted public users, add rate/quantity quotas and a content-abuse policy.
 
 ## Planned follow-up
 JINN-003: genuine Work Receipt with persistent verification evidence and second wish opportunity discovery.
