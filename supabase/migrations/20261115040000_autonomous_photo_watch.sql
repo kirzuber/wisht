@@ -17,7 +17,7 @@ create table public.photo_watches(
  last_check_at timestamptz,
  last_error text not null default '' check(length(last_error)<=280),
  constraint watch_owner_wish_fk foreign key(wish_id,user_id)
- references public.wishes(id,user_id) on delete cascade,
+ references public.wishes(id,user_id) on delete restrict,
  constraint watch_time_limit check(expires_at<=created_at+interval '7 days 5 minutes')
 );
 create unique index one_open_watch_per_wish on public.photo_watches(wish_id)
