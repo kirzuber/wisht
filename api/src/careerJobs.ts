@@ -29,7 +29,7 @@ const verifiedListing=(value:unknown):string|null=>{
  const link=safeLink(value);
  if(!link)return null;
  const url=new URL(link);
- return url.origin===ORIGIN&&/^\/companies\/[a-z0-9-]+\/jobs\/[a-z0-9-]+\/?$/.test(url.pathname)?link:null;
+ return url.origin===ORIGIN&&/^\/companies\/[a-z0-9-]+\/jobs\/[a-z0-9-]+\/?$/.test(url.pathname)?ORIGIN+url.pathname.replace(/\/$/,''):null;
 };
 export function validateCareerInput(input:unknown):CareerInput{
  if(!input||typeof input!=='object')throw new Error('Specify your career search preferences.');
