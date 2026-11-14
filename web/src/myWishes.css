@@ -46,3 +46,8 @@
 .my-work-scout-card>small{display:block;font-size:10px;color:#999185;margin:6px 0}
 .my-work-scout-links{display:grid;gap:7px;margin:12px 0}
 .my-work-scout-links a{font-size:11px;line-height:1.5;color:#42704e;text-decoration:underline;overflow-wrap:anywhere}
+
+.my-work-opportunity-row{display:grid;gap:4px;border-bottom:1px solid #ece8df;padding:8px 0}
+.my-work-opportunity-row:last-child{border-bottom:0}
+.my-work-prep-action{border:1px solid #c9d8c9;background:#eef2e9;border-radius:8px;color:#416149;padding:8px 10px;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;width:max-content;max-width:100%}
+.my-work-prep-action:hover{background:#e3ecdf}
