@@ -22,21 +22,21 @@ const entry=(id:string,name:string,city:string,region:string,level:SoccerLevel[]
 /** This list is intentionally tiny; unsupported cities must NOT appear to be exhaustive. */
 export const VERIFIED_CLUBS:readonly SoccerClub[]=[
  entry('burlington-soccer','Burlington Soccer Club','Burlington','Halton',['beginner','recreational','competitive'],['adult','youth'],
-  'https://burlingtonsoccer.com/','Official club website describes youth house leagues, adult soccer and competitive teams.'),
+  'https://burlingtonsoccer.com/youth/','Official youth house-league programs and development routes.','https://burlingtonsoccer.com/'),
  entry('oakville-soccer','Oakville Soccer Club','Oakville','Halton',['beginner','recreational','competitive'],['youth'],
-  'https://www.oakvillesoccer.ca/home/','Official club describes youth recreation and competitive programs.'),
+  'https://www.oakvillesoccer.ca/home/','Official club describes youth house league and competitive youth pathways.'),
  entry('oakville-adult','Oakville Soccer Club — Adult Leagues','Oakville','Halton',['beginner','recreational'],['adult'],
-  'https://www.oakvillesoccer.com/recreational/','Official recreational page describes adult leagues for ages U19+.','https://www.oakvillesoccer.ca/home/'),
+  'https://www.oakvillesoccer.ca/recreational/','Official club recreational page describes adult league options for ages U19+.','https://www.oakvillesoccer.ca/home/'),
  entry('guelph-soccer','Guelph Soccer','Guelph','Wellington',['beginner','recreational','competitive'],['adult','youth'],
-  'https://www.guelphsoccer.ca/','Official site describes year-round recreational youth/adult play and representative programs.'),
+  'https://www.guelphsoccer.ca/recreational-2026','Official club page describes youth house league and adult recreational leagues.','https://www.guelphsoccer.ca/'),
  entry('erin-mills','Erin Mills Soccer Club','Mississauga','Peel',['beginner','recreational','competitive'],['youth'],
-  'https://www.erinmillssoccer.com/','Club describes recreational house league and competitive youth development.'),
+  'https://www.erinmillssoccer.com/','Official club lists youth house league and competitive development programs.'),
  entry('erin-mills-adult','Erin Mills Soccer Club — Adult Recreation','Mississauga','Peel',['beginner','recreational'],['adult'],
-  'https://www.erinmillssoccer.com/','Club site describes adult recreational leagues.'),
+  'https://www.erinmillssoccer.com/adult-soccer','Official adult recreational league page.','https://www.erinmillssoccer.com/'),
  entry('toronto-high-park','Toronto High Park FC','Toronto','Toronto',['beginner','recreational','competitive'],['adult','youth'],
-  'https://thpfc.ca/','Official club site describes beginner, house league, adult and competitive programs.'),
+  'https://thpfc.ca/structure/','Official club describes recreational, competitive and adult programming.','https://thpfc.ca/'),
  entry('ottawa-south','Ottawa South United','Ottawa','Ottawa',['beginner','recreational','competitive'],['adult','youth'],
-  'https://osu.ca/','Official club lists youth recreational leagues, adult leagues and academy pathways.')
+  'https://www.osu.ca/new-community-recreational/men-s-adult-soccer','Official club describes recreational and competitive adult pathways.','https://www.osu.ca/')
 ] as const;
 const normalize=(city:string)=>city.toLocaleLowerCase('en-CA').replace(/\s+/g,' ').trim();
 export function validateSoccerInput(value:unknown):SoccerInput{
