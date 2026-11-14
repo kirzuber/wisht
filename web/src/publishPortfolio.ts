@@ -1,7 +1,7 @@
 import { getAuthenticatedUser, getSupabase } from './supabaseClient';
 import type { PortfolioPhoto } from './photoProcessing';
 
-import { publicPath, publicGalleryPath, selectedForPublication, type PortfolioPublication, type PublicPhoto } from './portfolioPublicationModel';
+import { publicPath, publicGalleryPath, selectedForPublication, type PortfolioPublication, type PublicPhoto, MAX_PUBLISHED_PHOTOS } from './portfolioPublicationModel';
 
 export { publicPath, publicGalleryPath, selectedForPublication };
 export type { PortfolioPublication, PublicPhoto };
@@ -33,6 +33,7 @@ export async function publishPortfolio(portfolioId: string): Promise<PortfolioPu
   if (readError || !data || data.user_id !== user.id) throw new Error('Private portfolio not found for this account.');
   const selected = selectedForPublication(data.photos as PortfolioPhoto[]);
   if (!selected.length) throw new Error('Select at least one photograph and save your draft before publishing.');
+  if (selected.length > MAX_PUBLISHED_PHOTOS) throw new Error('Select no more than eight photographs before publishing.');
 
   const publicStorage=db.storage.from(PUBLIC_BUCKET);
   const privateStorage=db.storage.from(PRIVATE_BUCKET);

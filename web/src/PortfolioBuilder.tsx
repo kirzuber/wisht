@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, Check, ImagePlus, LockKeyhole, RefreshCw, Shield
 import { getSupabase, getAuthenticatedUser } from './supabaseClient';
 import { preparePhoto, type PortfolioPhoto, type PreparedPhoto, MAX_PHOTOS } from './photoProcessing';
 import { pickInitialSelection } from './photoQuality';
+import { MAX_PUBLISHED_PHOTOS } from './portfolioPublicationModel';
 import { findPublication, publishPortfolio, unpublishPortfolio, publicGalleryPath, type PortfolioPublication } from './publishPortfolio';
 import './portfolio.css';
 
@@ -164,7 +165,7 @@ export default function PortfolioBuilder({ initialId, onBack, onCreated }: Props
   };
 
   const publish=async()=>{
-    if (!portfolio || busy || !publishApproved || edited || !selected.length) return;
+    if (!portfolio || busy || !publishApproved || edited || !selected.length || selected.length > MAX_PUBLISHED_PHOTOS) return;
     setBusy(true);setError('');setPublishedMessage('');
     try{
       const snapshot=await publishPortfolio(portfolio.id);
@@ -296,17 +297,18 @@ export default function PortfolioBuilder({ initialId, onBack, onCreated }: Props
           </button>
           {edited && <p className="portfolio-publish-note">Your draft has unsaved changes. The live gallery is a fixed snapshot; unpublish and publish again to update it.</p>}
         </> : <>
-          <p>Only the photographs selected below and your saved title and introduction will appear publicly. Unselected photos stay private.</p>
+          <p>Only the photographs selected below and your saved title and introduction will appear publicly. Unselected photos stay private. Choose up to eight for the public gallery.</p>
           <div className="portfolio-public-preview">
             <strong>{title}</strong>
             <span>{introduction}</span>
             <div>{selected.map(photo=><img key={photo.id} src={urls[photo.id]} alt="" loading="lazy"/>)}</div>
           </div>
           <label className="portfolio-approval"><input type="checkbox" checked={publishApproved}
-             onChange={event=>setPublishApproved(event.target.checked)} disabled={busy||edited||!selected.length}/>
+             onChange={event=>setPublishApproved(event.target.checked)} disabled={busy||edited||!selected.length||selected.length>MAX_PUBLISHED_PHOTOS}/>
              <span>I have reviewed these images and approve publishing them publicly.</span></label>
           <button type="button" className="primary" onClick={()=>void publish()}
-            disabled={busy||edited||!selected.length||!publishApproved}>{busy?'Publishing…':'Publish this gallery'} <Globe size={16}/></button>
+            disabled={busy||edited||!selected.length||selected.length>MAX_PUBLISHED_PHOTOS||!publishApproved}>{busy?'Publishing…':'Publish this gallery'} <Globe size={16}/></button>
+          {selected.length>MAX_PUBLISHED_PHOTOS && <p className="portfolio-publish-note">You have {selected.length} photos selected. Deselect {selected.length-MAX_PUBLISHED_PHOTOS} before publishing (maximum eight).</p>}
           {edited && <p className="portfolio-publish-note">Save your gallery changes before approving publication.</p>}
         </>}
         {publishedMessage && <p className="portfolio-publish-success">{publishedMessage}</p>}

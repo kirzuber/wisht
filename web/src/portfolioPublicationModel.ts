@@ -12,6 +12,7 @@ export type PortfolioPublication = {
 };
 
 const PUBLIC_SLUG_PATTERN=/^[a-f0-9]{16}$/;
+export const MAX_PUBLISHED_PHOTOS=8;
 
 export function publicPath(ownerId:string, portfolioId:string, photoId:string):string {
   return `${ownerId}/${portfolioId}/${photoId}.webp`;
@@ -21,5 +22,5 @@ export function publicGalleryPath(slug:string):string {
   return `/p/${slug}`;
 }
 export function selectedForPublication(photos:PortfolioPhoto[]):PortfolioPhoto[] {
-  return photos.filter(photo=>photo.selected).slice(0,8);
+  return photos.filter(photo=>photo.selected);
 }
