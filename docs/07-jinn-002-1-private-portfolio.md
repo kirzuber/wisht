@@ -14,6 +14,10 @@ Someone who wishes to become a photographer can select “Build my portfolio,”
 - User can edit title/introduction, toggle featured photos, save changes, reload private drafts and delete the whole portfolio.
 
 ## Accepted behaviors
+- [ ] Onboarding stays free and does not create account records for visitors.
+- [ ] Saving a wish or starting a persistent portfolio requires six-digit email OTP; no anonymous account is created by either action.
+- [ ] Returning users can sign back in with email on another device.
+- [ ] Supabase restrictive RLS policy rejects existing anonymous session tokens, including direct API requests.
 - [ ] User selects `build-portfolio` and sees a functioning upload path, not a disabled action.
 - [ ] 3–15 JPEG/PNG/WebP source images. Input files capped at 20 MB, preview outputs capped at 6 MB.
 - [ ] Exact duplicate files omitted; first-pass ranking reproducible.
@@ -30,7 +34,7 @@ Someone who wishes to become a photographer can select “Build my portfolio,”
 No vision-model aesthetic ranking, gallery URL ingestion, image editing, multi-device identity, public publication, monitoring, external sending or payment. “Portfolio exists” means a saved private draft; “published” is explicitly out of scope.
 
 ## Security notes
-Anonymous Auth is adequate for an invitation-only experiment, **not** long-lived identity recovery. Image byte caps apply to source files; bucket MIME and size limits apply to WebP previews. RLS restricts DB rows and Storage paths to `auth.uid()`. Do not enable public policies or introduce a service-role key into browser code. For a public pilot, add verified-account conversion, per-user quotas, moderation policies and lifecycle cleanup.
+A verified email account is mandatory for any persistent user content. Anonymous Auth is not permitted for new writes.  Image byte caps apply to source files; bucket MIME and size limits apply to WebP previews. RLS restricts DB rows and Storage paths to `auth.uid()`. Do not enable public policies or introduce a service-role key into browser code. For a public pilot, add verified-account conversion, per-user quotas, moderation policies and lifecycle cleanup.
 
 ## Validation commands
 ```bash
@@ -44,3 +48,13 @@ Use “I want to be a photographer” → Build my portfolio → On my device �
 
 ## Deployment contract
 Only merged `main` gets a Netlify production build. `netlify.toml` skips non-production builds through an `ignore` command. GitHub Actions still checks pull requests. No auto-merge.
+
+## Coordinated release — authentication cutover
+1. Configure Supabase Magic Link/OTP email template with `{{ .Token }}`. Confirm the email provider delivers codes, preferably using a test email first.
+2. Validate the feature branch UI locally, including email OTP verification and re-access to private portfolio.
+3. Merge the feature PR to `main` only after acceptance; Netlify deploys `main` automatically.
+4. Apply `supabase/migrations/20261114190000_require_verified_users.sql` promptly as a coordinated cutover. Existing anonymous sessions can no longer read/write new content. Consider applying just before merge if a brief old-UI interruption is acceptable.
+5. Optionally disable Anonymous Sign-ins in Supabase Auth settings. This alone is insufficient because existing anonymous JWTs remain valid until expiry; restrictive policies enforce the actual boundary.
+6. Existing anonymous data and storage may remain. Inspect aggregate counts and obtain explicit approval before any cleanup; do not delete on merge.
+
+**Important:** supabase-js passwordless email defaults to sending a magic link; our inline code form needs an email template containing `{{ .Token }}`. We cannot change this template through the current Supabase app connector; use the Supabase dashboard.

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowLeft, ArrowRight, KeyRound, LockKeyhole, Mail, ShieldCheck } from 'lucide-react';
 import { getAuthenticatedUser, getSupabase } from './supabaseClient';
 
@@ -9,6 +9,13 @@ export default function AuthGate({ purpose, onAuthenticated, onCancel }: Props) 
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // A returning verified user should pass the gate without being asked for email again.
+  useEffect(() => {
+    void getAuthenticatedUser().then(() => onAuthenticated()).catch(() => {});
+    // This check is only needed on initial mount; the caller handles the authenticated transition.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
   const sendCode = async () => {
     if (!email.trim() || busy) return;
@@ -16,7 +23,7 @@ export default function AuthGate({ purpose, onAuthenticated, onCancel }: Props) 
     try {
       const { error: sendError } = await getSupabase().auth.signInWithOtp({
         email: email.trim().toLowerCase(),
-        options: { shouldCreateUser: true, emailRedirectTo: window.location.origin + window.location.pathname }
+        options: { shouldCreateUser: true }
       });
       if (sendError) throw sendError;
       setSent(true);

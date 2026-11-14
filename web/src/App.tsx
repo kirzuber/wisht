@@ -21,7 +21,9 @@ function App(){
  const [busy,setBusy]=useState(false);
  const [saving,setSaving]=useState(false);
  const [saved,setSaved]=useState(false);
- const [authIntent,setAuthIntent]=useState<'save'|'portfolio'|null>(null);
+ const [authIntent,setAuthIntent]=useState<'save'|'portfolio'|null>(
+   ()=>new URLSearchParams(window.location.search).has('portfolio')?'portfolio':null
+ );
  const [error,setError]=useState('');
  const reset=()=>{window.history.replaceState(null,'',window.location.pathname);setOpenedPortfolioId(null);setStage('wish');setWish('');setUnderstood(null);setSelected(null);setAnswer('');setError('');setSaved(false);setAuthIntent(null);};
  const interpret=async()=>{
@@ -106,7 +108,12 @@ function App(){
       <p className="subtle">Just one question for now. More details come only when they're needed to do the work.</p>
       <button className="back" onClick={()=>setStage('choose')}><ArrowLeft size={16}/> Choose a different deed</button>
     </section>}
-    {!authIntent && stage==='portfolio' && <PortfolioBuilder initialId={openedPortfolioId} onBack={reset} onCreated={setOpenedPortfolioId}/>}
+    {!authIntent && stage==='portfolio' && <PortfolioBuilder initialId={openedPortfolioId} onBack={reset} onCreated={id=>{
+      setOpenedPortfolioId(id);
+      const url=new URL(window.location.href);
+      url.searchParams.set('portfolio',id);
+      window.history.replaceState(null,'',url.pathname+url.search);
+    }}/>}
     {!authIntent && stage==='ready' && selected && <section className="content entrance">
       <p className="eyebrow">YOUR FIRST DEED</p>
       <h2>Now I know where<br/><em>to begin.</em></h2>

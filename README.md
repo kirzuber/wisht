@@ -24,7 +24,16 @@ Use `web/.env.local` for `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`
 
 Upload 3–15 JPEG/PNG/WebP photos. Wisht processes previews locally, skips exact duplicates, picks an initial technically ranked selection, saves optimized WebP previews in private Supabase Storage, and opens a gallery you can edit, bookmark, reload and delete. The original files stay on your device. No image is published or automatically shared.
 
-The feature requires `supabase/migrations/20261114180000_private_portfolio.sql` to be applied to the separate `wisht-dev` project.
+The feature requires `supabase/migrations/20261114180000_private_portfolio.sql`, already applied to `wisht-dev`. **Do not apply** `20261114190000_require_verified_users.sql` until the matching email sign-in UI is deployed; it blocks legacy anonymous sessions, including on current `main`.
+
+**Auth setup**: Supabase → Authentication → Email Templates → **Magic Link / OTP**: include `{{ .Token }}` in the email template body so Wisht's six-digit code form works. Example:
+
+```html
+<h2>Your Wisht verification code</h2>
+<p>Enter this code in Wisht: {{ .Token }}</p>
+```
+
+The email provider must be enabled and able to send messages. Default Supabase mail delivery is rate-limited and suitable only for early tests. Supabase → Authentication → Providers → **disable Anonymous Sign-ins** after the UI and RLS migration are deployed. Prior anonymous content isn't automatically deleted or transferred to new verified identities; review it separately before any cleanup.
 
 ## Deployment
 
