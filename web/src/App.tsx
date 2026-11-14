@@ -99,6 +99,13 @@ function App(){
   setOpenedPortfolioId(null);
   setStage(account?'library':'wish');
  };
+ const showMyWishes=()=>{
+  // Navigating inside the app should not leave an old portfolio bookmark in the URL.
+  window.history.replaceState(null,'',window.location.pathname);
+  setOpenedPortfolioId(null);
+  setAuthIntent(null);
+  setStage('library');
+ };
  const signOut=async()=>{
   try {
    const {error:signOutError}=await getSupabase().auth.signOut({scope:'local'});
@@ -112,7 +119,7 @@ function App(){
      <button className="brand" onClick={reset} aria-label="Jinn home"><span className="brand-mark"><Sparkles size={18} strokeWidth={1.7}/></span><span>jinn<span className="brand-dot">.</span></span></button>
      <div className="top-right">
        {sessionReady && (account ? <>
-         <button type="button" className="account-link" onClick={()=>{setAuthIntent(null);setStage('library');}}>My wishes</button>
+         <button type="button" className="account-link" onClick={showMyWishes}>My wishes</button>
          <button type="button" className="account-link account-quiet" onClick={()=>void signOut()}>Sign out</button>
        </> : <button type="button" className="account-link" onClick={()=>setAuthIntent('account')}>Sign in</button>)}
        <span className="dots" aria-label="Three starter wishes available"><i/><i/><i/></span>
@@ -186,7 +193,7 @@ function App(){
       <div className="honesty"><LockKeyhole size={17}/><span><strong>No work has run yet.</strong> {selected.id==='build-portfolio'?'You can now build a real private gallery from photos on your device.':'This mission is planned, not executed.'} Nothing is published or charged.</span></div>
       <button className="primary" onClick={()=>void requireAccount("save")} disabled={saving||saved}>{saved?'Wish saved privately':saving?'Saving…':'Save this wish'} <ArrowRight size={18}/></button>
       {error&&<p className="error" role="alert">{error}</p>}
-      {saved && <button className="back" type="button" onClick={()=>setStage('library')}>See my saved wishes <ArrowRight size={16}/></button>}
+      {saved && <button className="back" type="button" onClick={showMyWishes}>See my saved wishes <ArrowRight size={16}/></button>}
       <p className="subtle">Saving requires a verified email account. Exploring your wish does not require registration.</p>
       {selected.id==='build-portfolio' ? <button type="button" className="primary" onClick={()=>void requireAccount('portfolio')}>Build my private portfolio <ArrowRight size={18}/></button> : <button className="primary muted" disabled>Execute this mission <span className="coming">NEXT STORY</span></button>}
       <button className="back" onClick={reset}><RotateCcw size={16}/> Try another wish</button>

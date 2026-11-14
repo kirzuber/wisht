@@ -35,7 +35,13 @@ The feature requires `supabase/migrations/20261114180000_private_portfolio.sql`,
 
 First-time `signInWithOtp` requests can send the Confirm signup template; returning users receive Magic Link / OTP. The existing confirmation link returns to the Wisht homepage and does not preserve the in-progress mission. Enter the **complete code** in the open Wisht screen. Some Supabase projects generate eight-digit codes; the UI accepts numeric OTPs from 6 to 10 digits. Never truncate the email code. The email provider must be enabled and able to send messages. Default Supabase mail delivery is rate-limited and suitable only for early tests. Supabase → Authentication → Providers → **disable Anonymous Sign-ins** after the UI and RLS migration are deployed. Prior anonymous content isn't automatically deleted or transferred to new verified identities; review it separately before any cleanup.
 
-**OTP input validation:** `web/src/AuthGate.tsx` accepts 6–10 numeric digits; project email currently sends eight digits. If you see “expired or invalid,” check the full code and request a fresh one.\n\n## Deployment
+**OTP input validation:** `web/src/AuthGate.tsx` accepts 6–10 numeric digits; project email currently sends eight digits. If you see “expired or invalid,” check the full code and request a fresh one.\n\n## Returning to your work
+
+Wisht keeps the Supabase browser session through reloads and refreshes it automatically. The top bar shows **My wishes** and **Sign out** for verified users, or **Sign in** for visitors. After login, **My wishes** loads saved aspirations and private portfolios from owner-protected tables. You can expand a planned wish, delete it, or reopen a portfolio. Signing in with the same email on another device gives access to the same account data, though individual signed image URLs are temporary and refreshed on opening the portfolio.
+
+Exploring wishes still requires no account and writes no persistent user data. Earlier **anonymous** test records do not belong to newly verified email accounts and are not migrated automatically.
+
+## Deployment
 
 One Netlify project serves Vite and serverless API Functions. **Only main is built/deployed by Netlify**: `netlify.toml` ignores branch and PR preview builds. GitHub Actions validates each PR. Never merge a feature branch until CI and owner acceptance pass.
 

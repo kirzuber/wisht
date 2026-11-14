@@ -11,6 +11,9 @@ As a first-time photographer, I can supply real photos and receive a private, ed
 
 Acceptance and non-goals: docs/07-jinn-002-1-private-portfolio.md.
 
+### JINN-002.1 continuation — Returning-user experience — IN REVIEW
+Keep the Supabase session across reloads. Provide one compact My wishes view showing all the current verified user's saved wishes and private portfolios, and allow sign-out, wish deletion and reopening of private drafts from another device. No new tables, no dashboard, no external actions.
+
 ## JINN-002.2 — Publish My Portfolio — LATER
 After inspecting the exact gallery preview, user grants explicit publication consent; create a verified hosted URL and support unpublish. Do not use original photos or publish previews without approval.
 

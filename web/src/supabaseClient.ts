@@ -5,7 +5,9 @@ export function getSupabase(): SupabaseClient {
   const url = import.meta.env.VITE_SUPABASE_URL;
   const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !key) throw new Error('Private storage is not configured yet.');
-  if (!instance) instance = createClient(url, key);
+  if (!instance) instance = createClient(url, key, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+  });
   return instance;
 }
 
