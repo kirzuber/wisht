@@ -17,7 +17,7 @@ Keep the Supabase session across reloads. Provide one compact My wishes view sho
 ## JINN-002.2 — Publish My Portfolio — COMPLETE
 After inspecting the exact gallery preview, user grants explicit publication consent; create a verified hosted URL and support unpublish. Do not use original photos or publish previews without approval.
 
-## JINN-003.1 — Durable Work Receipts — IN REVIEW
+## JINN-003.1 — Durable Work Receipts — COMPLETE
 Record true private-create, public-publish, and unpublish events through database triggers, and show their evidence under the parent wish and the portfolio. See docs/10-jinn-003-1-work-receipts.md.
 
 ## JINN-003.2 — Second autonomous deed (Opportunity Scout) — LATER
