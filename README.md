@@ -89,7 +89,7 @@ From a saved photography opportunity in **My wishes**, choose **Prepare submissi
 
 Database `submission_packages` enforces same-owner wish/shortlist/portfolio and matches the exact saved opportunity against its source shortlist. The `SUBMISSION_DRAFT_SAVED` Work Receipt records the successful database insert, not transmission. Deletion of a shortlist or portfolio with a linked draft is restricted; remove the draft first. No user-generated original high-resolution image is retained by this application: the ZIP provides **optimized WebP previews only**, which may not meet contest rules. Original files must be supplied by the photographer when required.
 
-Migration: `supabase/migrations/20261115023000_submission_packages.sql`. Acceptance and evidence: `docs/12-jinn-003-3-submission-pack.md`. No new service, external organizer login, payment or unsolicited communication.
+Migration: `supabase/migrations/20261115023000_submission_packages.sql` (**applied to wisht-dev; receipt and integrity verified**). Acceptance and evidence: `docs/12-jinn-003-3-submission-pack.md`. No new service, external organizer login, payment or unsolicited communication.
 
 ## Deployment
 
