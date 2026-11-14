@@ -20,8 +20,14 @@ After inspecting the exact gallery preview, user grants explicit publication con
 ## JINN-003.1 — Durable Work Receipts — COMPLETE
 Record true private-create, public-publish, and unpublish events through database triggers, and show their evidence under the parent wish and the portfolio. See docs/10-jinn-003-1-work-receipts.md.
 
-## JINN-003.2 — Second autonomous deed (Opportunity Scout) — LATER
-Discover and verify public photography opportunities, prepare useful follow-through artifacts, and persist distinct receipts under the same photography wish. Define the smallest real action before coding.
+## JINN-003.2 — Opportunity Scout — IN REVIEW
+Fetch current dated listings from an advertised public photography calendar; filter by subject and entry-cost preference, deduplicate and rank near-term deadlines. Show evidence limits. Save a short list under the existing photography wish only after verified email sign-in; create a Work Receipt for the saved research. **No scheduler or organizer-certification claims yet.** Details: docs/11-jinn-003-2-opportunity-scout.md.
+
+## JINN-003.3 — Prepare Submission — PLANNED
+For a selected opportunity, independently verify the organizer's rules and prepare a useful application package from the existing portfolio. Do not submit externally without explicit approval.
+
+## JINN-003.4 — Autonomous Watch — PLANNED
+Scheduled source checks for a chosen wish, change/dedup tracking, user pause/cancel, opt-in notifications and hard spending caps.
 
 ## Deliberately deferred
 Generic multi-agent orchestration, autonomous messaging, universal browser actions, payments, notification campaigns, account discovery by email, expensive vision models, vector DB and new deployment services.
