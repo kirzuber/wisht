@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "express": "^5.1.0",
-    "cors": "^2.8.5"
+    "cors": "^2.8.5",
+    "@supabase/supabase-js": "^2.80.0"
   },
   "devDependencies": {
     "@types/node": "^22.18.0",

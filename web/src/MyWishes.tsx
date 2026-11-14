@@ -4,6 +4,7 @@ import { getAuthenticatedUser, getSupabase } from './supabaseClient';
 import { duplicateWishGroups } from './wishDedup';
 import { artifactsForWish } from './wishArtifacts';
 import WorkReceipts from './WorkReceipts';
+import PhotoWatch from './PhotoWatch';
 import type { SubmissionRow } from './submissionModel';
 import type { SavedShortlist } from './opportunityTypes';
 import { MAX_SAVED_WISHES, wishesRemaining } from './wishLimit';
@@ -128,7 +129,9 @@ export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onOpe
       setWishes(current => current.filter(item => item.id !== wish.id));
       if (expanded === wish.id) setExpanded(null);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Could not delete this wish.');
+      setError(cause instanceof Error && /foreign key|23503/.test(cause.message)
+        ? 'Remove your existing photography watches and linked work before deleting this wish.'
+        : cause instanceof Error ? cause.message : 'Could not delete this wish.');
     } finally { setDeleting(null); }
   };
 
@@ -198,7 +201,9 @@ export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onOpe
                     <ArrowRight size={16}/>
                   </button>)}
                 </div>}
-                {hasDeeds && <WorkReceipts wishId={wish.id}/>}
+                {hasDeeds && <WorkReceipts wishId={wish.id} refreshKey={refresh}/>}
+                {wish.kind==='photography' && <PhotoWatch wishId={wish.id}
+                  onChange={()=>setRefresh(current=>current+1)}/>}
                 {savedScouts.length>0 && <div className="my-work-nested">
                   <p className="my-work-nested-label">SAVED OPPORTUNITY SHORTLISTS</p>
                   {savedScouts.map(list=><div key={list.id} className="my-work-scout-card">
