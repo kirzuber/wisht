@@ -3,6 +3,7 @@ import cors from 'cors';
 import { supportedExamples } from './catalog.js';
 import { interpretWishSmart } from './llm.js';
 import { scanPhotoOpportunities, type PhotoGenre } from './scout.js';
+import { inspectIndexedListing } from './contestEvidence.js';
 
 const app=express();
 app.disable('x-powered-by');
@@ -18,6 +19,12 @@ app.get('/api/scout',async(req,res)=>{
  }
  try{res.json(await scanPhotoOpportunities({genre:genre as PhotoGenre,freeOnly:free==='true'}));}
  catch(e){res.status(503).json({error:e instanceof Error?e.message:'Scout unavailable.'});}
+});
+app.get('/api/opportunity-detail',async(req,res)=>{
+ try{
+  const listing=String(req.query.listing||'');
+  res.json(await inspectIndexedListing(listing));
+ }catch(e){res.status(422).json({error:e instanceof Error?e.message:'Could not inspect listing.'});}
 });
 app.post('/api/interpret', async (req,res)=>{
   const wish=req.body?.wish;
