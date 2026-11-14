@@ -1,0 +1,31 @@
+.my-work{position:relative;z-index:1;width:min(100%,660px);padding:8px 0 30px}
+.my-work-heading{text-align:center;margin:0 auto 36px}
+.my-work-heading h2{font-family:'DM Serif Display',Georgia,serif;font-weight:400;letter-spacing:-1px;line-height:1.1;font-size:clamp(42px,6vw,60px);margin:8px 0 12px}
+.my-work-heading em{font-weight:400;color:#ab8950}
+.my-work-subtitle{font-size:14px;color:#737970;line-height:1.55}
+.my-work-email{display:flex;align-items:center;gap:6px;justify-content:center;font-size:11px;color:#91978c;overflow-wrap:anywhere}
+.my-work-section-header{display:flex;justify-content:space-between;align-items:center;margin:30px 2px 12px}
+.my-work-section-header h3{font-size:15px;margin:0;font-weight:700;color:#34483a}
+.my-work-section-header span{font-size:12px;color:#8d917d}
+.my-work-list{display:grid;gap:9px}
+.my-work-card{border:1px solid #e5dfd3;border-radius:13px;background:#fffdf9;color:#334739;overflow:hidden}
+.my-work-card-main,.my-work-portfolio{width:100%;display:flex;align-items:center;gap:15px;padding:16px;text-align:left}
+.my-work-card-main{background:none;border:0;color:inherit}
+.my-work-card-main>svg,.my-work-portfolio>svg:last-child{color:#977e53;flex:none;transition:transform .2s}
+.my-work-card-main>svg.turned{transform:rotate(90deg)}
+.my-work-card-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.my-work-card-text strong{font-size:15px;font-weight:700;color:#2f4237}
+.my-work-card-text small{font-size:12px;color:#8e9286}
+.my-work-status-label{font-size:9px;letter-spacing:1px;font-weight:700;color:#a18455}
+.my-work-details{padding:0 16px 16px;border-top:1px solid #eee9df}
+.my-work-details p{font-size:12px;line-height:1.5;color:#767c71}
+.my-work-details p strong{color:#3b5042}
+.my-work-delete{display:flex;align-items:center;gap:6px;border:0;background:none;color:#9b5749;font-size:11px;padding:7px 0}
+.my-work-portfolio{cursor:pointer}
+.my-work-portfolio:hover,.my-work-card-main:hover{background:#fffaf0}
+.my-work-portfolio-icon{width:40px;height:40px;border-radius:11px;background:#e9e9dd;color:#58705f;display:flex;align-items:center;justify-content:center}
+.my-work-empty{border:1px dashed #ddd7c9;border-radius:11px;padding:19px;color:#858b7e;font-size:12px;line-height:1.6;text-align:center}
+.my-work-actions{margin:30px auto 0;max-width:460px}
+.my-work-actions .back{margin-top:10px}
+.my-work-status{text-align:center;font-size:13px;color:#8e9286}
+@media(max-width:600px){.my-work{padding:0 2px 25px}.my-work-heading{margin-bottom:25px}.my-work-card-main,.my-work-portfolio{padding:13px}.my-work-section-header{margin-top:23px}}
