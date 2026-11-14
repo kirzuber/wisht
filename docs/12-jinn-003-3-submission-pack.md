@@ -1,0 +1,43 @@
+# JINN-003.3 — Prepare Submission
+Status: IN REVIEW. Branch `feature/jinn-003-3-submission-pack`.
+
+## User outcome
+After saving a real photography opportunity under a wish, the owner can choose one, inspect its indexed source for the organizer's official URL, review the official rules, select a saved private portfolio and 1–8 selected photos, edit a factual artist statement and cover note, and save a **private submission draft**. They can download a ZIP with the editable preparation brief and only those selected, optimized WebP previews. Saved drafts reopen under their parent wish.
+
+**No automatic external submission.** No emails, portal navigation, organizer account creation or payment. The Work Receipt records only a successfully saved draft.
+
+## Source trust and organizer rules
+- `GET /api/opportunity-detail?listing=...` fetches **only** a strictly validated Pixcontests listing slug (`https://pixcontests.com/<slug>`), with a 7s timeout, redirect denial and 500KB cap. It may extract an external `Visit official page` link but NEVER fetches that external URL.
+- The source observation is **index page reached**, not organizer verification. Deadlines in the shortlist are index-observed and can change. Organizer fees, age/location eligibility, rights, licensing, AI restrictions, and technical submission specs are **unknown** until the user checks the official organizer page.
+- The user may enter the official HTTPS URL, paste actual requirements, and optionally confirm **I personally reviewed the organizer's rules**. The system stores that as **user-reviewed**, never "independently verified by Jinn".
+- Drafts may be saved before user review, clearly marked as requiring further review. A draft cannot be mislabeled "submitted".
+- Full independent organizer verification (safe remote fetching, extraction, provenance, version changes) is deferred. This is an explicit difference from the originally broad JINN-003.3 planning line.
+
+## Prepared output
+- Editable name, artist statement, cover note. Initial text derives exclusively from user portfolio title/introduction and opportunity title; no invented prizes, exhibitions, awards or biographies.
+- Authenticated client downloads 1–8 currently owned WebP previews from private Supabase Storage and assembles a standard ZIP without new packages or external processing. Files are **previews at up to 1600px**, NOT original high-resolution JPEG/RAW entries. The exported Markdown README contains requirements source, user-claimed review status, selected-photo manifest, factual writing, and a preflight checklist.
+- The package can be reviewed, edited, deleted and exported again. Changing source portfolio or opportunity creates a different draft.
+
+## Data and integrity
+- `public.submission_packages`: owner-scoped, photography wish, exactly one saved shortlist opportunity, exactly one owned portfolio, selected subset from that portfolio, editable draft text/rules, optional user confirmation, timestamps.
+- Cross-user/cross-wish/source forgery blocked by composite parent FK and BEFORE INSERT/UPDATE verification against the saved shortlist `matches` and gallery `photos`. Immutable linkage after creation.
+- RLS only grants the verified owner SELECT/INSERT/UPDATE/DELETE. Browser cannot forge receipts. Uniqueness prevents duplicate draft for same saved opportunity and gallery.
+- Existing shortlist and portfolio deletion is RESTRICTED if linked to a submission draft; delete the draft first. Existing data and publication URLs remain unchanged.
+- `private.record_work_receipt` now includes `SUBMISSION_DRAFT_SAVED`, `submission_id`, and the selected-photo count. It does not claim external transmission or organizer verification.
+- No additional jobs, LLM calls, storage buckets, model keys or paid APIs.
+
+## Acceptance checklist
+- [ ] CI: TypeScript, tests and build pass.
+- [ ] New migration applied to `wisht-dev`, database constraints/RLS/receipt trigger verified, no prior portfolio or shortlist modified.
+- [ ] Open My wishes → photography → saved shortlist → Prepare submission.
+- [ ] Choose a saved gallery and 1–8 selected images; original private photo access remains owner-scoped.
+- [ ] Indexed-listing inspection offers the official organizer link when published; does not claim organizer eligibility verification.
+- [ ] User can enter official rules URL and notes, confirm review, edit all wording, and save a private draft. Missing organizer rules keep clear warning.
+- [ ] Reopen draft from My wishes; text, photo choices and review state persist.
+- [ ] ZIP contains preparation Markdown and exactly approved WebP previews; no original resolution/format claims.
+- [ ] New Work Receipt says `Private submission draft saved`, no claim of submission or accepted eligibility.
+- [ ] Wrong account/wish/opportunity/gallery link rejected; direct receipt INSERT denied. Delete guarded while linked draft exists.
+- [ ] No external submission or organizer emails; production deploy only after user accepts and PR merges.
+
+## Future
+JINN-003.4 will add a bounded autonomous watch after this first prep journey is validated. Separately, authoritative organizer-rule inspection with safe source-specific adapters is needed to move beyond user confirmation. We should not add unrestricted third-party browser crawling, and no product copy should call the eligibility/rights "verified" until that evidence exists.

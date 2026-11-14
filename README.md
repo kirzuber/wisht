@@ -83,6 +83,14 @@ Migration: `supabase/migrations/20261115010000_opportunity_shortlists.sql` (**ap
 
 This is one reusable scout shape, with an initial photography-specific provider adapter. Career and soccer will need their own permitted, reliable sources. It is not yet a scheduled autonomous watch and it does not contact organizers or submit photographs.
 
+## Submission preparation — JINN-003.3
+
+From a saved photography opportunity in **My wishes**, choose **Prepare submission**. Wisht inspects only the known Pixcontests index page for an official organizer URL, shows its evidence limitation, and asks the user to review the organizer's actual entry rules. The owner chooses a saved portfolio and images, edits the factual statement and cover note, saves a private `submission_packages` draft, then downloads a ZIP containing the preparation brief and selected WebP previews. User-reviewed rules are **not independently certified**. No external submission occurs.
+
+Database `submission_packages` enforces same-owner wish/shortlist/portfolio and matches the exact saved opportunity against its source shortlist. The `SUBMISSION_DRAFT_SAVED` Work Receipt records the successful database insert, not transmission. Deletion of a shortlist or portfolio with a linked draft is restricted; remove the draft first. No user-generated original high-resolution image is retained by this application: the ZIP provides **optimized WebP previews only**, which may not meet contest rules. Original files must be supplied by the photographer when required.
+
+Migration: `supabase/migrations/20261115023000_submission_packages.sql`. Acceptance and evidence: `docs/12-jinn-003-3-submission-pack.md`. No new service, external organizer login, payment or unsolicited communication.
+
 ## Deployment
 
 One Netlify project serves Vite and serverless API Functions. **Only main is built/deployed by Netlify**: `netlify.toml` ignores branch and PR preview builds. GitHub Actions validates each PR. Never merge a feature branch until CI and owner acceptance pass.
