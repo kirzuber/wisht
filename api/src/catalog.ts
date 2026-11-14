@@ -121,3 +121,8 @@ export function interpretWish(raw: string): Interpretation {
   return fallback;
 }
 export function supportedExamples() {return ['I want to be a photographer','I want a new career','I want to play soccer','I want to be independent'];}
+
+/** A model may classify an aspiration but may only select server-owned skills. */
+export function getInterpretationForKind(kind: WishKind): Interpretation {
+  return kind === 'unsupported' ? fallback : catalog[kind];
+}

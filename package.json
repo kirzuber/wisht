@@ -1,8 +1,11 @@
 {
-  "name": "jinn-starter",
+  "name": "wisht",
   "private": true,
   "version": "0.1.0",
-  "workspaces": ["web", "api"],
+  "workspaces": [
+    "web",
+    "api"
+  ],
   "scripts": {
     "dev": "concurrently -n api,web -c blue,magenta \"npm run dev -w api\" \"npm run dev -w web\"",
     "build": "npm run build -w api && npm run build -w web",
@@ -11,6 +14,7 @@
   },
   "devDependencies": {
     "concurrently": "^9.2.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "@netlify/functions": "^4.0.0"
   }
 }
