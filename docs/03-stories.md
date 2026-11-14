@@ -32,5 +32,5 @@ One aspiration may have multiple possible deeds, but should occupy one saved wis
 ## JINN-002.2 — Acceptance & evidence
 See docs/08-jinn-002-2-publish-portfolio.md. Explicit snapshot review and approval → only selected images copied to public bucket → verified public URL → unpublish without deleting private draft. Does not consume another wish.
 
-## JINN-002.3 — Wish & Artifact Integrity — IN REVIEW
+## JINN-002.3 — Wish & Artifact Integrity — IN REVIEW (database migrated; UI verification pending)
 One goal owns multiple portfolios and future deeds; automatic parent-wish saving, strict owner-safe FK, non-disruptive legacy linking, and nested My Wishes experience. See docs/09-jinn-002-3-wish-integrity.md.
