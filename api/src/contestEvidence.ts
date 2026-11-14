@@ -11,7 +11,7 @@ const ORIGIN='https://pixcontests.com';
 export function validatedListingUrl(value:string):string{
  let url:URL;
  try{url=new URL(value);}catch{throw new Error('Invalid source listing URL.');}
- if(url.origin!==ORIGIN || url.username || url.password
+ if(url.origin!==ORIGIN || url.search || url.hash || url.username || url.password
     || !/^\/[a-z0-9-]{3,160}\/?$/.test(url.pathname))
   throw new Error('Only a supported Pixcontests listing may be inspected.');
  return ORIGIN+url.pathname.replace(/\/$/,'');
