@@ -1,5 +1,5 @@
 # JINN-003.3 — Prepare Submission
-Status: IN REVIEW. Branch `feature/jinn-003-3-submission-pack`.
+Status: COMPLETE. User accepted functional behavior and authorized closure and merge on November 14, 2026. Implemented in PR #8.
 
 ## User outcome
 After saving a real photography opportunity under a wish, the owner can choose one, inspect its indexed source for the organizer's official URL, review the official rules, select a saved private portfolio and 1–8 selected photos, edit a factual artist statement and cover note, and save a **private submission draft**. They can download a ZIP with the editable preparation brief and only those selected, optimized WebP previews. Saved drafts reopen under their parent wish.
@@ -49,3 +49,6 @@ CI: https://github.com/kirzuber/wisht/actions/runs/43642176913 — successful Ty
 
 ## 003.3.1 — Calendar URL inspection compatibility fix
 During local acceptance the user reported `Only a supported Pixcontests listing may be inspected` for every saved Scout entry. Root cause confirmed against actual `wisht-dev` `opportunity_shortlists.matches[*].sourceUrl` values: the feed appends `?utm_source=calendar&utm_medium=feed` to valid contest slugs, but our inspector rejected all query strings. `validatedListingUrl` now accepts HTTPS Pixcontests or www.Pixcontests listing slugs and **drops the entire query and fragment before making its server-side GET**, retaining strict host/path validation, no redirects, no fetches to organizer domains. Regression test uses the actual `people-virtual-3d-exhibition-2026` slug and feed-style tracking query, verifying that no supplied parameters reach the network call. Live organizer-page link extraction remains an outstanding owner-browser test; if the index temporarily returns HTTP 403 or HTML changes, the safe fallback is to visit the source link and paste the official organizer URL manually, not to bypass origin checks.
+
+## Closure
+The owner confirmed functional acceptance after the indexed-listing URL fix and approved merging PR #8. GitHub CI passed and the Supabase migration was already applied to wisht-dev. This approval does not constitute independent evidence of organizer eligibility or external submission. Historic unchecked granular acceptance items remain recorded as such.
