@@ -27,8 +27,8 @@ After saving a real photography opportunity under a wish, the owner can choose o
 - No additional jobs, LLM calls, storage buckets, model keys or paid APIs.
 
 ## Acceptance checklist
-- [ ] CI: TypeScript, tests and build pass.
-- [ ] New migration applied to `wisht-dev`, database constraints/RLS/receipt trigger verified, no prior portfolio or shortlist modified.
+- [x] CI: TypeScript, tests and build pass.
+- [x] Migration applied to `wisht-dev` and verified. Owner RLS, no anonymous SELECT, Work Receipt trigger, source/portfolio integrity and immutable linkage passed transactional database tests. Prior records preserved.
 - [ ] Open My wishes → photography → saved shortlist → Prepare submission.
 - [ ] Choose a saved gallery and 1–8 selected images; original private photo access remains owner-scoped.
 - [ ] Indexed-listing inspection offers the official organizer link when published; does not claim organizer eligibility verification.
@@ -36,8 +36,13 @@ After saving a real photography opportunity under a wish, the owner can choose o
 - [ ] Reopen draft from My wishes; text, photo choices and review state persist.
 - [ ] ZIP contains preparation Markdown and exactly approved WebP previews; no original resolution/format claims.
 - [ ] New Work Receipt says `Private submission draft saved`, no claim of submission or accepted eligibility.
-- [ ] Wrong account/wish/opportunity/gallery link rejected; direct receipt INSERT denied. Delete guarded while linked draft exists.
+- [x] Transactional DB checks: source and portfolio matching, package receipt count, invalid user rule-review claim rejected, immutable identity enforced and shortlist delete restricted. Client receipt INSERT denied. Cross-account browser verification remains for local acceptance.
 - [ ] No external submission or organizer emails; production deploy only after user accepts and PR merges.
 
 ## Future
 JINN-003.4 will add a bounded autonomous watch after this first prep journey is validated. Separately, authoritative organizer-rule inspection with safe source-specific adapters is needed to move beyond user confirmation. We should not add unrestricted third-party browser crawling, and no product copy should call the eligibility/rights "verified" until that evidence exists.
+
+## Verification evidence — November 14, 2026
+CI: https://github.com/kirzuber/wisht/actions/runs/43642176913 — successful TypeScript checks, automated tests and Vite build. Supabase migration `20261115023000_submission_packages.sql` successfully applied to `wisht-dev`. RLS enabled; anonymous table SELECT absent; verified-owner CRUD policies and two triggers enabled. A temporary package created from the existing user's saved opportunity and selected private portfolio photo produced one `SUBMISSION_DRAFT_SAVED` Work Receipt with photo_count=1, rejected a false reviewed-by-user claim lacking official rules notes, rejected edits to source identity, blocked deleting its parent shortlist, then rolled back. One pre-existing shortlist and two private portfolios remain; zero persistent submission drafts or new receipts from the test. Supabase security advisor returned no new findings for submission_packages; four prior project warnings remain.
+
+**Still pending:** live indexed-page inspection, organizer-link extraction, ZIP download review, and second-account isolation in a real browser. Do not merge the draft PR until the owner tests the full local journey.
