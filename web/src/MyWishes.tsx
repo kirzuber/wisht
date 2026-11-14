@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, Images, LockKeyhole, RefreshCw, Sparkles, Trash2
 import { getAuthenticatedUser, getSupabase } from './supabaseClient';
 import { duplicateWishGroups } from './wishDedup';
 import { artifactsForWish } from './wishArtifacts';
+import WorkReceipts from './WorkReceipts';
 import { MAX_SAVED_WISHES, wishesRemaining } from './wishLimit';
 import './myWishes.css';
 
@@ -163,6 +164,7 @@ export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onNew
                     <ArrowRight size={16}/>
                   </button>)}
                 </div>}
+                {owned.length > 0 && <WorkReceipts wishId={wish.id}/>}
                 {wish.kind==='photography' && <button type="button"
                   className="my-work-add-portfolio" onClick={()=>onNewPortfolio(wish.id)}>
                   <Images size={15}/> Build another portfolio under this wish <ArrowRight size={14}/>

@@ -17,8 +17,11 @@ Keep the Supabase session across reloads. Provide one compact My wishes view sho
 ## JINN-002.2 — Publish My Portfolio — COMPLETE
 After inspecting the exact gallery preview, user grants explicit publication consent; create a verified hosted URL and support unpublish. Do not use original photos or publish previews without approval.
 
-## JINN-003 — Work Receipt and Second Wish — LATER
-Persist verification evidence and action status for completed work; next photography mission searches for relevant, source-verified public opportunities.
+## JINN-003.1 — Durable Work Receipts — COMPLETE
+Record true private-create, public-publish, and unpublish events through database triggers, and show their evidence under the parent wish and the portfolio. See docs/10-jinn-003-1-work-receipts.md.
+
+## JINN-003.2 — Second autonomous deed (Opportunity Scout) — LATER
+Discover and verify public photography opportunities, prepare useful follow-through artifacts, and persist distinct receipts under the same photography wish. Define the smallest real action before coding.
 
 ## Deliberately deferred
 Generic multi-agent orchestration, autonomous messaging, universal browser actions, payments, notification campaigns, account discovery by email, expensive vision models, vector DB and new deployment services.
@@ -32,5 +35,5 @@ One aspiration may have multiple possible deeds, but should occupy one saved wis
 ## JINN-002.2 — Acceptance & evidence
 See docs/08-jinn-002-2-publish-portfolio.md. Explicit snapshot review and approval → only selected images copied to public bucket → verified public URL → unpublish without deleting private draft. Does not consume another wish.
 
-## JINN-002.3 — Wish & Artifact Integrity — IN REVIEW (database migrated; UI verification pending)
+## JINN-002.3 — Wish & Artifact Integrity — COMPLETE
 One goal owns multiple portfolios and future deeds; automatic parent-wish saving, strict owner-safe FK, non-disruptive legacy linking, and nested My Wishes experience. See docs/09-jinn-002-3-wish-integrity.md.

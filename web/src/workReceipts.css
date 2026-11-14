@@ -1,0 +1,17 @@
+.work-receipts{border:1px solid #dfdacd;border-radius:13px;background:#fcfaf5;padding:18px;margin:20px 0;color:#344d3e}
+.work-receipts-heading{display:flex;align-items:center;gap:10px;margin-bottom:13px}
+.work-receipts-heading>svg{color:#967948;flex:none}
+.work-receipts-heading div{display:flex;flex-direction:column;gap:3px}
+.work-receipts-heading strong{font-size:13px}
+.work-receipts-heading small{font-size:10px;color:#8c9187}
+.receipt-history{list-style:none;margin:0;padding:0;display:grid;gap:14px}
+.receipt-history li{display:flex;align-items:flex-start;gap:9px}
+.receipt-check{color:#436c4d;flex:none;margin-top:2px}
+.receipt-event{min-width:0}
+.receipt-event strong{font-size:12px}
+.receipt-event p{font-size:11px;line-height:1.5;color:#717b6f;margin:4px 0}
+.receipt-event>small{display:block;font-size:10px;color:#8a866d;margin:3px 0}
+.receipt-evidence{display:flex;align-items:center;flex-wrap:wrap;gap:5px;color:#93948a;font-size:9px;margin-top:8px}
+.receipt-evidence svg{flex:none}
+.receipt-muted{font-size:11px;color:#878b7f}
+.receipt-disclaimer{border-top:1px solid #ebe7df;margin:13px 0 0!important;padding-top:11px;color:#8c9084!important;font-size:10px!important;line-height:1.5}
