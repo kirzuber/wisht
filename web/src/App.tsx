@@ -17,6 +17,7 @@ const API=import.meta.env.VITE_API_BASE_URL || '';
 function WishApp(){
  const [stage,setStage]=useState<Stage>(()=>new URLSearchParams(window.location.search).has('portfolio')?'portfolio':'wish');
  const [openedPortfolioId,setOpenedPortfolioId]=useState<string|null>(()=>new URLSearchParams(window.location.search).get('portfolio'));
+ const [portfolioWishId,setPortfolioWishId]=useState<string|null>(null);
  const [wish,setWish]=useState('');
  const [understood,setUnderstood]=useState<Interpretation|null>(null);
  const [selected,setSelected]=useState<Mission|null>(null);
@@ -53,7 +54,7 @@ function WishApp(){
    ()=>new URLSearchParams(window.location.search).has('portfolio')?'portfolio':null
  );
  const [error,setError]=useState('');
- const reset=()=>{window.history.replaceState(null,'',window.location.pathname);setOpenedPortfolioId(null);setStage('wish');setWish('');setUnderstood(null);setSelected(null);setAnswer('');setError('');setSaved(false);setDuplicateWish(false);setAuthIntent(null);};
+ const reset=()=>{window.history.replaceState(null,'',window.location.pathname);setOpenedPortfolioId(null);setPortfolioWishId(null);setStage('wish');setWish('');setUnderstood(null);setSelected(null);setAnswer('');setError('');setSaved(false);setDuplicateWish(false);setAuthIntent(null);};
  const interpret=async()=>{
   if(wish.trim().length<2)return;
   setBusy(true);setError('');
@@ -81,7 +82,7 @@ function WishApp(){
   setError('');
   try {
     await getAuthenticatedUser();
-    if (intent === 'portfolio') setStage('portfolio');
+    if (intent === 'portfolio') startPortfolio();
     else await save();
   } catch {
     setAuthIntent(intent);
@@ -90,12 +91,22 @@ function WishApp(){
  const afterAuth = () => {
   const intent = authIntent;
   setAuthIntent(null);
-  if (intent === 'portfolio') setStage('portfolio');
+  if (intent === 'portfolio') startPortfolio();
   if (intent === 'save') void save();
   if (intent === 'account') setStage('library');
  };
+ const startPortfolio=()=>{
+  setOpenedPortfolioId(null);setPortfolioWishId(null);
+  window.history.replaceState(null,'',window.location.pathname);
+  setStage('portfolio');
+ };
+ const startAnotherPortfolio=(wishId:string)=>{
+  setOpenedPortfolioId(null);setPortfolioWishId(wishId);
+  window.history.replaceState(null,'',window.location.pathname);
+  setStage('portfolio');
+ };
  const openPortfolio=(id:string)=>{
-  setOpenedPortfolioId(id);setAuthIntent(null);setStage('portfolio');
+  setOpenedPortfolioId(id);setPortfolioWishId(null);setAuthIntent(null);setStage('portfolio');
   const url=new URL(window.location.href);
   url.searchParams.set('portfolio',id);
   window.history.replaceState(null,'',url.pathname+url.search);
@@ -172,8 +183,12 @@ function WishApp(){
       <p className="subtle">Just one question for now. More details come only when they're needed to do the work.</p>
       <button className="back" onClick={()=>setStage('choose')}><ArrowLeft size={16}/> Choose a different deed</button>
     </section>}
-    {!authIntent && stage==='library' && account && <MyWishes email={account.email||''} onOpenPortfolio={openPortfolio} onNewWish={reset}/>}
-    {!authIntent && stage==='portfolio' && <PortfolioBuilder initialId={openedPortfolioId} onBack={backFromPortfolio} onCreated={id=>{
+    {!authIntent && stage==='library' && account && <MyWishes email={account.email||''} onOpenPortfolio={openPortfolio} onNewPortfolio={startAnotherPortfolio} onNewWish={reset}/>}
+    {!authIntent && stage==='portfolio' && <PortfolioBuilder initialId={openedPortfolioId}
+      wishContext={portfolioWishId
+        ? {wishId:portfolioWishId}
+        : {aspiration:wish.trim() || undefined,missionId:selected?.id,answer:answer||undefined}}
+      onBack={backFromPortfolio} onCreated={id=>{
       setOpenedPortfolioId(id);
       const url=new URL(window.location.href);
       url.searchParams.set('portfolio',id);
@@ -197,10 +212,15 @@ function WishApp(){
        <p className="detail">{selected.permission}</p>
       </div>
       <div className="honesty"><LockKeyhole size={17}/><span><strong>No work has run yet.</strong> {selected.id==='build-portfolio'?'You can now build a real private gallery from photos on your device.':'This mission is planned, not executed.'} Nothing is published or charged.</span></div>
-      <button className="primary" onClick={()=>void requireAccount("save")} disabled={saving||saved}>{saved?'Wish saved privately':saving?'Saving…':'Save this wish'} <ArrowRight size={18}/></button>
+      {selected.id!=='build-portfolio' && <button className="primary"
+         onClick={()=>void requireAccount("save")} disabled={saving||saved}>
+         {saved?'Wish saved privately':saving?'Saving…':'Save this wish'} <ArrowRight size={18}/>
+      </button>}
       {error&&<p className="error" role="alert">{error}</p>}
       {(saved || duplicateWish) && <button className="back" type="button" onClick={showMyWishes}>Open My wishes <ArrowRight size={16}/></button>}
-      <p className="subtle">Saving requires a verified email account. Exploring your wish does not require registration.</p>
+      <p className="subtle">{selected.id==='build-portfolio'
+        ? 'Your photography wish is saved automatically when your first gallery is created. Build more galleries later under the same wish.'
+        : 'Saving requires a verified email account. Exploring your wish does not require registration.'}</p>
       {selected.id==='build-portfolio' ? <button type="button" className="primary" onClick={()=>void requireAccount('portfolio')}>Build my private portfolio <ArrowRight size={18}/></button> : <button className="primary muted" disabled>Execute this mission <span className="coming">NEXT STORY</span></button>}
       <button className="back" onClick={reset}><RotateCcw size={16}/> Try another wish</button>
     </section>}

@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, Check, ImagePlus, LockKeyhole, RefreshCw, Shield
 import { getSupabase, getAuthenticatedUser } from './supabaseClient';
 import { preparePhoto, type PortfolioPhoto, type PreparedPhoto, MAX_PHOTOS } from './photoProcessing';
 import { pickInitialSelection } from './photoQuality';
+import { checkPhotographyWishAvailable, ensurePhotographyWish, rollbackUnusedWish, type PortfolioWishContext, type WishLink } from './wishOwnership';
 import { MAX_PUBLISHED_PHOTOS } from './portfolioPublicationModel';
 import { findPublication, publishPortfolio, unpublishPortfolio, publicGalleryPath, type PortfolioPublication } from './publishPortfolio';
 import './portfolio.css';
@@ -19,6 +20,7 @@ type Portfolio = {
 
 type Props = {
   initialId: string | null;
+  wishContext: PortfolioWishContext;
   onBack: () => void;
   onCreated: (id: string) => void;
 };
@@ -37,7 +39,7 @@ async function signedPhotoUrls(photos: PortfolioPhoto[]): Promise<Record<string,
   return Object.fromEntries(entries);
 }
 
-export default function PortfolioBuilder({ initialId, onBack, onCreated }: Props) {
+export default function PortfolioBuilder({ initialId, wishContext, onBack, onCreated }: Props) {
   const [files, setFiles] = useState<File[]>([]);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [photos, setPhotos] = useState<PortfolioPhoto[]>([]);
@@ -92,6 +94,7 @@ export default function PortfolioBuilder({ initialId, onBack, onCreated }: Props
     setBusy(true); setError(''); setProgress('Preparing your photographs on this device...');
     const uploaded: string[] = [];
     let committed = false;
+    let linkedWish: WishLink | null = null;
     try {
       const seen = new Set<string>();
       const prepared: PreparedPhoto[] = [];
@@ -105,6 +108,7 @@ export default function PortfolioBuilder({ initialId, onBack, onCreated }: Props
       if (prepared.length < 3) {
         throw new Error('At least three different photographs are needed. Duplicate files were skipped.');
       }
+      await checkPhotographyWishAvailable(wishContext);
       const featured = new Set(pickInitialSelection(prepared.map(item => item.meta)));
       const user = await getAuthenticatedUser();
       const id = crypto.randomUUID();
@@ -125,9 +129,10 @@ export default function PortfolioBuilder({ initialId, onBack, onCreated }: Props
       // Signed URLs require successful owner-scoped Storage SELECT, not public access.
       const links = await signedPhotoUrls(finalPhotos);
       setProgress('Creating and verifying your private portfolio...');
+      linkedWish = await ensurePhotographyWish(wishContext);
       const supabase = getSupabase();
       const { data, error: createError } = await supabase.from('portfolios')
-        .insert({ id, user_id: user.id, title, introduction, photos: finalPhotos, status: 'PRIVATE' })
+        .insert({ id, wish_id:linkedWish.wishId, user_id: user.id, title, introduction, photos: finalPhotos, status: 'PRIVATE' })
         .select('id,title,introduction,photos,status').single();
       if (createError || !data) throw createError || new Error('Could not verify the portfolio.');
       committed = true;
@@ -140,6 +145,7 @@ export default function PortfolioBuilder({ initialId, onBack, onCreated }: Props
         const { error: cleanupError } = await getSupabase().storage.from(BUCKET).remove(uploaded);
         if (cleanupError) console.warn('Private upload cleanup failed', cleanupError.message);
       }
+      if (!committed) await rollbackUnusedWish(linkedWish);
       setError(friendlyError(cause));
     } finally { setBusy(false); setProgress(''); }
   };

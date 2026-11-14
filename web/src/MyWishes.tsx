@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ArrowLeft, ArrowRight, Images, LockKeyhole, RefreshCw, Sparkles, Trash2 } from 'lucide-react';
 import { getAuthenticatedUser, getSupabase } from './supabaseClient';
 import { duplicateWishGroups } from './wishDedup';
+import { artifactsForWish } from './wishArtifacts';
 import { MAX_SAVED_WISHES, wishesRemaining } from './wishLimit';
 import './myWishes.css';
 
@@ -16,6 +17,8 @@ type SavedWish = {
 };
 type SavedPortfolio = {
   id: string;
+  wish_id: string;
+  published: boolean;
   title: string;
   photos: Array<{ id: string }>;
   status: 'PRIVATE';
@@ -24,6 +27,7 @@ type SavedPortfolio = {
 type Props = {
   email: string;
   onOpenPortfolio: (id: string) => void;
+  onNewPortfolio: (wishId: string) => void;
   onNewWish: () => void;
 };
 
@@ -31,7 +35,7 @@ function readable(value: string): string {
   return value.replace(/[-_]+/g, ' ').replace(/^\w/, letter => letter.toUpperCase());
 }
 
-export default function MyWishes({ email, onOpenPortfolio, onNewWish }: Props) {
+export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onNewWish }: Props) {
   const [wishes, setWishes] = useState<SavedWish[]>([]);
   const [portfolios, setPortfolios] = useState<SavedPortfolio[]>([]);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -51,14 +55,22 @@ export default function MyWishes({ email, onOpenPortfolio, onNewWish }: Props) {
         const [wishResult, portfolioResult] = await Promise.all([
           db.from('wishes').select('id,aspiration,kind,mission_id,answer,status,created_at')
             .eq('user_id', user.id).order('created_at', { ascending: false }).limit(50),
-          db.from('portfolios').select('id,title,photos,status,created_at')
+          db.from('portfolios').select('id,wish_id,title,photos,status,created_at')
             .eq('user_id', user.id).order('created_at', { ascending: false }).limit(50)
         ]);
         if (wishResult.error) throw wishResult.error;
         if (portfolioResult.error) throw portfolioResult.error;
+        const galleryIds=(portfolioResult.data || []).map((p:{id:string})=>p.id);
+        const publishedResult=galleryIds.length
+          ? await db.from('portfolio_publications').select('portfolio_id').in('portfolio_id',galleryIds)
+          : {data:[],error:null};
+        if (publishedResult.error) throw publishedResult.error;
+        const liveIds=new Set((publishedResult.data || []).map((p:{portfolio_id:string})=>p.portfolio_id));
         if (active) {
           setWishes((wishResult.data || []) as SavedWish[]);
-          setPortfolios((portfolioResult.data || []) as SavedPortfolio[]);
+          setPortfolios((portfolioResult.data || []).map((p:{id:string})=>({...p,published:liveIds.has(p.id)})) as SavedPortfolio[]);
+          const photoWish=(wishResult.data||[]).find((wish:{kind:string})=>wish.kind==='photography');
+          setExpanded(previous=>previous??photoWish?.id??null);
         }
       } catch (cause) {
         if (active) setError(cause instanceof Error ? cause.message : 'Could not load your saved work.');
@@ -71,7 +83,11 @@ export default function MyWishes({ email, onOpenPortfolio, onNewWish }: Props) {
   }, [refresh]);
 
   const deleteWish = async (wish: SavedWish) => {
-    if (deleting || !window.confirm('Delete this saved wish? This does not delete any portfolio.')) return;
+    if (artifactsForWish(wish,portfolios).length) {
+      setError('Delete the portfolios under this wish before deleting the wish itself.');
+      return;
+    }
+    if (deleting || !window.confirm('Delete this wish? This cannot be undone.')) return;
     setDeleting(wish.id); setError('');
     try {
       await getAuthenticatedUser();
@@ -115,42 +131,55 @@ export default function MyWishes({ email, onOpenPortfolio, onNewWish }: Props) {
       </p>}
       {wishes.length === 0
         ? <p className="my-work-empty">No saved wishes yet. Your next one starts with a single sentence.</p>
-        : <div className="my-work-list">{wishes.map(wish => <article className="my-work-card" key={wish.id}>
-            <button type="button" className="my-work-card-main" aria-expanded={expanded === wish.id}
-              onClick={() => setExpanded(current => current === wish.id ? null : wish.id)}>
-              <div className="my-work-card-text">
-                <span className="my-work-status-label">MISSION PLANNED · NOT EXECUTED</span>
-                <strong>{wish.aspiration}</strong>
-                <small>{readable(wish.mission_id)}</small>
-              </div>
-              <ArrowRight size={17} className={expanded === wish.id ? 'turned' : ''}/>
-            </button>
-            {expanded === wish.id && <div className="my-work-details">
-              <p><strong>Selected mission:</strong> {readable(wish.mission_id)}</p>
-              <p><strong>Your choice:</strong> {readable(wish.answer)}</p>
-              <p>This mission is saved. No external work has been executed for it yet.</p>
-              <button type="button" className="my-work-delete" disabled={deleting === wish.id}
-                onClick={() => void deleteWish(wish)}><Trash2 size={13}/> Delete wish</button>
-            </div>}
-          </article>)}</div>}
-
-      <div className="my-work-section-header">
-        <h3>My portfolios</h3>
-        <span>{portfolios.length}</span>
-      </div>
-      {portfolios.length === 0
-        ? <p className="my-work-empty">No portfolios yet. A private gallery will appear here after you create it.</p>
-        : <div className="my-work-list">{portfolios.map(portfolio => <button type="button"
-          className="my-work-card my-work-portfolio" key={portfolio.id}
-          onClick={() => onOpenPortfolio(portfolio.id)}>
-          <span className="my-work-portfolio-icon"><Images size={20}/></span>
-          <span className="my-work-card-text">
-            <span className="my-work-status-label">CREATED · PRIVATE</span>
-            <strong>{portfolio.title}</strong>
-            <small>{portfolio.photos.length} photographs</small>
-          </span>
-          <ArrowRight size={17}/>
-        </button>)}</div>}
+        : <div className="my-work-list">{wishes.map(wish=>{
+            const owned=artifactsForWish(wish,portfolios);
+            const opened=expanded===wish.id;
+            return <article className="my-work-card" key={wish.id}>
+              <button type="button" className="my-work-card-main" aria-expanded={opened}
+                onClick={()=>setExpanded(current=>current===wish.id?null:wish.id)}>
+                <span className="my-work-card-text">
+                  <span className="my-work-status-label">{owned.length
+                    ? `${owned.length} PORTFOLIO${owned.length===1?'':'S'} · WORK SAVED`
+                    : 'WISH PLANNED · NO COMPLETED DEEDS'}</span>
+                  <strong>{wish.aspiration}</strong>
+                  <small>{owned.length
+                    ? `${owned.length} portfolio${owned.length===1?'':'s'} · multiple deeds under one wish`
+                    : readable(wish.mission_id)}</small>
+                </span>
+                <ArrowRight size={17} className={opened?'turned':''}/>
+              </button>
+              {opened && <div className="my-work-details">
+                {owned.length>0 && <div className="my-work-nested">
+                  <p className="my-work-nested-label">YOUR PORTFOLIOS</p>
+                  {owned.map(portfolio=><button type="button"
+                    className="my-work-portfolio nested" key={portfolio.id}
+                    onClick={()=>onOpenPortfolio(portfolio.id)}>
+                    <span className="my-work-portfolio-icon"><Images size={18}/></span>
+                    <span className="my-work-card-text">
+                      <span className="my-work-status-label">{portfolio.published?'PUBLISHED · PUBLIC':'CREATED · PRIVATE'}</span>
+                      <strong>{portfolio.title}</strong>
+                      <small>{portfolio.photos.length} photographs</small>
+                    </span>
+                    <ArrowRight size={16}/>
+                  </button>)}
+                </div>}
+                {wish.kind==='photography' && <button type="button"
+                  className="my-work-add-portfolio" onClick={()=>onNewPortfolio(wish.id)}>
+                  <Images size={15}/> Build another portfolio under this wish <ArrowRight size={14}/>
+                </button>}
+                {owned.length===0 && <>
+                  <p><strong>First planned deed:</strong> {readable(wish.mission_id)}</p>
+                  <p><strong>Your choice:</strong> {readable(wish.answer)}</p>
+                  <p>We have not executed this mission yet.</p>
+                  <button type="button" className="my-work-delete" disabled={deleting===wish.id}
+                    onClick={()=>void deleteWish(wish)}><Trash2 size={13}/> Delete wish</button>
+                </>}
+                {owned.length>0 && <p className="my-work-nested-note">
+                  To delete this wish, delete its portfolios first. Your public links stay unchanged.
+                </p>}
+              </div>}
+            </article>;
+          })}</div>}
     </>}
 
     <div className="my-work-actions">

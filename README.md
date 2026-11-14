@@ -57,9 +57,15 @@ This is a deliberately narrow goal model, not unrestricted semantic search. Diff
 
 Private portfolios remain in `portfolio-previews`. The user previews selected photographs, approves publication explicitly, and clicks Publish. A separate `portfolio-public` Storage bucket holds **only approved WebP copies**, while `portfolio_publications` holds the public title, introduction and selected image paths. Public gallery URLs are `/p/<slug>`; visitors can open them without signing in. The private draft remains private. Unpublish removes public image copies and the public snapshot; deleting a private portfolio also unpublishes it first.
 
-Migration: `supabase/migrations/20261114230000_published_portfolios.sql` was **applied to wisht-dev** and its bucket, column grants, policies and deletion guard verified. The gallery UI remains on an unmerged PR and cannot publish via Netlify production until the story passes review. The share link created locally uses `localhost`; the real external URL becomes functional once merged to Netlify `main`.
+Migration: `supabase/migrations/20261114230000_published_portfolios.sql` was applied to `wisht-dev`, and JINN-002.2 was merged to `main` after acceptance. Public gallery pages are available on Netlify production. The share link created locally uses `localhost`; the real external URL becomes functional once merged to Netlify `main`.
 
 Before a public pilot, add moderation/abuse controls, usage quotas, and clear wording about CDN caching after unpublish. Public files may remain cached briefly even after deletion. No service-role key, queue or publishing function is required.
+
+## Wish and portfolio integrity — JINN-002.3
+
+A wish is a root aspiration, not each mission. One photography wish can own multiple portfolio artifacts. The portfolio creator automatically creates or reuses this parent when the first gallery is successfully saved; the user need not separately press “Save wish.” My Wishes groups galleries under the parent. A composite FK `(wish_id,user_id)` and photography-kind trigger enforce ownership in Supabase, and a compatibility trigger links legacy inserts lacking `wish_id`. Existing published links are retained.
+
+Migration: `supabase/migrations/20261114233000_portfolio_wish_integrity.sql` (**applied and verified in wisht-dev**). Detailed acceptance: `docs/09-jinn-002-3-wish-integrity.md`.
 
 ## Deployment
 
