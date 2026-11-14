@@ -50,11 +50,11 @@ Use “I want to be a photographer” → Build my portfolio → On my device �
 Only merged `main` gets a Netlify production build. `netlify.toml` skips non-production builds through an `ignore` command. GitHub Actions still checks pull requests. No auto-merge.
 
 ## Coordinated release — authentication cutover
-1. Configure Supabase Magic Link/OTP email template with `{{ .Token }}`. Confirm the email provider delivers codes, preferably using a test email first.
+1. Configure **both** Supabase Confirm signup and Magic Link/OTP email templates with `{{ .Token }}`: new accounts can receive Confirm signup while returning accounts receive Magic Link/OTP. The default confirmation URL sends users back to the homepage without restoring mission state. Confirm the email provider delivers codes, preferably using a test email first.
 2. Validate the feature branch UI locally, including email OTP verification and re-access to private portfolio.
 3. Merge the feature PR to `main` only after acceptance; Netlify deploys `main` automatically.
 4. Apply `supabase/migrations/20261114190000_require_verified_users.sql` promptly as a coordinated cutover. Existing anonymous sessions can no longer read/write new content. Consider applying just before merge if a brief old-UI interruption is acceptable.
 5. Optionally disable Anonymous Sign-ins in Supabase Auth settings. This alone is insufficient because existing anonymous JWTs remain valid until expiry; restrictive policies enforce the actual boundary.
 6. Existing anonymous data and storage may remain. Inspect aggregate counts and obtain explicit approval before any cleanup; do not delete on merge.
 
-**Important:** supabase-js passwordless email defaults to sending a magic link; our inline code form needs an email template containing `{{ .Token }}`. We cannot change this template through the current Supabase app connector; use the Supabase dashboard.
+**Important:** supabase-js passwordless email defaults to sending a magic link; our inline code form needs **both** email templates to contain `{{ .Token }}`. We cannot change this template through the current Supabase app connector; use the Supabase dashboard.
