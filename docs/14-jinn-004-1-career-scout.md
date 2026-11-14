@@ -35,15 +35,22 @@ Prove that one wish/skill/receipt architecture works beyond photography, with an
 - User may delete saved career shortlists. Historic receipts remain. No job descriptions are published publicly.
 
 ## Acceptance
-- [ ] Automated TypeScript/test/build green.
+- [x] Automated TypeScript/test/build green.
 - [ ] Live Himalayas API responds and yields real remote listings, or an honestly empty/error result.
 - [ ] Anonymous search: enter career aspiration → Find next opportunity → role/country → source list.
 - [ ] Opt-in AI: authenticated session required, explicit consent required, model returns advisory fit/no hallucinated job links; without consent no LLM call.
 - [ ] Save: single career wish, one owner-owned shortlist/day, Work Receipt.
 - [ ] My Wishes displays saved job source/application links; second user cannot access/modify entries.
-- [ ] Migration applied with RLS/grants/source-kind and Work Receipt trigger verification.
+- [x] Migration applied in wisht-dev and verified: enabled owner RLS, denied anonymous access/receipt writes, trigger and daily-uniqueness rollback test.
 - [ ] No new watch/scheduler or automated job applications.
 - [ ] PR reviewed/accepted locally before main merge.
 
 ## Following story and pause
 JINN-004.2 Soccer Opportunity Scout will implement source-backed local soccer club/trial discovery with an equivalent evidence boundary. After that story is accepted, STOP feature delivery and review the holistic product, UX, architecture, AI scope, economics and MVP commercialization.
+
+## Implemented and verified — November 14, 2026
+- GitHub Actions CI after source URL normalization: https://github.com/kirzuber/wisht/actions/runs/43648286757 — passed TypeScript checks, tests and build.
+- Supabase migration `20261115061000_career_shortlists.sql` applied to `wisht-dev`. Three owner-verified RLS policies enabled, anonymous direct read denied, authenticated receipt INSERT and receipt-writer EXECUTE denied. Both validation and database receipt triggers enabled.
+- Rollback test on a verified account with an available wish slot: temporary career wish → one source-valid saved shortlist → exactly one `CAREER_SHORTLIST_SAVED` receipt with count 1 → duplicate same-day save rejected → full transaction rolled back. Post-test career shortlists and career receipts both zero. No original user data modified.
+- Supabase security advisor: no new findings tied to career shortlists or its trigger; four prior project-level warnings remain.
+- **Still unverified:** one genuine live Himalayas API fetch in the local application, consented DeepSeek fit on real descriptions, saved/reopened career shortlist in the browser, and another-account isolation by interactive login. User acceptance is required before merging PR #11.
