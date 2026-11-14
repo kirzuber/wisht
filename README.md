@@ -45,11 +45,11 @@ Exploring wishes still requires no account and writes no persistent user data. E
 
 Each saved mission card occupies **one of three slots** in a verified account. Exploring new ideas never requires sign-in or consumes a slot. Portfolios are artifacts, not additional wishes. After three are saved, the app explains the limit and offers deletion of a saved wish. The database enforces the cap even against direct API calls and concurrent requests; a frontend count provides an early friendly message. Legacy over-limit records are preserved rather than silently deleted.
 
-Migration: `supabase/migrations/20261114210000_three_saved_wishes.sql`. Coordinate applying it with the PR release; it is not bundled automatically into Netlify deployments.
+Migration: `supabase/migrations/20261114210000_three_saved_wishes.sql` — already applied to the separate `wisht-dev` database. No existing records were removed.
 
 ## Duplicate wishes
 
-A saved mission is provisionally one wish. Before storing it, Wisht checks whether the user has the same aspiration already. Different wording and mission choices are matched using the existing supported intent category (soccer, photography, career, independence or finance); other categories are checked for identical normalized text. Existing duplicates remain visible with a warning and can be removed manually; they are never deleted without consent. Database trigger migration: `supabase/migrations/20261114220000_prevent_duplicate_wishes.sql`.
+A saved mission is provisionally one wish. Before storing it, Wisht checks whether the user has the same aspiration already. Different wording and mission choices are matched using the existing supported intent category (soccer, photography, career, independence or finance); other categories are checked for identical normalized text. Existing duplicates remain visible with a warning and can be removed manually; they are never deleted without consent. Database trigger migration: `supabase/migrations/20261114220000_prevent_duplicate_wishes.sql` — already applied to `wisht-dev`. Verified using a rejected same-goal insert, with no test data inserted.
 
 This is a deliberately narrow goal model, not unrestricted semantic search. Different career objectives may currently share a goal family; we will refine goal identity when we add multiple deeds per wish.
 
