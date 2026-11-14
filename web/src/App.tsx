@@ -1,4 +1,5 @@
 import CareerScout from './CareerScout';
+import {autoStartMission,executableMissions,firstUseRoute} from './firstUse';
 import SoccerScout from './SoccerScout';
 import SubmissionPrep from './SubmissionPrep';
 import OpportunityScout from './OpportunityScout';
@@ -16,7 +17,7 @@ import { ArrowLeft, ArrowRight, Check, ChevronRight, Compass, LockKeyhole, Rotat
 type Mission={id:string;title:string;promise:string;question:string;choices:{id:string;label:string}[];deliverables:string[];nextInput:string;permission:string};
 type Interpretation={kind:string;tone:'warm'|'playful'|'discreet';reflection:string;message:string;missions:Mission[];supported:boolean};
 type Stage='wish'|'choose'|'question'|'ready'|'portfolio'|'library'|'scout'|'submission'|'career-scout'|'soccer-scout';
-const examples=['I want to be a photographer','I want a new career','I want to play soccer','I want to be independent'];
+const examples=['I want to be a photographer','I want a new career','I want to play soccer'];
 const API=import.meta.env.VITE_API_BASE_URL || '';
 
 function WishApp(){
@@ -74,11 +75,28 @@ function WishApp(){
    const resp=await fetch(`${API}/api/interpret`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({wish:wish.trim()})});
    const data=await resp.json();
    if(!resp.ok)throw new Error(data.error||'Something went wrong.');
-   setUnderstood(data.interpretation as Interpretation);setStage('choose');
+   const interpretation=data.interpretation as Interpretation;
+   setUnderstood(interpretation);
+   const first=autoStartMission(interpretation.missions||[]);
+   if(first){setSelected(first);setAnswer('');
+    const route=firstUseRoute(first.id);
+    if(route==='career-scout')setCareerWishId(null);
+    if(route==='soccer-scout')setSoccerWishId(null);
+    setStage(route??'choose');
+   }else setStage('choose');
   }catch(e){setError(e instanceof Error?e.message:'Could not reach the local API. Run npm run dev.');}
   finally{setBusy(false);}
  };
- const choose=(mission:Mission)=>{setSelected(mission);setAnswer('');setStage('question');};
+ const choose=(mission:Mission)=>{
+  const route=firstUseRoute(mission.id);
+  if(!route)return;
+  setSelected(mission);setAnswer('');
+  if(route==='portfolio'){void requireAccount('portfolio');return;}
+  if(route==='scout'){startScout();return;}
+  if(route==='career-scout')setCareerWishId(null);
+  if(route==='soccer-scout')setSoccerWishId(null);
+  setStage(route);
+ };
  const save = async()=>{
   if(!understood || !selected || !answer || saving)return;
   setSaving(true);setError('');setDuplicateWish(false);
