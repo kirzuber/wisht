@@ -25,3 +25,6 @@ Generic multi-agent orchestration, autonomous messaging, universal browser actio
 
 ## Three-wish entitlement — JINN-002.1 increment — IN REVIEW
 Limit each verified account to three saved wish cards. Enforce in Supabase and UI, preserve existing over-limit test data, keep portfolios separate, and don't restrict free anonymous exploration. Later product iteration may organize multiple deeds under one top-level dream.
+
+## Contextual wish deduplication — JINN-002.1 increment — IN REVIEW
+One aspiration may have multiple possible deeds, but should occupy one saved wish slot. Prevent additional saved wishes with the same supported goal family or exact normalized wording; show user their existing wish instead. Enforce in a database trigger and preserve old duplicate rows without deletion. No unrestricted embedding similarity or additional model calls.

@@ -47,6 +47,12 @@ Each saved mission card occupies **one of three slots** in a verified account. E
 
 Migration: `supabase/migrations/20261114210000_three_saved_wishes.sql`. Coordinate applying it with the PR release; it is not bundled automatically into Netlify deployments.
 
+## Duplicate wishes
+
+A saved mission is provisionally one wish. Before storing it, Wisht checks whether the user has the same aspiration already. Different wording and mission choices are matched using the existing supported intent category (soccer, photography, career, independence or finance); other categories are checked for identical normalized text. Existing duplicates remain visible with a warning and can be removed manually; they are never deleted without consent. Database trigger migration: `supabase/migrations/20261114220000_prevent_duplicate_wishes.sql`.
+
+This is a deliberately narrow goal model, not unrestricted semantic search. Different career objectives may currently share a goal family; we will refine goal identity when we add multiple deeds per wish.
+
 ## Deployment
 
 One Netlify project serves Vite and serverless API Functions. **Only main is built/deployed by Netlify**: `netlify.toml` ignores branch and PR preview builds. GitHub Actions validates each PR. Never merge a feature branch until CI and owner acceptance pass.

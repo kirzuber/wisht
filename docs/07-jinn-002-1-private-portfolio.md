@@ -85,3 +85,12 @@ Wisht uses the Supabase browser client session (with persistent storage and toke
 - [ ] Existing fourth test wish is not deleted automatically.
 
 **Coordinated migration:** Apply `20261114210000_three_saved_wishes.sql` to `wisht-dev` when promoting PR #3. Its existing OTP/RLS migration remains a separate required release step.
+
+## Contextual duplicate protection (same PR)
+Two wishes about the same aspiration should not occupy multiple starter slots merely because the wording or selected deed differs. For the initial supported goal catalog, match using a stable goal family (`kind`), which already benefits from selective DeepSeek interpretation. Exact normalization also catches repeated text in unstructured/creative/personal categories, without merging every sensitive personal aspiration into one. A client-side preflight shows an existing-wish message and link to My wishes; a DB trigger checks duplicate keys before the three-wish limit under the existing per-user transaction lock. No new LLM call, secret or table.
+
+Examples: “I want to play soccer” = “I want to join a football team” (both soccer); “be a photographer” = “do photography” (both photography). Different *missions* for the same dream aren't new wishes. Distinct supported families remain separate. Creative/personal/unsupported are never collapsed merely for sharing a broad kind.
+
+This is **bounded semantic grouping**, not general open-domain semantic similarity. A broad `career` kind may group two different career ambitions; user-driven split/merge and richer goal identities can follow later. Neither client nor DB automatically deletes preexisting duplicate rows.
+
+Migration: `supabase/migrations/20261114220000_prevent_duplicate_wishes.sql`. Apply to the shared dev DB while accepting PR #3. Test exact text, paraphrase with the same catalog kind, and simultaneous saves. Anonymous-RLS cutover remains a separate migration.

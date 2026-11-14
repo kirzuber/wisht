@@ -3,7 +3,7 @@ import MyWishes from './MyWishes';
 import { getAuthenticatedUser, getSupabase, isVerifiedAccount } from './supabaseClient';
 import type { User } from '@supabase/supabase-js';
 import PortfolioBuilder from './PortfolioBuilder';
-import { saveWish } from './saveWish';
+import { saveWish, WishAlreadySavedError } from './saveWish';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, ChevronRight, Compass, LockKeyhole, RotateCcw, Sparkles, WandSparkles } from 'lucide-react';
 
@@ -47,11 +47,12 @@ function App(){
  },[]);
  const [saving,setSaving]=useState(false);
  const [saved,setSaved]=useState(false);
+ const [duplicateWish,setDuplicateWish]=useState(false);
  const [authIntent,setAuthIntent]=useState<'save'|'portfolio'|'account'|null>(
    ()=>new URLSearchParams(window.location.search).has('portfolio')?'portfolio':null
  );
  const [error,setError]=useState('');
- const reset=()=>{window.history.replaceState(null,'',window.location.pathname);setOpenedPortfolioId(null);setStage('wish');setWish('');setUnderstood(null);setSelected(null);setAnswer('');setError('');setSaved(false);setAuthIntent(null);};
+ const reset=()=>{window.history.replaceState(null,'',window.location.pathname);setOpenedPortfolioId(null);setStage('wish');setWish('');setUnderstood(null);setSelected(null);setAnswer('');setError('');setSaved(false);setDuplicateWish(false);setAuthIntent(null);};
  const interpret=async()=>{
   if(wish.trim().length<2)return;
   setBusy(true);setError('');
@@ -66,10 +67,14 @@ function App(){
  const choose=(mission:Mission)=>{setSelected(mission);setAnswer('');setStage('question');};
  const save = async()=>{
   if(!understood || !selected || !answer || saving)return;
-  setSaving(true);setError('');
-  try{await saveWish({aspiration:wish.trim(),kind:understood.kind,missionId:selected.id,answer});setSaved(true);}
-  catch(e){setError(e instanceof Error?e.message:'Could not save the wish.');}
-  finally{setSaving(false);}
+  setSaving(true);setError('');setDuplicateWish(false);
+  try {
+   await saveWish({aspiration:wish.trim(),kind:understood.kind,missionId:selected.id,answer});
+   setSaved(true);
+  } catch(e) {
+   if (e instanceof WishAlreadySavedError) setDuplicateWish(true);
+   setError(e instanceof Error ? e.message : 'Could not save the wish.');
+  } finally { setSaving(false); }
  };
  const requireAccount = async (intent: 'save'|'portfolio') => {
   setError('');
@@ -193,7 +198,7 @@ function App(){
       <div className="honesty"><LockKeyhole size={17}/><span><strong>No work has run yet.</strong> {selected.id==='build-portfolio'?'You can now build a real private gallery from photos on your device.':'This mission is planned, not executed.'} Nothing is published or charged.</span></div>
       <button className="primary" onClick={()=>void requireAccount("save")} disabled={saving||saved}>{saved?'Wish saved privately':saving?'Saving…':'Save this wish'} <ArrowRight size={18}/></button>
       {error&&<p className="error" role="alert">{error}</p>}
-      {saved && <button className="back" type="button" onClick={showMyWishes}>See my saved wishes <ArrowRight size={16}/></button>}
+      {(saved || duplicateWish) && <button className="back" type="button" onClick={showMyWishes}>Open My wishes <ArrowRight size={16}/></button>}
       <p className="subtle">Saving requires a verified email account. Exploring your wish does not require registration.</p>
       {selected.id==='build-portfolio' ? <button type="button" className="primary" onClick={()=>void requireAccount('portfolio')}>Build my private portfolio <ArrowRight size={18}/></button> : <button className="primary muted" disabled>Execute this mission <span className="coming">NEXT STORY</span></button>}
       <button className="back" onClick={reset}><RotateCcw size={16}/> Try another wish</button>

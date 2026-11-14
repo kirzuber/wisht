@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, ArrowRight, Images, LockKeyhole, RefreshCw, Sparkles, Trash2 } from 'lucide-react';
 import { getAuthenticatedUser, getSupabase } from './supabaseClient';
+import { duplicateWishGroups } from './wishDedup';
 import { MAX_SAVED_WISHES, wishesRemaining } from './wishLimit';
 import './myWishes.css';
 
@@ -38,6 +39,7 @@ export default function MyWishes({ email, onOpenPortfolio, onNewWish }: Props) {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [refresh, setRefresh] = useState(0);
+  const duplicateGroups = duplicateWishGroups(wishes);
 
   useEffect(() => {
     let active = true;
@@ -100,6 +102,10 @@ export default function MyWishes({ email, onOpenPortfolio, onNewWish }: Props) {
       {wishes.length > MAX_SAVED_WISHES && <p className="my-work-cap-warning">
         You saved more than three wishes before the limit was introduced. They're all preserved.
         Delete {wishes.length - MAX_SAVED_WISHES} or more to make room for another wish.
+      </p>}
+      {duplicateGroups.length > 0 && <p className="my-work-cap-warning">
+        Some saved wishes describe the same goal. Different missions don't need separate wishes.
+        Your existing entries are preserved; you can delete duplicate test cards to free up space.
       </p>}
       {wishes.length === MAX_SAVED_WISHES && <p className="my-work-cap-note">
         All three wishes are saved. You can keep exploring, but to save a new one you'll need to delete an existing wish.
