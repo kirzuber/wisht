@@ -18,6 +18,12 @@ describe('Truthful work receipts',()=>{
     const status=receiptDisplay(receipt('PUBLIC_LISTING_REMOVED'));
     assert.match(status.detail,/caches may persist/i);
   });
+  it('does not claim source-index results are organizer verified',()=>{
+    const result=receiptDisplay({...receipt('WATCH_CHECK_COMPLETED',0),opportunity_count:2});
+    assert.match(result.title,/scheduled opportunity check/i);
+    assert.match(result.detail,/2 new or changed/i);
+    assert.match(result.privacy,/not independently verified/);
+  });
   it('does not claim a prepared submission was sent',()=>{
     const result=receiptDisplay(receipt('SUBMISSION_DRAFT_SAVED',2));
     assert.match(result.title,/draft saved/i);
