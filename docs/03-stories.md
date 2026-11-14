@@ -29,8 +29,11 @@ From a saved photography opportunity, inspect the source listing, locate the off
 ### Follow-up: authoritative organizer verification — DEFERRED
 A reliable server-side organizer-rules verification adapter needs secure third-party fetching, rule extraction, provenance, freshness checks and uncertainty handling. It must not be represented as complete in 003.3. A user-review gate is the safer MVP boundary until that capability can be tested against multiple organizers.
 
-## JINN-003.4 — Autonomous Watch — IN REVIEW
+## JINN-003.4 — Autonomous Watch — COMPLETE
 Explicit seven-day photography watch, max seven daily source checks, real source-diff evidence and owner pause/resume/cancel. Bounded server-only Netlify Scheduled Function, saved watch results and Work Receipts. **In-app new-findings notifications only in this increment; email remains deferred pending delivery setup and separate consent.** Scheduled function needs secure server-only Netlify Supabase key before production activation. See docs/13-jinn-003-4-autonomous-watch.md.
+
+## JINN-004.1 — Career Opportunity Scout — PROPOSED
+Expand the same wish → deed → evidence experience beyond photography using real job sources, a bounded user-supplied career profile, and selective LLM reasoning for relevance explanations. Do not invent job listings or automatically apply. Source verification and cost ceilings are required before execution.
 
 ## Deliberately deferred
 Generic multi-agent orchestration, autonomous messaging, universal browser actions, payments, notification campaigns, account discovery by email, expensive vision models, vector DB and new deployment services.
