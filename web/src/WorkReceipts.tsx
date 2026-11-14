@@ -21,7 +21,7 @@ export default function WorkReceipts({ wishId, portfolioId, refreshKey=0 }: Prop
       try{
         await getAuthenticatedUser();
         const {data,error:queryError}=await getSupabase().from('work_receipts')
-          .select('id,wish_id,portfolio_id,shortlist_id,submission_id,watch_run_id,opportunity_count,action,photo_count,public_slug,source,recorded_at')
+          .select('id,wish_id,portfolio_id,shortlist_id,submission_id,watch_run_id,career_shortlist_id,opportunity_count,action,photo_count,public_slug,source,recorded_at')
           .eq(filter,value).order('recorded_at',{ascending:false}).limit(20);
         if(queryError)throw queryError;
         if(active)setEvents((data||[]) as WorkReceipt[]);
@@ -55,7 +55,7 @@ export default function WorkReceipts({ wishId, portfolioId, refreshKey=0 }: Prop
               <span>·</span><time dateTime={event.recorded_at}>{new Date(event.recorded_at).toLocaleString()}</time>
               <span>·</span><span>{event.public_slug
                 ? `Listing ID: ${event.public_slug}`
-                : event.watch_run_id ? `Watch ID: ${event.watch_run_id.slice(0,8)}` : event.submission_id ? `Draft ID: ${event.submission_id.slice(0,8)}` : event.shortlist_id ? `Research ID: ${event.shortlist_id.slice(0,8)}` : event.portfolio_id ? `Gallery ID: ${event.portfolio_id.slice(0,8)}` : 'Wish-level deed'}</span>
+                : event.career_shortlist_id ? `Career ID: ${event.career_shortlist_id.slice(0,8)}` : event.watch_run_id ? `Watch ID: ${event.watch_run_id.slice(0,8)}` : event.submission_id ? `Draft ID: ${event.submission_id.slice(0,8)}` : event.shortlist_id ? `Research ID: ${event.shortlist_id.slice(0,8)}` : event.portfolio_id ? `Gallery ID: ${event.portfolio_id.slice(0,8)}` : 'Wish-level deed'}</span>
             </div>
           </div>
         </li>;

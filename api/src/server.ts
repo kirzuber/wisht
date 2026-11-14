@@ -4,6 +4,7 @@ import { supportedExamples } from './catalog.js';
 import { interpretWishSmart } from './llm.js';
 import { scanPhotoOpportunities, type PhotoGenre } from './scout.js';
 import { inspectIndexedListing } from './contestEvidence.js';
+import { serveCareerScout } from './careerService.js';
 
 const app=express();
 app.disable('x-powered-by');
@@ -25,6 +26,14 @@ app.get('/api/opportunity-detail',async(req,res)=>{
   const listing=String(req.query.listing||'');
   res.json(await inspectIndexedListing(listing));
  }catch(e){res.status(422).json({error:e instanceof Error?e.message:'Could not inspect listing.'});}
+});
+app.post('/api/career-scout',async(req,res)=>{
+ const request=new Request('http://localhost/api/career-scout',{
+  method:'POST',headers:{'Content-Type':'application/json',...(req.headers.authorization?{Authorization:req.headers.authorization}:{})},
+  body:JSON.stringify(req.body)
+ });
+ const response=await serveCareerScout(request);
+ res.status(response.status).json(await response.json());
 });
 app.post('/api/interpret', async (req,res)=>{
   const wish=req.body?.wish;

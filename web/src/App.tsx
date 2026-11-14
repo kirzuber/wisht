@@ -1,3 +1,4 @@
+import CareerScout from './CareerScout';
 import SubmissionPrep from './SubmissionPrep';
 import OpportunityScout from './OpportunityScout';
 import type { ScoutResult, PhotoGenre } from './opportunityTypes';
@@ -13,7 +14,7 @@ import { ArrowLeft, ArrowRight, Check, ChevronRight, Compass, LockKeyhole, Rotat
 
 type Mission={id:string;title:string;promise:string;question:string;choices:{id:string;label:string}[];deliverables:string[];nextInput:string;permission:string};
 type Interpretation={kind:string;tone:'warm'|'playful'|'discreet';reflection:string;message:string;missions:Mission[];supported:boolean};
-type Stage='wish'|'choose'|'question'|'ready'|'portfolio'|'library'|'scout'|'submission';
+type Stage='wish'|'choose'|'question'|'ready'|'portfolio'|'library'|'scout'|'submission'|'career-scout';
 const examples=['I want to be a photographer','I want a new career','I want to play soccer','I want to be independent'];
 const API=import.meta.env.VITE_API_BASE_URL || '';
 
@@ -22,6 +23,7 @@ function WishApp(){
  const [openedPortfolioId,setOpenedPortfolioId]=useState<string|null>(()=>new URLSearchParams(window.location.search).get('portfolio'));
  const [portfolioWishId,setPortfolioWishId]=useState<string|null>(null);
  const [scoutWishId,setScoutWishId]=useState<string|null>(null);
+ const [careerWishId,setCareerWishId]=useState<string|null>(null);
  const [scoutPreview,setScoutPreview]=useState<ScoutResult|null>(null);
  const [submissionContext,setSubmissionContext]=useState<{
    wishId:string;shortlistId?:string;opportunityId?:string;existingId?:string
@@ -58,11 +60,11 @@ function WishApp(){
  const [saving,setSaving]=useState(false);
  const [saved,setSaved]=useState(false);
  const [duplicateWish,setDuplicateWish]=useState(false);
- const [authIntent,setAuthIntent]=useState<'save'|'portfolio'|'account'|'scout'|null>(
+ const [authIntent,setAuthIntent]=useState<'save'|'portfolio'|'account'|'scout'|'career-scout'|null>(
    ()=>new URLSearchParams(window.location.search).has('portfolio')?'portfolio':null
  );
  const [error,setError]=useState('');
- const reset=()=>{window.history.replaceState(null,'',window.location.pathname);setOpenedPortfolioId(null);setPortfolioWishId(null);setScoutWishId(null);setScoutPreview(null);setSubmissionContext(null);setStage('wish');setWish('');setUnderstood(null);setSelected(null);setAnswer('');setError('');setSaved(false);setDuplicateWish(false);setAuthIntent(null);};
+ const reset=()=>{window.history.replaceState(null,'',window.location.pathname);setOpenedPortfolioId(null);setPortfolioWishId(null);setScoutWishId(null);setCareerWishId(null);setScoutPreview(null);setSubmissionContext(null);setStage('wish');setWish('');setUnderstood(null);setSelected(null);setAnswer('');setError('');setSaved(false);setDuplicateWish(false);setAuthIntent(null);};
  const interpret=async()=>{
   if(wish.trim().length<2)return;
   setBusy(true);setError('');
@@ -103,6 +105,7 @@ function WishApp(){
   if (intent === 'save') void save();
   if (intent === 'account') setStage('library');
   if (intent === 'scout') setStage('scout');
+  if (intent === 'career-scout') setStage('career-scout');
  };
  const startScout=()=>{
    setScoutWishId(null);setScoutPreview(null);setStage('scout');
@@ -111,6 +114,8 @@ function WishApp(){
    setScoutWishId(wishId);setScoutPreview(null);setStage('scout');
  };
  const backFromScout=()=>setStage(account?'library':'ready');
+ const startCareerScout=()=>{setCareerWishId(null);setStage('career-scout');};
+ const startCareerScoutForWish=(wishId:string)=>{setCareerWishId(wishId);setStage('career-scout');};
  const prepareSubmission=(wishId:string,shortlistId:string,opportunityId:string)=>{
    setSubmissionContext({wishId,shortlistId,opportunityId});
    setStage('submission');
@@ -169,7 +174,7 @@ function WishApp(){
    <main className="main" aria-live="polite">
     <div className="hero-glow" aria-hidden="true"/>
     {stage!=='portfolio' && stage!=='library' && !authIntent && <div className="hero-icon" aria-hidden="true"><Sparkles size={30} strokeWidth={1.25}/></div>}
-    {authIntent && <AuthGate purpose={authIntent==='save'?'Your wish is ready to save.':authIntent==='portfolio'?'Your portfolio is ready to begin.':authIntent==='scout'?'Your findings are ready to keep.':'Sign in to see your saved work.'}
+    {authIntent && <AuthGate purpose={authIntent==='save'?'Your wish is ready to save.':authIntent==='portfolio'?'Your portfolio is ready to begin.':authIntent==='scout'?'Your findings are ready to keep.':authIntent==='career-scout'?'Sign in for AI matching or saving.':'Sign in to see your saved work.'}
        onAuthenticated={afterAuth} onCancel={()=>setAuthIntent(null)}/>}
     {!authIntent && stage==='wish' && <section className="content entrance">
       <p className="eyebrow">ONE DREAM. THREE DEEDS.</p>
@@ -207,7 +212,7 @@ function WishApp(){
       <p className="subtle">Just one question for now. More details come only when they're needed to do the work.</p>
       <button className="back" onClick={()=>setStage('choose')}><ArrowLeft size={16}/> Choose a different deed</button>
     </section>}
-    {!authIntent && stage==='library' && account && <MyWishes email={account.email||''} onOpenPortfolio={openPortfolio} onNewPortfolio={startAnotherPortfolio} onOpenScout={startScoutForWish} onPrepareSubmission={prepareSubmission} onOpenSubmission={openSubmission} onNewWish={reset}/>}
+    {!authIntent && stage==='library' && account && <MyWishes email={account.email||''} onOpenPortfolio={openPortfolio} onNewPortfolio={startAnotherPortfolio} onOpenScout={startScoutForWish} onCareerScout={startCareerScoutForWish} onPrepareSubmission={prepareSubmission} onOpenSubmission={openSubmission} onNewWish={reset}/>}
     {!authIntent && stage==='submission' && submissionContext && <SubmissionPrep
       wishId={submissionContext.wishId}
       shortlistId={submissionContext.shortlistId}
@@ -216,7 +221,12 @@ function WishApp(){
       onBack={showMyWishes}
       onBuildPortfolio={startAnotherPortfolio}
       onSaved={showMyWishes}/>}
-    {stage==='scout' && <div style={{display:authIntent?'none':'contents',width:'100%'}}>
+    {stage==='career-scout' && <div style={{display:authIntent?'none':'contents',width:'100%'}}>
+      <CareerScout wishId={careerWishId||undefined} aspiration={wish.trim()||undefined}
+       answer={answer||undefined} onBack={()=>setStage(account?'library':'ready')}
+       onRequireAuth={()=>setAuthIntent('career-scout')} onSaved={showMyWishes}/>
+     </div>}
+     {stage==='scout' && <div style={{display:authIntent?'none':'contents',width:'100%'}}>
       <OpportunityScout wishContext={scoutWishId
          ? {wishId:scoutWishId}
          : {aspiration:wish.trim()||undefined,missionId:'find-photo-opportunities',answer:answer||undefined}}
@@ -251,8 +261,8 @@ function WishApp(){
        <p className="section-title">PERMISSIONS</p>
        <p className="detail">{selected.permission}</p>
       </div>
-      <div className="honesty"><LockKeyhole size={17}/><span><strong>No work has run yet.</strong> {selected.id==='build-portfolio'?'You can now build a real private gallery from photos on your device.':selected.id==='find-photo-opportunities'?'The scout can check a live public calendar. No opportunities have been checked yet.':'This mission is planned, not executed.'} Nothing is published or charged.</span></div>
-      {selected.id!=='build-portfolio' && selected.id!=='find-photo-opportunities' && <button className="primary"
+      <div className="honesty"><LockKeyhole size={17}/><span><strong>No work has run yet.</strong> {selected.id==='build-portfolio'?'You can now build a real private gallery from photos on your device.':selected.id==='find-photo-opportunities'?'The scout can check a live public calendar. No opportunities have been checked yet.':selected.id==='career-scout'?'Jinn can search current remote job listings. No roles have been checked yet.':'This mission is planned, not executed.'} Nothing is published or charged.</span></div>
+      {selected.id!=='build-portfolio' && selected.id!=='find-photo-opportunities' && selected.id!=='career-scout' && <button className="primary"
          onClick={()=>void requireAccount("save")} disabled={saving||saved}>
          {saved?'Wish saved privately':saving?'Saving…':'Save this wish'} <ArrowRight size={18}/>
       </button>}
@@ -262,11 +272,13 @@ function WishApp(){
         ? 'Your photography wish is saved automatically when your first gallery is created.'
         : selected.id==='find-photo-opportunities'
         ? 'Search without an account. Your wish is saved only when you choose to keep a real shortlist.'
-        : 'Saving requires a verified email account. Exploring your wish does not require registration.'}</p>
+        : selected.id==='career-scout'?'Browse remote jobs freely. Your wish is saved only when you keep findings.':'Saving requires a verified email account. Exploring your wish does not require registration.'}</p>
       {selected.id==='build-portfolio'
        ? <button type="button" className="primary" onClick={()=>void requireAccount('portfolio')}>Build my private portfolio <ArrowRight size={18}/></button>
        : selected.id==='find-photo-opportunities'
         ? <button type="button" className="primary" onClick={startScout}>Find real opportunities <ArrowRight size={18}/></button>
+        : selected.id==='career-scout'
+         ? <button type="button" className="primary" onClick={startCareerScout}>Find real remote jobs <ArrowRight size={18}/></button>
         : <button className="primary muted" disabled>Execute this mission <span className="coming">NEXT STORY</span></button>}
       <button className="back" onClick={reset}><RotateCcw size={16}/> Try another wish</button>
     </section>}

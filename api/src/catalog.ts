@@ -37,9 +37,9 @@ const catalog:Record<Exclude<WishKind,'unsupported'>, Interpretation> = {
   career: {
     kind:'career',tone:'warm',supported:true,
     reflection:'A different career chapter. Let’s make it concrete.',
-    message:'I can investigate real opportunities, prepare an application, or keep watch on the jobs you actually want.',
+    message:'I can check real remote openings now. Application preparation and monitoring are still planned capabilities.',
     missions:[
-      mission('career-scout','Find my next opportunity','Research verified openings and shortlist relevant matches.', 'Which direction are you going?', [['advance','Grow in my current field'],['change','Switch to a new field'],['explore','I am still exploring']], ['Verified job shortlist','Fit reasoning and next steps'], 'Resume or brief experience summary, location and role interests will be requested during execution.'),
+      mission('career-scout','Find my next opportunity','Find source-backed remote job listings, with optional AI fit explanations.', 'Which direction are you going?', [['advance','Grow in my current field'],['change','Switch to a new field'],['explore','I am still exploring']], ['Remote job shortlist with source links','Optional, advisory AI fit notes'], 'Target role and remote country preference. A brief experience summary is optional for explicit AI matching.'),
       mission('career-application','Prepare an application','Prepare a tailored resume and letter for a selected verified job.', 'Do you have a resume already?', [['yes','Yes'],['no','Not yet']], ['Editable resume draft','Tailored application draft'], 'A resume or short experience summary and a job description will be needed.'),
       mission('career-watch','Watch for my next role','Set up a bounded public-opening watch and notify on meaningful matches.', 'How would you like to search?', [['remote','Remote opportunities'],['local','Opportunities near me'],['either','Either']], ['10-day job monitoring brief','New-match notifications (opt-in)'], 'Location, career context and notification opt-in will be needed.', 'User consent required for scheduled notifications')
     ]
