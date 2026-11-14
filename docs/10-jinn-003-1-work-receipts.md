@@ -1,6 +1,6 @@
 # JINN-003.1 — Durable Work Receipts
 
-Status: IN REVIEW. Branch: `feature/jinn-003-1-work-receipts`.
+Status: COMPLETE. User accepted closure on November 14, 2026. Implemented in PR #6.
 
 ## Why
 Wisht must compete with the effort needed to reach an outcome. Its proof of work cannot be a client-generated congratulatory panel or a promise to do something later.
@@ -41,3 +41,6 @@ The next story will design the second autonomous real-world deed (Opportunity Sc
 ## Verification evidence — November 14, 2026
 GitHub Actions run: https://github.com/kirzuber/wisht/actions/runs/43634963605 (successful).
 The database was checked for three enabled triggers, owner-only RLS, read-only client grants and no direct execution permission on the private receipt writer. A temporary portfolio was created, published, unpublished, and verified to produce all three receipts inside a database subtransaction; it was rolled back. Database still contained exactly two pre-existing reconstructed receipts after the test. Existing published records may be zero due to user tests before this migration; never backfill events not supported by current records.
+
+## Story closure
+The owner accepted JINN-003.1 for closure on November 14, 2026. Database migration, CI and transactional receipt-trigger tests were independently verified. The local product experience was accepted by the owner; do not interpret the unchecked individual browser scenarios above as independently instrumented test evidence. PR #6 is being merged to main for Netlify deployment.
