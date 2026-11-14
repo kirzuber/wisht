@@ -27,6 +27,9 @@ type Props = {
 };
 
 function friendlyError(error: unknown): string {
+  if(error instanceof Error && (/foreign key constraint|23503|submission_packages/.test(error.message))){
+    return 'This portfolio is used by a submission draft. Delete the related draft from My wishes before deleting the gallery.';
+  }
   return error instanceof Error ? error.message : 'The portfolio could not be saved. Please try again.';
 }
 

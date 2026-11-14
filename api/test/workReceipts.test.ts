@@ -18,6 +18,12 @@ describe('Truthful work receipts',()=>{
     const status=receiptDisplay(receipt('PUBLIC_LISTING_REMOVED'));
     assert.match(status.detail,/caches may persist/i);
   });
+  it('does not claim a prepared submission was sent',()=>{
+    const result=receiptDisplay(receipt('SUBMISSION_DRAFT_SAVED',2));
+    assert.match(result.title,/draft saved/i);
+    assert.match(result.privacy,/not submitted/i);
+    assert.match(result.detail,/2 selected photo previews/i);
+  });
   it('labels private gallery persistence without claiming public delivery',()=>{
     const status=receiptDisplay(receipt('PRIVATE_GALLERY_CREATED'));
     assert.match(status.privacy,/Private/i);

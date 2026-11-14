@@ -1,10 +1,11 @@
 export type WorkAction =
-  'PRIVATE_GALLERY_CREATED' | 'PUBLIC_LISTING_CREATED' | 'PUBLIC_LISTING_REMOVED' | 'OPPORTUNITY_SHORTLIST_SAVED';
+  'PRIVATE_GALLERY_CREATED' | 'PUBLIC_LISTING_CREATED' | 'PUBLIC_LISTING_REMOVED' | 'OPPORTUNITY_SHORTLIST_SAVED' | 'SUBMISSION_DRAFT_SAVED';
 export type WorkReceipt = {
   id: string;
   wish_id: string;
   portfolio_id: string|null;
   shortlist_id?: string|null;
+  submission_id?: string|null;
   opportunity_count?: number;
   action: WorkAction;
   photo_count: number;
@@ -17,6 +18,12 @@ export type ReceiptDisplay = { title: string; detail: string; privacy: string };
 export function receiptDisplay(receipt: WorkReceipt): ReceiptDisplay {
   const count = receipt.photo_count;
   switch(receipt.action){
+    case 'SUBMISSION_DRAFT_SAVED':
+      return {
+        title:'Private submission draft saved',
+        detail:'An editable preparation package referencing '+count+' selected photo '+(count===1?'preview':'previews')+' was saved.',
+        privacy:'Private draft · not submitted · organizer terms not certified'
+      };
     case 'OPPORTUNITY_SHORTLIST_SAVED':
       return {
         title:'Opportunity shortlist saved',
