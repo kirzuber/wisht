@@ -171,7 +171,7 @@ function WishApp(){
    </header>
    <main className="main" aria-live="polite">
     <div className="hero-glow" aria-hidden="true"/>
-    {stage!=='portfolio' && stage!=='library' && !authIntent && <div className="hero-icon" aria-hidden="true"><Sparkles size={30} strokeWidth={1.25}/></div>}
+    {(stage==='wish'||stage==='choose') && !authIntent && <div className="hero-icon" aria-hidden="true"><Sparkles size={30} strokeWidth={1.25}/></div>}
     {authIntent && <AuthGate purpose={authIntent==='portfolio'?'Your portfolio is ready to begin.':authIntent==='scout'?'Your findings are ready to keep.':authIntent==='career-scout'?'Sign in for AI matching or saving.':authIntent==='soccer-scout'?'Sign in to save your soccer research.':'Sign in to see your saved work.'}
        onAuthenticated={afterAuth} onCancel={()=>setAuthIntent(null)}/>}
     {!authIntent && stage==='wish' && <section className="content entrance">
