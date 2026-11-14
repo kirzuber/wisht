@@ -41,6 +41,12 @@ Wisht keeps the Supabase browser session through reloads and refreshes it automa
 
 Exploring wishes still requires no account and writes no persistent user data. Earlier **anonymous** test records do not belong to newly verified email accounts and are not migrated automatically.
 
+## Three-wish limit
+
+Each saved mission card occupies **one of three slots** in a verified account. Exploring new ideas never requires sign-in or consumes a slot. Portfolios are artifacts, not additional wishes. After three are saved, the app explains the limit and offers deletion of a saved wish. The database enforces the cap even against direct API calls and concurrent requests; a frontend count provides an early friendly message. Legacy over-limit records are preserved rather than silently deleted.
+
+Migration: `supabase/migrations/20261114210000_three_saved_wishes.sql`. Coordinate applying it with the PR release; it is not bundled automatically into Netlify deployments.
+
 ## Deployment
 
 One Netlify project serves Vite and serverless API Functions. **Only main is built/deployed by Netlify**: `netlify.toml` ignores branch and PR preview builds. GitHub Actions validates each PR. Never merge a feature branch until CI and owner acceptance pass.

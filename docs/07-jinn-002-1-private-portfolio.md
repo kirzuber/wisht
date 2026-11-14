@@ -69,3 +69,19 @@ Supabase `wisht-dev` sends eight-digit codes. The initial UI accepted only six, 
 
 ## 002.1 continuation — My wishes (same PR)
 Wisht uses the Supabase browser client session (with persistent storage and token refresh); no custom session table is needed. The signed-in header shows My wishes and Sign out. My wishes loads the existing `wishes` and `portfolios` records filtered by authenticated user ID under RLS; saved wishes remain explicitly PLANNED rather than falsely showing work as complete. Clicking a portfolio opens its private gallery and reissues signed image URLs. A returning user can sign into a second browser using the same email OTP and see the same records. No new migration for session continuity. Before merging, validate the OTP path, page refresh, another device, sign-out and owner-isolation. Legacy anonymous records remain separate from email accounts.
+
+## Three saved wishes — prototype entitlement
+
+- A verified account may save **at most three wish cards**. Each `wishes` row counts as one; another mission for the same aspiration is currently another card. This may evolve into grouped dreams/deeds later.
+- Public exploration and LLM interpretation remain open regardless of cap.
+- No wish is consumed by viewing a result or by creating a portfolio; a portfolio is a private artifact, not a separate wish.
+- My wishes shows `used / 3`, explains what to do at the cap, and permits deleting any saved wish to open a slot.
+- `saveWish` checks the count before inserting, and a DB trigger enforces the limit atomically under concurrent inserts.
+- Existing records beyond three are preserved, shown with a legacy over-cap notice, and cannot be augmented until below three.
+- [ ] 0, 2, 3 and 4 existing-row cases render correctly.
+- [ ] At three saved wishes a direct Supabase insert is rejected by `WISH_LIMIT_REACHED` as well as the UI pre-check.
+- [ ] Deleting one of three allows saving again; no portfolio is removed by deleting a wish.
+- [ ] Two concurrent insert attempts from the same account cannot exceed three.
+- [ ] Existing fourth test wish is not deleted automatically.
+
+**Coordinated migration:** Apply `20261114210000_three_saved_wishes.sql` to `wisht-dev` when promoting PR #3. Its existing OTP/RLS migration remains a separate required release step.

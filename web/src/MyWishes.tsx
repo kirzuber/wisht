@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, ArrowRight, Images, LockKeyhole, RefreshCw, Sparkles, Trash2 } from 'lucide-react';
 import { getAuthenticatedUser, getSupabase } from './supabaseClient';
+import { MAX_SAVED_WISHES, wishesRemaining } from './wishLimit';
 import './myWishes.css';
 
 type SavedWish = {
@@ -94,8 +95,18 @@ export default function MyWishes({ email, onOpenPortfolio, onNewWish }: Props) {
     {loading ? <p className="my-work-status">Opening your saved work…</p> : <>
       <div className="my-work-section-header">
         <h3>Saved wishes</h3>
-        <span>{wishes.length}</span>
+        <span>{wishes.length} / {MAX_SAVED_WISHES}</span>
       </div>
+      {wishes.length > MAX_SAVED_WISHES && <p className="my-work-cap-warning">
+        You saved more than three wishes before the limit was introduced. They're all preserved.
+        Delete {wishes.length - MAX_SAVED_WISHES} or more to make room for another wish.
+      </p>}
+      {wishes.length === MAX_SAVED_WISHES && <p className="my-work-cap-note">
+        All three wishes are saved. You can keep exploring, but to save a new one you'll need to delete an existing wish.
+      </p>}
+      {wishes.length < MAX_SAVED_WISHES && wishes.length > 0 && <p className="my-work-cap-note">
+        {wishesRemaining(wishes.length)} {wishesRemaining(wishes.length) === 1 ? 'wish' : 'wishes'} remaining.
+      </p>}
       {wishes.length === 0
         ? <p className="my-work-empty">No saved wishes yet. Your next one starts with a single sentence.</p>
         : <div className="my-work-list">{wishes.map(wish => <article className="my-work-card" key={wish.id}>
@@ -137,7 +148,9 @@ export default function MyWishes({ email, onOpenPortfolio, onNewWish }: Props) {
     </>}
 
     <div className="my-work-actions">
-      <button type="button" className="primary" onClick={onNewWish}>Make another wish <ArrowRight size={17}/></button>
+      <button type="button" className="primary" onClick={onNewWish}>
+        {wishesRemaining(wishes.length) ? 'Make another wish' : 'Explore another idea'} <ArrowRight size={17}/>
+      </button>
       <button type="button" className="back" onClick={() => setRefresh(x => x + 1)}>
         <RefreshCw size={14}/> Refresh saved work
       </button>

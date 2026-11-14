@@ -22,3 +22,6 @@ Persist verification evidence and action status for completed work; next photogr
 
 ## Deliberately deferred
 Generic multi-agent orchestration, autonomous messaging, universal browser actions, payments, notification campaigns, account discovery by email, expensive vision models, vector DB and new deployment services.
+
+## Three-wish entitlement — JINN-002.1 increment — IN REVIEW
+Limit each verified account to three saved wish cards. Enforce in Supabase and UI, preserve existing over-limit test data, keep portfolios separate, and don't restrict free anonymous exploration. Later product iteration may organize multiple deeds under one top-level dream.

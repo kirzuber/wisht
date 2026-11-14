@@ -29,3 +29,7 @@
 .my-work-actions .back{margin-top:10px}
 .my-work-status{text-align:center;font-size:13px;color:#8e9286}
 @media(max-width:600px){.my-work{padding:0 2px 25px}.my-work-heading{margin-bottom:25px}.my-work-card-main,.my-work-portfolio{padding:13px}.my-work-section-header{margin-top:23px}}
+
+.my-work-cap-note,.my-work-cap-warning{font-size:12px;line-height:1.55;padding:11px 14px;border-radius:9px;margin:10px 0 14px}
+.my-work-cap-note{background:#edeae0;color:#6d715f}
+.my-work-cap-warning{background:#fff4e6;border:1px solid #e8d8ba;color:#87673d}
