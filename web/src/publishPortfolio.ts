@@ -1,6 +1,6 @@
 import { getAuthenticatedUser, getSupabase } from './supabaseClient';
 
-import { publicPath, selectedForPublication, type PortfolioPublication, type PublicPhoto } from './portfolioPublicationModel';
+import { publicPath, publicGalleryPath, selectedForPublication, type PortfolioPublication, type PublicPhoto } from './portfolioPublicationModel';
 
 export { publicPath, publicGalleryPath, selectedForPublication };
 export type { PortfolioPublication, PublicPhoto };
