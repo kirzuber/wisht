@@ -73,3 +73,6 @@ Each skill must publish:
 ## Deliberate non-goals
 
 No agent swarm, Kubernetes, vector database, heavy orchestration framework, user-wide data scraping, unattended account mutations, public release before security review, or billing in JINN-001.
+
+## Implementation reality — November 2026
+The early desired Railway API is deliberately **not used**: current production is **one Netlify site** hosting React/Vite and small Netlify Functions (plus a local Express developer server). Supabase runs verified email Auth, owner-RLS Postgres, private/public portfolio Storage and trigger-authored Work Receipts. DeepSeek is called selectively for unsupported wish classification. There is no general worker or autonomous scheduler yet. JINN-003.2 adds a bounded public-source scout in the existing Netlify Functions/Express code, a private user-owned research shortlist table, and a receipt for saved findings. It does not introduce a new hosting service or an LLM web-search loop. The published iCalendar listing is *discovery evidence*, not organizer verification; true qualification and submission preparation require a later story.

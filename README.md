@@ -73,6 +73,16 @@ Database-origin history records three actions: private gallery DB creation, publ
 
 Migration: `supabase/migrations/20261114235000_work_receipts.sql` (**applied to wisht-dev; trigger, RLS and grants tested**); acceptance and limitations: `docs/10-jinn-003-1-work-receipts.md`.
 
+## Opportunity Scout — JINN-003.2
+
+`/api/scout?genre=any|nature|portrait|open&free=true|false` reads a publicly advertised Pixcontests iCalendar deadline feed and returns **up to five** future-dated, deduplicated listings. It is a bounded public-source scan: it does **not** independently verify organizer eligibility, fees or live submission status. If the feed is unavailable or contains no suitable listings, the Jinn displays an honest failure or empty result. No invented matches and no API key required.
+
+The visitor can browse without signing in. Saving results creates/reuses one photography wish, inserts a user-owned `opportunity_shortlists` row and records a truthful `OPPORTUNITY_SHORTLIST_SAVED` Work Receipt. The same wish can own multiple portfolios and research shortlists. One saved shortlist per wish per UTC day prevents redundant research records; next-day runs can be saved again.
+
+Migration: `supabase/migrations/20261115010000_opportunity_shortlists.sql` (**applied to wisht-dev**); story and acceptance: `docs/11-jinn-003-2-opportunity-scout.md`.
+
+This is one reusable scout shape, with an initial photography-specific provider adapter. Career and soccer will need their own permitted, reliable sources. It is not yet a scheduled autonomous watch and it does not contact organizers or submit photographs.
+
 ## Deployment
 
 One Netlify project serves Vite and serverless API Functions. **Only main is built/deployed by Netlify**: `netlify.toml` ignores branch and PR preview builds. GitHub Actions validates each PR. Never merge a feature branch until CI and owner acceptance pass.

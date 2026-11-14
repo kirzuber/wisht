@@ -40,3 +40,9 @@
 .my-work-portfolio.nested:hover{background:#f4f0e6}
 .my-work-add-portfolio{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:#f0eee7;border:1px solid #ded8c9;border-radius:9px;color:#46634e;padding:12px;margin-top:12px;font-size:11px;font-weight:700}
 .my-work-nested-note{font-size:10px!important;color:#989489!important}
+
+.my-work-scout-card{border:1px solid #e6dfd0;background:#fffdf7;border-radius:10px;padding:14px}
+.my-work-scout-card strong{display:block;font-size:12px;color:#394d3e}
+.my-work-scout-card>small{display:block;font-size:10px;color:#999185;margin:6px 0}
+.my-work-scout-links{display:grid;gap:7px;margin:12px 0}
+.my-work-scout-links a{font-size:11px;line-height:1.5;color:#42704e;text-decoration:underline;overflow-wrap:anywhere}

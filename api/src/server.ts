@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { supportedExamples } from './catalog.js';
 import { interpretWishSmart } from './llm.js';
+import { scanPhotoOpportunities, type PhotoGenre } from './scout.js';
 
 const app=express();
 app.disable('x-powered-by');
@@ -10,6 +11,14 @@ if(process.env.CORS_ORIGIN) app.use(cors({origin:process.env.CORS_ORIGIN}));
 
 app.get('/api/health', (_req,res)=>res.json({status:'ok',story:'JINN-001'}));
 app.get('/api/examples', (_req,res)=>res.json({examples:supportedExamples()}));
+app.get('/api/scout',async(req,res)=>{
+ const genre=String(req.query.genre||'any'),free=String(req.query.free||'true');
+ if(!['any','nature','portrait','open'].includes(genre)||!['true','false'].includes(free)){
+  res.status(400).json({error:'Invalid scout preferences.'});return;
+ }
+ try{res.json(await scanPhotoOpportunities({genre:genre as PhotoGenre,freeOnly:free==='true'}));}
+ catch(e){res.status(503).json({error:e instanceof Error?e.message:'Scout unavailable.'});}
+});
 app.post('/api/interpret', async (req,res)=>{
   const wish=req.body?.wish;
   if(typeof wish !=='string' || wish.trim().length<2 || wish.length>280) {
