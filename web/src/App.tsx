@@ -1,15 +1,17 @@
+import PortfolioBuilder from './PortfolioBuilder';
 import { saveWish } from './saveWish';
 import { useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, ChevronRight, Compass, LockKeyhole, RotateCcw, Sparkles, WandSparkles } from 'lucide-react';
 
 type Mission={id:string;title:string;promise:string;question:string;choices:{id:string;label:string}[];deliverables:string[];nextInput:string;permission:string};
 type Interpretation={kind:string;tone:'warm'|'playful'|'discreet';reflection:string;message:string;missions:Mission[];supported:boolean};
-type Stage='wish'|'choose'|'question'|'ready';
+type Stage='wish'|'choose'|'question'|'ready'|'portfolio';
 const examples=['I want to be a photographer','I want a new career','I want to play soccer','I want to be independent'];
 const API=import.meta.env.VITE_API_BASE_URL || '';
 
 function App(){
- const [stage,setStage]=useState<Stage>('wish');
+ const [stage,setStage]=useState<Stage>(()=>new URLSearchParams(window.location.search).has('portfolio')?'portfolio':'wish');
+ const [openedPortfolioId,setOpenedPortfolioId]=useState<string|null>(()=>new URLSearchParams(window.location.search).get('portfolio'));
  const [wish,setWish]=useState('');
  const [understood,setUnderstood]=useState<Interpretation|null>(null);
  const [selected,setSelected]=useState<Mission|null>(null);
@@ -18,7 +20,7 @@ function App(){
  const [saving,setSaving]=useState(false);
  const [saved,setSaved]=useState(false);
  const [error,setError]=useState('');
- const reset=()=>{setStage('wish');setWish('');setUnderstood(null);setSelected(null);setAnswer('');setError('');setSaved(false);};
+ const reset=()=>{window.history.replaceState(null,'',window.location.pathname);setOpenedPortfolioId(null);setStage('wish');setWish('');setUnderstood(null);setSelected(null);setAnswer('');setError('');setSaved(false);};
  const interpret=async()=>{
   if(wish.trim().length<2)return;
   setBusy(true);setError('');
@@ -46,7 +48,7 @@ function App(){
    </header>
    <main className="main" aria-live="polite">
     <div className="hero-glow" aria-hidden="true"/>
-    <div className="hero-icon" aria-hidden="true"><Sparkles size={30} strokeWidth={1.25}/></div>
+    {stage!=='portfolio' && <div className="hero-icon" aria-hidden="true"><Sparkles size={30} strokeWidth={1.25}/></div>}
     {stage==='wish' && <section className="content entrance">
       <p className="eyebrow">ONE DREAM. THREE DEEDS.</p>
       <h1>Who do you<br/><em>want to be?</em></h1>
@@ -83,6 +85,7 @@ function App(){
       <p className="subtle">Just one question for now. More details come only when they're needed to do the work.</p>
       <button className="back" onClick={()=>setStage('choose')}><ArrowLeft size={16}/> Choose a different deed</button>
     </section>}
+    {stage==='portfolio' && <PortfolioBuilder initialId={openedPortfolioId} onBack={reset} onCreated={setOpenedPortfolioId}/>}
     {stage==='ready' && selected && <section className="content entrance">
       <p className="eyebrow">YOUR FIRST DEED</p>
       <h2>Now I know where<br/><em>to begin.</em></h2>
@@ -100,15 +103,15 @@ function App(){
        <p className="section-title">PERMISSIONS</p>
        <p className="detail">{selected.permission}</p>
       </div>
-      <div className="honesty"><LockKeyhole size={17}/><span><strong>Nothing was run, sent, published or charged.</strong> This is JINN-001: mission planning. Real action execution and Work Receipts come in JINN-002/003.</span></div>
+      <div className="honesty"><LockKeyhole size={17}/><span><strong>No work has run yet.</strong> {selected.id==='build-portfolio'?'You can now build a real private gallery from photos on your device.':'This mission is planned, not executed.'} Nothing is published or charged.</span></div>
       <button className="primary" onClick={()=>void save()} disabled={saving||saved}>{saved?'Wish saved privately':saving?'Saving…':'Save this wish'} <ArrowRight size={18}/></button>
       {error&&<p className="error" role="alert">{error}</p>}
       <p className="subtle">Saving uses a private anonymous session when configured. It is tied to this browser; no mission will execute.</p>
-      <button className="primary muted" disabled>Execute this mission <span className="coming">NEXT STORY</span></button>
+      {selected.id==='build-portfolio' ? <button type="button" className="primary" onClick={()=>setStage('portfolio')}>Build my private portfolio <ArrowRight size={18}/></button> : <button className="primary muted" disabled>Execute this mission <span className="coming">NEXT STORY</span></button>}
       <button className="back" onClick={reset}><RotateCcw size={16}/> Try another wish</button>
     </section>}
    </main>
-   <footer className="footer"><span>Three wishes. Real work.</span><div className="step-dots" aria-label={`Experience step ${currentStageIndex+1} of 4`}>{[0,1,2,3].map(i=><span key={i} className={i===currentStageIndex?'on':''}/>)}</div><span>JINN-001 / LOCAL</span></footer>
+   <footer className="footer"><span>Three wishes. Real work.</span><div className="step-dots" aria-label={`Experience step ${currentStageIndex+1} of 4`}>{[0,1,2,3].map(i=><span key={i} className={i===currentStageIndex?'on':''}/>)}</div><span>WISHT / BETA</span></footer>
  </div>;
 }
 export default App;
