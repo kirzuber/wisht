@@ -18,6 +18,11 @@ describe('Truthful work receipts',()=>{
     const status=receiptDisplay(receipt('PUBLIC_LISTING_REMOVED'));
     assert.match(status.detail,/caches may persist/i);
   });
+  it('labels career shortlist as source-indexed rather than employer-confirmed',()=>{
+    const value=receiptDisplay({...receipt('CAREER_SHORTLIST_SAVED',0),opportunity_count:3});
+    assert.match(value.detail,/3 remote job/);
+    assert.match(value.privacy,/not independently confirmed/);
+  });
   it('does not claim source-index results are organizer verified',()=>{
     const result=receiptDisplay({...receipt('WATCH_CHECK_COMPLETED',0),opportunity_count:2});
     assert.match(result.title,/scheduled opportunity check/i);
