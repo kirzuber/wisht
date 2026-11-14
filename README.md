@@ -95,7 +95,7 @@ Migration: `supabase/migrations/20261115023000_submission_packages.sql` (**appli
 
 Opt-in seven-day photography watch under one wish, scheduled public-source rechecks with baseline/new/changed findings, user pause/resume/cancel, and database-authored Work Receipts. Results are **in-app only**. No unsolicited email and no organizer contact. Source checks use existing zero-LLM Pixcontests scanner; max seven attempts per watch and six due watches processed per scheduled invocation.
 
-Migration: `supabase/migrations/20261115040000_autonomous_photo_watch.sql`; story details: `docs/13-jinn-003-4-autonomous-watch.md`.
+Migration: `supabase/migrations/20261115040000_autonomous_photo_watch.sql` (**applied and verified in wisht-dev**); story details: `docs/13-jinn-003-4-autonomous-watch.md`.
 
 **Production activation requires a new Netlify Functions-only `SUPABASE_SERVICE_ROLE_KEY` secret** (never a `VITE_` variable, never committed). Netlify Scheduled Functions run on published main only, at 12:00 UTC daily. Until the credential, published deployment, and first actual scheduled run are verified, this story stays IN REVIEW; the worker fails closed. No Netlify branch previews run a schedule.
 
