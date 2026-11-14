@@ -57,7 +57,7 @@ export default function PortfolioBuilder({ initialId, onBack, onCreated }: Props
       setLoading(true);
       setError('');
       try {
-        const user = await getAuthenticatedUser();
+        await getAuthenticatedUser();
         const { data, error: readError } = await getSupabase()
           .from('portfolios').select('id,title,introduction,photos,status')
           .eq('id', initialId).single();
