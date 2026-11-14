@@ -1,6 +1,6 @@
 # JINN-003.4 — Autonomous Watch
 
-Status: IN REVIEW. Branch: feature/jinn-003-4-autonomous-watch.
+Status: COMPLETE. Owner accepted local controls and production execution on November 14, 2026. Merged PR #9.
 
 ## Outcome
 The verified user explicitly starts one seven-day photography Opportunity Watch under an existing photography wish. Once a day, Netlify's scheduled function checks the bounded existing public calendar, compares results with earlier successful checks, persists a true database check record, and shows any new or changed listings in My Wishes the next time the user visits.
@@ -36,10 +36,10 @@ The project uses **only main for production**; scheduled functions do not execut
 - [ ] Local UI: start seven-day watch under an existing photography wish; confirm next scheduled check, no extra wish slot.
 - [ ] Pause/resume/cancel works; another account cannot read or control it; no automatic watching without opt-in.
 - [x] Unit tests cover first baseline, new listings, changed deadline, repeated URL with UTM tracking, and source failure.
-- [ ] Server-only credential set in Netlify; no browser or anonymous access to key or claim RPC.
-- [ ] A **real scheduled/Run now** Netlify check runs on production, produces persisted watch run, receipt and accurate findings.
+- [x] Netlify Functions runtime key configured; anonymous/authenticated database claim RPC access denied. Credential value not disclosed.
+- [x] Owner accepted the live run; direct Supabase verification confirmed 1 successful production watch run and 1 corresponding Work Receipt, with 0 failures.
 - [ ] User observes next check/findings in My Wishes; no unsolicited email or external submission.
-- [ ] After local acceptance and secret setup, merge to main and verify a real scheduled check. Close the story only after production evidence is confirmed.
+- [x] Owner accepted local UI; PR #9 merged to main, Netlify published the scheduled function, and persisted production execution evidence was verified.
 
 ## Next
 JINN-003.4.2 (optional): consented digest email with delivery-state receipts, timezone/quiet-hours controls, bounce handling and spending caps. MVP after watch can prove real unattended completion. Career and soccer will require their own permitted source adapters.
@@ -47,4 +47,7 @@ JINN-003.4.2 (optional): consented digest email with delivery-state receipts, ti
 ## Verified implementation state — November 14, 2026
 GitHub Actions CI: https://github.com/kirzuber/wisht/actions/runs/43644683334 — all tests, TypeScript checks and build passed. The database migration was applied to `wisht-dev` and confirmed enabled RLS, three triggers, owner controls, read-only watch-run access, denied authenticated claim RPC and denied client writes to counters or watch runs. SQL rollback test created a watch for an existing photography wish, paused/resumed, atomically claimed it once, inserted one successful run with an associated `WATCH_CHECK_COMPLETED` receipt, confirmed a second same-day claim returned no jobs, cancelled it, and rolled back everything. Zero watches/runs/watch receipts remain. Supabase security advisor shows no new watch-related findings; four unrelated pre-existing advisories remain. Worker unit tests cover no opt-in watchers, a new listing, and honest source failure.
 
-**Not yet validated:** Netlify scheduled-function runtime, credential setup, daily timed invocation, account-to-account browser isolation, and production read-back after actual unattended execution. The production secret is currently absent from Netlify. Do not merge before that activation gate is resolved.
+**Pre-merge checkpoint (historical):** Netlify scheduling, credential setup, and real execution were pending at the time this note was written. The closure evidence below supersedes those deployment blockers. Account-to-account browser isolation was not independently retested as part of story closure; database RLS and grants were tested.
+
+## Story closure — November 14, 2026
+The user accepted the local watch experience, approved merge/deploy, and confirmed the live server test passed. PR #9 was squash-merged as `d1bbb3853cda0ce1bd7addaf03102a9ba51dbe92`; Netlify production deployment `6af8dc140e2e18a09e71f6c4` is ready and registered the scheduled `daily-watch` function with cron `0 12 * * *`. The server-only `SUPABASE_SERVICE_ROLE_KEY` was confirmed present in Netlify without reading or exposing the credential. Direct Supabase query after acceptance confirmed **one active photography watch, 1 attempted check, 1 successful recorded run, 0 failed runs, 1 database-authored `WATCH_CHECK_COMPLETED` receipt**. These are independently observed persisted outcomes—not an assumption from a successful deployment. The story is COMPLETE. Delivery remains in-app only and indexed-source listings are not organizer-certified.
