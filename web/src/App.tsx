@@ -1,3 +1,4 @@
+import SubmissionPrep from './SubmissionPrep';
 import OpportunityScout from './OpportunityScout';
 import type { ScoutResult, PhotoGenre } from './opportunityTypes';
 import PublicPortfolio from './PublicPortfolio';
@@ -12,7 +13,7 @@ import { ArrowLeft, ArrowRight, Check, ChevronRight, Compass, LockKeyhole, Rotat
 
 type Mission={id:string;title:string;promise:string;question:string;choices:{id:string;label:string}[];deliverables:string[];nextInput:string;permission:string};
 type Interpretation={kind:string;tone:'warm'|'playful'|'discreet';reflection:string;message:string;missions:Mission[];supported:boolean};
-type Stage='wish'|'choose'|'question'|'ready'|'portfolio'|'library'|'scout';
+type Stage='wish'|'choose'|'question'|'ready'|'portfolio'|'library'|'scout'|'submission';
 const examples=['I want to be a photographer','I want a new career','I want to play soccer','I want to be independent'];
 const API=import.meta.env.VITE_API_BASE_URL || '';
 
@@ -22,6 +23,9 @@ function WishApp(){
  const [portfolioWishId,setPortfolioWishId]=useState<string|null>(null);
  const [scoutWishId,setScoutWishId]=useState<string|null>(null);
  const [scoutPreview,setScoutPreview]=useState<ScoutResult|null>(null);
+ const [submissionContext,setSubmissionContext]=useState<{
+   wishId:string;shortlistId?:string;opportunityId?:string;existingId?:string
+ }|null>(null);
  const [wish,setWish]=useState('');
  const [understood,setUnderstood]=useState<Interpretation|null>(null);
  const [selected,setSelected]=useState<Mission|null>(null);
@@ -58,7 +62,7 @@ function WishApp(){
    ()=>new URLSearchParams(window.location.search).has('portfolio')?'portfolio':null
  );
  const [error,setError]=useState('');
- const reset=()=>{window.history.replaceState(null,'',window.location.pathname);setOpenedPortfolioId(null);setPortfolioWishId(null);setScoutWishId(null);setScoutPreview(null);setStage('wish');setWish('');setUnderstood(null);setSelected(null);setAnswer('');setError('');setSaved(false);setDuplicateWish(false);setAuthIntent(null);};
+ const reset=()=>{window.history.replaceState(null,'',window.location.pathname);setOpenedPortfolioId(null);setPortfolioWishId(null);setScoutWishId(null);setScoutPreview(null);setSubmissionContext(null);setStage('wish');setWish('');setUnderstood(null);setSelected(null);setAnswer('');setError('');setSaved(false);setDuplicateWish(false);setAuthIntent(null);};
  const interpret=async()=>{
   if(wish.trim().length<2)return;
   setBusy(true);setError('');
@@ -107,6 +111,14 @@ function WishApp(){
    setScoutWishId(wishId);setScoutPreview(null);setStage('scout');
  };
  const backFromScout=()=>setStage(account?'library':'ready');
+ const prepareSubmission=(wishId:string,shortlistId:string,opportunityId:string)=>{
+   setSubmissionContext({wishId,shortlistId,opportunityId});
+   setStage('submission');
+ };
+ const openSubmission=(wishId:string,existingId:string)=>{
+   setSubmissionContext({wishId,existingId});
+   setStage('submission');
+ };
  const startPortfolio=()=>{
   setOpenedPortfolioId(null);setPortfolioWishId(null);
   window.history.replaceState(null,'',window.location.pathname);
@@ -195,7 +207,15 @@ function WishApp(){
       <p className="subtle">Just one question for now. More details come only when they're needed to do the work.</p>
       <button className="back" onClick={()=>setStage('choose')}><ArrowLeft size={16}/> Choose a different deed</button>
     </section>}
-    {!authIntent && stage==='library' && account && <MyWishes email={account.email||''} onOpenPortfolio={openPortfolio} onNewPortfolio={startAnotherPortfolio} onOpenScout={startScoutForWish} onNewWish={reset}/>}
+    {!authIntent && stage==='library' && account && <MyWishes email={account.email||''} onOpenPortfolio={openPortfolio} onNewPortfolio={startAnotherPortfolio} onOpenScout={startScoutForWish} onPrepareSubmission={prepareSubmission} onOpenSubmission={openSubmission} onNewWish={reset}/>}
+    {!authIntent && stage==='submission' && submissionContext && <SubmissionPrep
+      wishId={submissionContext.wishId}
+      shortlistId={submissionContext.shortlistId}
+      opportunityId={submissionContext.opportunityId}
+      existingId={submissionContext.existingId}
+      onBack={showMyWishes}
+      onBuildPortfolio={startAnotherPortfolio}
+      onSaved={showMyWishes}/>}
     {stage==='scout' && <div style={{display:authIntent?'none':'contents',width:'100%'}}>
       <OpportunityScout wishContext={scoutWishId
          ? {wishId:scoutWishId}
