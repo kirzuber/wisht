@@ -47,9 +47,9 @@ const catalog:Record<Exclude<WishKind,'unsupported'>, Interpretation> = {
   soccer: {
     kind:'soccer',tone:'warm',supported:true,
     reflection:'Every football story needs a first pitch. ⚽',
-    message:'I can look for legitimate clubs and trials, prepare a practical plan, or watch for relevant sign-up opportunities.',
+    message:'I can find documented soccer clubs in a small set of Ontario cities. Training plans and tryout watches are still planned.',
     missions:[
-      mission('find-team','Find my team','Search official clubs and leagues, with registration links where available.', 'Where do you want to start?', [['competitive','Competitive club'],['recreational','Recreational league'],['new','I am a beginner']], ['Verified club shortlist','Official contact or registration links'], 'City or region will be needed; age category only when necessary.'),
+      mission('find-team','Find my team','Find documented local clubs and programs, with links to confirm current registration.', 'Where do you want to start?', [['competitive','Competitive club'],['recreational','Recreational league'],['new','I am a beginner']], ['Source-backed club shortlist','Official club and program links'], 'An Ontario city and adult/youth playing category are needed. Coverage is initially limited.'),
       mission('training-plan','Prepare my first practice plan','Create a realistic practice schedule and calendar file.', 'How often can you practice?', [['two','Twice a week'],['three','Three times a week'],['flexible','My schedule varies']], ['Personalized practice calendar file','Progress checklist'], 'Experience and constraints may be needed to personalize.'),
       mission('watch-tryouts','Watch for trials','Monitor selected official tryout/registration sources for a defined period.', 'What are you most interested in?', [['tryouts','Competitive tryouts'],['registration','League registration'],['events','Local soccer events']], ['Verified update alerts','Source links and deadline details'], 'Location and opt-in notification preference will be required.', 'User consent required for scheduled notifications')
     ]
