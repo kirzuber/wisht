@@ -1,5 +1,5 @@
 export type WorkAction =
-  'PRIVATE_GALLERY_CREATED' | 'PUBLIC_LISTING_CREATED' | 'PUBLIC_LISTING_REMOVED' | 'OPPORTUNITY_SHORTLIST_SAVED' | 'SUBMISSION_DRAFT_SAVED' | 'WATCH_CHECK_COMPLETED' | 'CAREER_SHORTLIST_SAVED';
+  'PRIVATE_GALLERY_CREATED' | 'PUBLIC_LISTING_CREATED' | 'PUBLIC_LISTING_REMOVED' | 'OPPORTUNITY_SHORTLIST_SAVED' | 'SUBMISSION_DRAFT_SAVED' | 'WATCH_CHECK_COMPLETED' | 'CAREER_SHORTLIST_SAVED' | 'SOCCER_SHORTLIST_SAVED';
 export type WorkReceipt = {
   id: string;
   wish_id: string;
@@ -8,6 +8,7 @@ export type WorkReceipt = {
   submission_id?: string|null;
   watch_run_id?: string|null;
   career_shortlist_id?: string|null;
+  soccer_shortlist_id?: string|null;
   opportunity_count?: number;
   action: WorkAction;
   photo_count: number;
@@ -20,6 +21,12 @@ export type ReceiptDisplay = { title: string; detail: string; privacy: string };
 export function receiptDisplay(receipt: WorkReceipt): ReceiptDisplay {
   const count = receipt.photo_count;
   switch(receipt.action){
+    case 'SOCCER_SHORTLIST_SAVED':
+      return {
+        title:'Soccer club shortlist saved',
+        detail:(receipt.opportunity_count||0)+' documented club / program entries were saved under this soccer wish.',
+        privacy:'Private research · no registration, tryout place or club availability confirmed'
+      };
     case 'CAREER_SHORTLIST_SAVED':
       return {
         title:'Career research shortlist saved',
