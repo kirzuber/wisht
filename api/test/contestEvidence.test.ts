@@ -5,9 +5,28 @@ const html='<html><a rel="nofollow" href="https://organizer.example/2027/rules?x
 describe('Safe indexed opportunity inspection',()=>{
  it('only allows strict provider listing paths',()=>{
   assert.equal(validatedListingUrl('https://pixcontests.com/sample-open-call'),'https://pixcontests.com/sample-open-call');
-  for(const url of ['http://pixcontests.com/x','https://pixcontests.com@127.0.0.1/x','https://pixcontests.com/calendar/free.ics','https://pixcontests.com/anything?redirect=1','http://127.0.0.1/admin']){
+  // Regression: the public Pixcontests iCalendar adds these UTM parameters.
+  assert.equal(
+    validatedListingUrl('https://pixcontests.com/people-virtual-3d-exhibition-2026?utm_source=calendar&utm_medium=feed'),
+    'https://pixcontests.com/people-virtual-3d-exhibition-2026'
+  );
+  assert.equal(
+    validatedListingUrl('https://www.pixcontests.com/people-virtual-3d-exhibition-2026?utm_campaign=feed#overview'),
+    'https://pixcontests.com/people-virtual-3d-exhibition-2026'
+  );
+  for(const url of ['http://pixcontests.com/x','https://pixcontests.com@127.0.0.1/x','https://pixcontests.com/calendar/free.ics','https://pixcontests.com/calendar/free.ics?utm_source=calendar','http://127.0.0.1/admin']){
    assert.throws(()=>validatedListingUrl(url));
   }
+ });
+ it('drops all untrusted query data before fetching the source listing',async()=>{
+  const input='https://pixcontests.com/people-virtual-3d-exhibition-2026?utm_source=calendar&utm_medium=feed&redirect=https://evil.invalid/';
+  let requested='';
+  const fake=(async(value:RequestInfo|URL)=>{
+    requested=String(value);
+    return new Response(html,{status:200});
+  }) as typeof fetch;
+  await inspectIndexedListing(input,fake);
+  assert.equal(requested,'https://pixcontests.com/people-virtual-3d-exhibition-2026');
  });
  it('extracts official page link but does not visit it',()=>{
   assert.equal(extractOfficialUrl(html),'https://organizer.example/2027/rules?x=1&y=2');

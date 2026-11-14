@@ -11,7 +11,11 @@ const ORIGIN='https://pixcontests.com';
 export function validatedListingUrl(value:string):string{
  let url:URL;
  try{url=new URL(value);}catch{throw new Error('Invalid source listing URL.');}
- if(url.origin!==ORIGIN || url.search || url.hash || url.username || url.password
+ // Calendar feed URLs contain ?utm_source=calendar&utm_medium=feed.
+ // Do not forward ANY query or fragment to the server; the fetch target is
+ // exclusively the normalized, canonical Pixcontests listing pathname.
+ const supportedHost=url.hostname==='pixcontests.com'||url.hostname==='www.pixcontests.com';
+ if(url.protocol!=='https:'||!supportedHost||url.port||url.username||url.password
     || !/^\/[a-z0-9-]{3,160}\/?$/.test(url.pathname))
   throw new Error('Only a supported Pixcontests listing may be inspected.');
  return ORIGIN+url.pathname.replace(/\/$/,'');
