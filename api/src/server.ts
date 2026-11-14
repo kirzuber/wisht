@@ -5,6 +5,7 @@ import { interpretWishSmart } from './llm.js';
 import { scanPhotoOpportunities, type PhotoGenre } from './scout.js';
 import { inspectIndexedListing } from './contestEvidence.js';
 import { serveCareerScout } from './careerService.js';
+import { serveSoccerScout } from './soccerService.js';
 
 const app=express();
 app.disable('x-powered-by');
@@ -26,6 +27,12 @@ app.get('/api/opportunity-detail',async(req,res)=>{
   const listing=String(req.query.listing||'');
   res.json(await inspectIndexedListing(listing));
  }catch(e){res.status(422).json({error:e instanceof Error?e.message:'Could not inspect listing.'});}
+});
+app.post('/api/soccer-scout',async(req,res)=>{
+ const request=new Request('http://localhost/api/soccer-scout',{method:'POST',
+  headers:{'Content-Type':'application/json'},body:JSON.stringify(req.body)});
+ const response=await serveSoccerScout(request);
+ res.status(response.status).json(await response.json());
 });
 app.post('/api/career-scout',async(req,res)=>{
  const request=new Request('http://localhost/api/career-scout',{
