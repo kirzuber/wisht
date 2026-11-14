@@ -122,7 +122,7 @@ function App(){
          <button type="button" className="account-link" onClick={showMyWishes}>My wishes</button>
          <button type="button" className="account-link account-quiet" onClick={()=>void signOut()}>Sign out</button>
        </> : <button type="button" className="account-link" onClick={()=>setAuthIntent('account')}>Sign in</button>)}
-       <span className="dots" aria-label="Three starter wishes available"><i/><i/><i/></span>
+       <span className="dots" aria-label="Three saved wishes maximum"><i/><i/><i/></span>
      </div>
    </header>
    <main className="main" aria-live="polite">
