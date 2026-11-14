@@ -28,7 +28,7 @@ The verified user explicitly starts one seven-day photography Opportunity Watch 
 ## Production secret and release dependency (DO NOT SKIP)
 Netlify currently has **no server-only Supabase credential** configured. Scheduled functions need a server-only \`SUPABASE_SERVICE_ROLE_KEY\` scoped to Netlify **Functions/runtime** and the safe \`SUPABASE_URL\` (the existing \`VITE_SUPABASE_URL\` is an acceptable non-secret URL fallback). This secret must **never** be put in \`VITE_\`, client source, Git, local screenshots, or runtime logs. The function fails closed when credentials are absent. Set this secret only through Netlify secure project environment settings, with a proper deployment context and redeploy.
 
-The project uses **only main for production**; scheduled functions do not execute on branch previews. The scheduled job cannot be accepted as functioning until the server credential is set, PR merged, scheduled Function recognized by Netlify, and a real **Run now** or timed run produces a database check record for an opt-in test watch. Do not mark the story complete from unit tests alone. If the secret setup isn't approved, retain the branch in review and do not merge.
+The project uses **only main for production**; scheduled functions do not execute on branch previews. Release sequence: (1) verify code and migration, (2) set server-only secret, (3) owner locally accepts watch controls, (4) merge into main, (5) check Netlify lists the Scheduled Function, use **Run now**, and verify a real database check record. Until step 5, retain story status IN REVIEW; if the deployment/runtime test fails, fix immediately or revert the merge. Do not claim autonomy from unit tests alone. If the secret setup isn't approved, keep this PR unmerged.
 
 ## Acceptance
 - [x] CI TypeScript/test/build green.
@@ -39,7 +39,7 @@ The project uses **only main for production**; scheduled functions do not execut
 - [ ] Server-only credential set in Netlify; no browser or anonymous access to key or claim RPC.
 - [ ] A **real scheduled/Run now** Netlify check runs on production, produces persisted watch run, receipt and accurate findings.
 - [ ] User observes next check/findings in My Wishes; no unsolicited email or external submission.
-- [ ] Publish only after PR merge and end-to-end owner acceptance.
+- [ ] After local acceptance and secret setup, merge to main and verify a real scheduled check. Close the story only after production evidence is confirmed.
 
 ## Next
 JINN-003.4.2 (optional): consented digest email with delivery-state receipts, timezone/quiet-hours controls, bounce handling and spending caps. MVP after watch can prove real unattended completion. Career and soccer will require their own permitted source adapters.
