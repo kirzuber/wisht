@@ -200,44 +200,39 @@ function WishApp(){
     {authIntent && <AuthGate purpose={authIntent==='save'?'Your wish is ready to save.':authIntent==='portfolio'?'Your portfolio is ready to begin.':authIntent==='scout'?'Your findings are ready to keep.':authIntent==='career-scout'?'Sign in for AI matching or saving.':authIntent==='soccer-scout'?'Sign in to save your soccer research.':'Sign in to see your saved work.'}
        onAuthenticated={afterAuth} onCancel={()=>setAuthIntent(null)}/>}
     {!authIntent && stage==='wish' && <section className="content entrance">
-      <p className="eyebrow">ONE DREAM. THREE DEEDS.</p>
-      <h1>Who do you<br/><em>want to be?</em></h1>
-      <p className="lead">Tell me your wish. I'll see what real work I can do to move it forward.</p>
-      <form onSubmit={e=>{e.preventDefault();void interpret();}} className="wish-form">
-        <label htmlFor="wish" className="field-label">MY WISH</label>
-        <textarea id="wish" maxLength={280} value={wish} onChange={e=>setWish(e.target.value)} placeholder="I want to..." rows={2}/>
-        <button type="submit" className="primary" disabled={wish.trim().length<2||busy}>{busy?'Looking for a way…':'Make a wish'}<ArrowRight size={18}/></button>
-      </form>
-      <p className="try-label">Need a little inspiration?</p>
-      <div className="chips">{examples.map(x=><button key={x} type="button" className="chip" onClick={()=>setWish(x)}>{x}<ChevronRight size={13}/></button>)}</div>
-      {error&&<p className="error" role="alert">{error}</p>}
-      <div className="mini-note"><LockKeyhole size={14}/> No sign-up to explore. An unrecognized wish may be sent to our configured AI model for classification.</div>
-    </section>}
-    {!authIntent && stage==='choose' && understood && <section className="content entrance">
-      <p className="eyebrow">YOUR WISH, UNDERSTOOD</p>
-      <h2>{understood.reflection}</h2>
-      <p className="lead narrower">{understood.message}</p>
-      {understood.supported ? <>
-        <p className="field-label">CHOOSE WHAT I SHOULD WORK ON FIRST</p>
-        <div className="mission-grid">{understood.missions.map((m,i)=>{
-          const planned=understood.kind==='soccer' && m.id!=='find-team';
-          return <button className={`mission-card${planned?' mission-card-unavailable':''}`}
-            key={m.id} onClick={()=>choose(m)} disabled={planned}
-            aria-label={m.title+(planned?' — coming later':' — available now')}>
-            <div className="mission-number">0{i+1}</div>
-            <div className="mission-body"><strong>{m.title}</strong><span>{m.promise}</span>
-              {understood.kind==='soccer' && <small className="mission-availability">
-                {planned?'Coming later':'Available now'}
-              </small>}
-            </div>
-            {!planned&&<ArrowRight size={19}/>}
-          </button>;
-        })}</div>
-        <p className="subtle">{understood.kind==='soccer'
-          ? 'Find my team is ready to use. Practice plans and tryout watches are future capabilities.'
-          : 'Some missions are still planned. Executable capabilities are available only where explicitly marked.'}</p>
-      </>: <div className="unsupported"><Compass size={25}/><strong>My powers are still growing.</strong><p>You can try a photography, career, soccer, or independence wish. I won't claim to do something I can't.</p><button className="text-button" onClick={reset}>Try another wish <ArrowRight size={16}/></button></div>}
-      <button className="back" onClick={()=>setStage('wish')}><ArrowLeft size={16}/> Change my wish</button>
+       <h1>Make a <em>wish.</em></h1>
+       <p className="lead">What would you like to make happen?</p>
+       <form onSubmit={e=>{e.preventDefault();void interpret();}} className="wish-form">
+         <label htmlFor="wish" className="field-label">YOUR WISH</label>
+         <textarea id="wish" maxLength={280} value={wish} onChange={e=>setWish(e.target.value)}
+           placeholder="I want to…" rows={2}/>
+         <button type="submit" className="primary" disabled={wish.trim().length<2||busy}>
+           {busy?'Finding a way to help…':'Make my wish'} <ArrowRight size={18}/>
+         </button>
+       </form>
+       <p className="try-label">Or try an idea</p>
+       <div className="chips">{examples.map(x=><button key={x} type="button" className="chip"
+         onClick={()=>setWish(x)}>{x}<ChevronRight size={13}/></button>)}</div>
+       {error&&<p className="error" role="alert">{error}</p>}
+       <p className="mini-note"><LockKeyhole size={14}/> Explore without signing in. Unfamiliar wishes may use AI classification.</p>
+     </section>}
+     {!authIntent && stage==='choose' && understood && <section className="content entrance">
+      {executableMissions(understood.missions).length>0 ? <>
+        <p className="eyebrow">A PLACE TO START</p>
+        <h2>Here's what I can do.</h2>
+        <p className="lead narrower">What would help you most right now?</p>
+        <div className="mission-grid">{executableMissions(understood.missions).map(m=>
+          <button type="button" className="mission-card" key={m.id} onClick={()=>choose(m)}>
+            <span className="mission-body"><strong>{m.title}</strong><span>{m.promise}</span></span>
+            <ArrowRight size={19}/>
+          </button>
+        )}</div>
+      </> : <>
+        <p className="eyebrow">I HEAR YOUR WISH</p>
+        <h2>{understood.reflection}</h2>
+        <p className="lead narrower">I can't take a reliable step toward that yet. You can try a photography, career or soccer wish instead.</p>
+      </>}
+      <button type="button" className="back" onClick={reset}><ArrowLeft size={16}/> Try another wish</button>
     </section>}
     {!authIntent && stage==='question' && selected && <section className="content entrance">
       <p className="eyebrow">ONE SMALL THING FIRST</p>
