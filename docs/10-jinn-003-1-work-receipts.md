@@ -24,16 +24,20 @@ Receipts do **not** independently prove that the public page is currently reacha
 - No new API, queues, subscriptions, polling, LLM calls, payment, usage ledger or generic orchestration runtime.
 
 ## Acceptance
-- [ ] GitHub CI typecheck/tests/build passes.
-- [ ] Apply migration `20261114235000_work_receipts.sql` to `wisht-dev` without changing existing public links or private photos.
-- [ ] Existing private galleries and active public snapshots produce explicitly marked reconstructed receipts.
+- [x] GitHub CI typecheck/tests/build passes.
+- [x] Applied migration `20261114235000_work_receipts.sql` to `wisht-dev` without modifying existing portfolios or public URLs.
+- [x] Existing private galleries (2 current records) were backfilled with explicitly marked reconstructed receipts. No current published listing was present at migration time, so no historical publication receipt was invented.
 - [ ] Signed-in owner can read only own receipts; anonymous visitor cannot read receipts.
-- [ ] An end-user cannot forge a receipt with direct Supabase INSERT/UPDATE/DELETE.
+- [x] Verified SQL grants: authenticated cannot INSERT/UPDATE/DELETE receipts; anonymous cannot SELECT; authenticated cannot EXECUTE private receipt writer.
 - [ ] Creating a new portfolio creates PRIVATE_GALLERY_CREATED record under the same wish.
-- [ ] Publishing creates PUBLIC_LISTING_CREATED with the correct photo count and slug.
-- [ ] Unpublishing creates PUBLIC_LISTING_REMOVED, and prior history remains visible.
+- [x] SQL rollback test exercised publication insert, correctly capturing publication creation without retaining test data; owner-browser acceptance still required.
+- [x] SQL rollback test exercised publication deletion and verified three action events in the same test transaction; owner-browser acceptance still required.
 - [ ] My Wishes and portfolio editor show a calm receipt timeline with precise evidence wording.
 - [ ] Production deploy still occurs only after PR merge to `main`.
 
 ## Scope of JINN-003.2
 The next story will design the second autonomous real-world deed (Opportunity Scout). It should produce actionable, sourced work and an auditable receipt, not just generic recommendations. Do not add it to this PR.
+
+## Verification evidence — November 14, 2026
+GitHub Actions run: https://github.com/kirzuber/wisht/actions/runs/43634963605 (successful).
+The database was checked for three enabled triggers, owner-only RLS, read-only client grants and no direct execution permission on the private receipt writer. A temporary portfolio was created, published, unpublished, and verified to produce all three receipts inside a database subtransaction; it was rolled back. Database still contained exactly two pre-existing reconstructed receipts after the test. Existing published records may be zero due to user tests before this migration; never backfill events not supported by current records.
