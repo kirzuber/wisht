@@ -1,3 +1,5 @@
+import AuthGate from './AuthGate';
+import { getAuthenticatedUser } from './supabaseClient';
 import PortfolioBuilder from './PortfolioBuilder';
 import { saveWish } from './saveWish';
 import { useState } from 'react';
@@ -19,8 +21,9 @@ function App(){
  const [busy,setBusy]=useState(false);
  const [saving,setSaving]=useState(false);
  const [saved,setSaved]=useState(false);
+ const [authIntent,setAuthIntent]=useState<'save'|'portfolio'|null>(null);
  const [error,setError]=useState('');
- const reset=()=>{window.history.replaceState(null,'',window.location.pathname);setOpenedPortfolioId(null);setStage('wish');setWish('');setUnderstood(null);setSelected(null);setAnswer('');setError('');setSaved(false);};
+ const reset=()=>{window.history.replaceState(null,'',window.location.pathname);setOpenedPortfolioId(null);setStage('wish');setWish('');setUnderstood(null);setSelected(null);setAnswer('');setError('');setSaved(false);setAuthIntent(null);};
  const interpret=async()=>{
   if(wish.trim().length<2)return;
   setBusy(true);setError('');
@@ -40,6 +43,22 @@ function App(){
   catch(e){setError(e instanceof Error?e.message:'Could not save the wish.');}
   finally{setSaving(false);}
  };
+ const requireAccount = async (intent: 'save'|'portfolio') => {
+  setError('');
+  try {
+    await getAuthenticatedUser();
+    if (intent === 'portfolio') setStage('portfolio');
+    else await save();
+  } catch {
+    setAuthIntent(intent);
+  }
+ };
+ const afterAuth = () => {
+  const intent = authIntent;
+  setAuthIntent(null);
+  if (intent === 'portfolio') setStage('portfolio');
+  if (intent === 'save') void save();
+ };
  const currentStageIndex=stage==='wish'?0:stage==='choose'?1:stage==='question'?2:3;
  return <div className="app">
    <header className="topbar">
@@ -49,7 +68,9 @@ function App(){
    <main className="main" aria-live="polite">
     <div className="hero-glow" aria-hidden="true"/>
     {stage!=='portfolio' && <div className="hero-icon" aria-hidden="true"><Sparkles size={30} strokeWidth={1.25}/></div>}
-    {stage==='wish' && <section className="content entrance">
+    {authIntent && <AuthGate purpose={authIntent==='save'?'Your wish is ready to save.':'Your portfolio is ready to begin.'}
+       onAuthenticated={afterAuth} onCancel={()=>setAuthIntent(null)}/>}
+    {!authIntent && stage==='wish' && <section className="content entrance">
       <p className="eyebrow">ONE DREAM. THREE DEEDS.</p>
       <h1>Who do you<br/><em>want to be?</em></h1>
       <p className="lead">Tell me your wish. I'll see what real work I can do to move it forward.</p>
@@ -63,7 +84,7 @@ function App(){
       {error&&<p className="error" role="alert">{error}</p>}
       <div className="mini-note"><LockKeyhole size={14}/> No sign-up to explore. An unrecognized wish may be sent to our configured AI model for classification.</div>
     </section>}
-    {stage==='choose' && understood && <section className="content entrance">
+    {!authIntent && stage==='choose' && understood && <section className="content entrance">
       <p className="eyebrow">YOUR WISH, UNDERSTOOD</p>
       <h2>{understood.reflection}</h2>
       <p className="lead narrower">{understood.message}</p>
@@ -74,7 +95,7 @@ function App(){
       </>: <div className="unsupported"><Compass size={25}/><strong>My powers are still growing.</strong><p>You can try a photography, career, soccer, or independence wish. I won't claim to do something I can't.</p><button className="text-button" onClick={reset}>Try another wish <ArrowRight size={16}/></button></div>}
       <button className="back" onClick={()=>setStage('wish')}><ArrowLeft size={16}/> Change my wish</button>
     </section>}
-    {stage==='question' && selected && <section className="content entrance">
+    {!authIntent && stage==='question' && selected && <section className="content entrance">
       <p className="eyebrow">ONE SMALL THING FIRST</p>
       <h2>Let me get this<br/><em>right for you.</em></h2>
       <p className="lead narrower">{selected.question}</p>
@@ -85,8 +106,8 @@ function App(){
       <p className="subtle">Just one question for now. More details come only when they're needed to do the work.</p>
       <button className="back" onClick={()=>setStage('choose')}><ArrowLeft size={16}/> Choose a different deed</button>
     </section>}
-    {stage==='portfolio' && <PortfolioBuilder initialId={openedPortfolioId} onBack={reset} onCreated={setOpenedPortfolioId}/>}
-    {stage==='ready' && selected && <section className="content entrance">
+    {!authIntent && stage==='portfolio' && <PortfolioBuilder initialId={openedPortfolioId} onBack={reset} onCreated={setOpenedPortfolioId}/>}
+    {!authIntent && stage==='ready' && selected && <section className="content entrance">
       <p className="eyebrow">YOUR FIRST DEED</p>
       <h2>Now I know where<br/><em>to begin.</em></h2>
       <p className="lead narrower">Your mission has a clear outcome. Here's the work I would take on.</p>
@@ -104,10 +125,10 @@ function App(){
        <p className="detail">{selected.permission}</p>
       </div>
       <div className="honesty"><LockKeyhole size={17}/><span><strong>No work has run yet.</strong> {selected.id==='build-portfolio'?'You can now build a real private gallery from photos on your device.':'This mission is planned, not executed.'} Nothing is published or charged.</span></div>
-      <button className="primary" onClick={()=>void save()} disabled={saving||saved}>{saved?'Wish saved privately':saving?'Saving…':'Save this wish'} <ArrowRight size={18}/></button>
+      <button className="primary" onClick={()=>void requireAccount("save")} disabled={saving||saved}>{saved?'Wish saved privately':saving?'Saving…':'Save this wish'} <ArrowRight size={18}/></button>
       {error&&<p className="error" role="alert">{error}</p>}
-      <p className="subtle">Saving uses a private anonymous session when configured. It is tied to this browser; no mission will execute.</p>
-      {selected.id==='build-portfolio' ? <button type="button" className="primary" onClick={()=>setStage('portfolio')}>Build my private portfolio <ArrowRight size={18}/></button> : <button className="primary muted" disabled>Execute this mission <span className="coming">NEXT STORY</span></button>}
+      <p className="subtle">Saving requires a verified email account. Exploring your wish does not require registration.</p>
+      {selected.id==='build-portfolio' ? <button type="button" className="primary" onClick={()=>void requireAccount('portfolio')}>Build my private portfolio <ArrowRight size={18}/></button> : <button className="primary muted" disabled>Execute this mission <span className="coming">NEXT STORY</span></button>}
       <button className="back" onClick={reset}><RotateCcw size={16}/> Try another wish</button>
     </section>}
    </main>

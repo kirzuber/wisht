@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, ImagePlus, LockKeyhole, RefreshCw, ShieldCheck, Sparkles, Trash2, UploadCloud } from 'lucide-react';
-import { getSupabase, getOrCreateUser } from './supabaseClient';
+import { getSupabase, getAuthenticatedUser } from './supabaseClient';
 import { preparePhoto, type PortfolioPhoto, type PreparedPhoto, MAX_PHOTOS } from './photoProcessing';
 import { pickInitialSelection } from './photoQuality';
 import './portfolio.css';
@@ -57,8 +57,7 @@ export default function PortfolioBuilder({ initialId, onBack, onCreated }: Props
       setLoading(true);
       setError('');
       try {
-        const { data: { user } } = await getSupabase().auth.getUser();
-        if (!user) throw new Error('This is a private draft. Please open it in the browser where you created it.');
+        const user = await getAuthenticatedUser();
         const { data, error: readError } = await getSupabase()
           .from('portfolios').select('id,title,introduction,photos,status')
           .eq('id', initialId).single();
@@ -99,7 +98,7 @@ export default function PortfolioBuilder({ initialId, onBack, onCreated }: Props
         throw new Error('At least three different photographs are needed. Duplicate files were skipped.');
       }
       const featured = new Set(pickInitialSelection(prepared.map(item => item.meta)));
-      const user = await getOrCreateUser();
+      const user = await getAuthenticatedUser();
       const id = crypto.randomUUID();
       const storage = getSupabase().storage.from(BUCKET);
       const finalPhotos: PortfolioPhoto[] = [];
@@ -248,7 +247,7 @@ export default function PortfolioBuilder({ initialId, onBack, onCreated }: Props
       <button type="button" className="primary" disabled={!edited || busy || !selected.length || !title.trim()} onClick={() => void saveChanges()}>
         {busy ? 'Saving...' : edited ? 'Save gallery changes' : 'All changes saved'} <Check size={16}/>
       </button>
-      <p className="subtle"><LockKeyhole size={13}/> This page is private to this browser session. Your images aren't published. The URL is a bookmark, not a share link.</p>
+      <p className="subtle"><LockKeyhole size={13}/> This is private to your verified account. The URL is a bookmark, not a public share link.</p>
       <div className="portfolio-secondary-actions">
         <button type="button" onClick={() => void deletePortfolio()} disabled={busy}><Trash2 size={15}/> Delete portfolio</button>
         <button type="button" onClick={() => window.location.reload()} disabled={busy}><RefreshCw size={15}/> Reload saved draft</button>
