@@ -11,7 +11,7 @@ describe('One root wish can own multiple portfolios',()=>{
     ];
     assert.deepEqual(artifactsForWish(wish, artifacts).map(p=>p.id),['one','two']);
   });
-  it('does not mix another wish's artifacts into this wish',()=>{
+  it('does not mix unrelated artifacts into this wish',()=>{
     assert.deepEqual(artifactsForWish({id:'career'},[{wish_id:'photography'}]),[]);
   });
 });
