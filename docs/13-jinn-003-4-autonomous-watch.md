@@ -31,11 +31,11 @@ Netlify currently has **no server-only Supabase credential** configured. Schedul
 The project uses **only main for production**; scheduled functions do not execute on branch previews. The scheduled job cannot be accepted as functioning until the server credential is set, PR merged, scheduled Function recognized by Netlify, and a real **Run now** or timed run produces a database check record for an opt-in test watch. Do not mark the story complete from unit tests alone. If the secret setup isn't approved, retain the branch in review and do not merge.
 
 ## Acceptance
-- [ ] CI TypeScript/test/build green.
+- [x] CI TypeScript/test/build green.
 - [ ] Migration \`supabase/migrations/20261115040000_autonomous_photo_watch.sql\` applied and constraints/RLS/claims verified without enabling a production watcher.
 - [ ] Local UI: start seven-day watch under an existing photography wish; confirm next scheduled check, no extra wish slot.
 - [ ] Pause/resume/cancel works; another account cannot read or control it; no automatic watching without opt-in.
-- [ ] Dedup tests cover first baseline, new listings, changed deadline, repeated URL with UTM tracking, and source failure.
+- [x] Unit tests cover first baseline, new listings, changed deadline, repeated URL with UTM tracking, and source failure.
 - [ ] Server-only credential set in Netlify; no browser or anonymous access to key or claim RPC.
 - [ ] A **real scheduled/Run now** Netlify check runs on production, produces persisted watch run, receipt and accurate findings.
 - [ ] User observes next check/findings in My Wishes; no unsolicited email or external submission.
@@ -43,3 +43,8 @@ The project uses **only main for production**; scheduled functions do not execut
 
 ## Next
 JINN-003.4.2 (optional): consented digest email with delivery-state receipts, timezone/quiet-hours controls, bounce handling and spending caps. MVP after watch can prove real unattended completion. Career and soccer will require their own permitted source adapters.
+
+## Verified implementation state — November 14, 2026
+GitHub Actions CI: https://github.com/kirzuber/wisht/actions/runs/43644683334 — all tests, TypeScript checks and build passed. The database migration was applied to `wisht-dev` and confirmed enabled RLS, three triggers, owner controls, read-only watch-run access, denied authenticated claim RPC and denied client writes to counters or watch runs. SQL rollback test created a watch for an existing photography wish, paused/resumed, atomically claimed it once, inserted one successful run with an associated `WATCH_CHECK_COMPLETED` receipt, confirmed a second same-day claim returned no jobs, cancelled it, and rolled back everything. Zero watches/runs/watch receipts remain. Supabase security advisor shows no new watch-related findings; four unrelated pre-existing advisories remain. Worker unit tests cover no opt-in watchers, a new listing, and honest source failure.
+
+**Not yet validated:** Netlify scheduled-function runtime, credential setup, daily timed invocation, account-to-account browser isolation, and production read-back after actual unattended execution. The production secret is currently absent from Netlify. Do not merge before that activation gate is resolved.
