@@ -1,11 +1,14 @@
 # CLOUD-002 — Verification and inexpensive model routing
 
+**Status: CLOSED (November 14, 2026).** PR #2 merged. Netlify production and preview builds passed; GitHub CI passed typechecking, tests and build. User confirmed wish saving works and supplied browser evidence of both live DeepSeek routing (`route: llm`) and zero-model catalog routing (`route: catalog`). First real mission execution is out of scope.
+
 ## Verified infrastructure (November 2026)
 - GitHub `main` merged CLOUD-001; Netlify production deployment reported **ready** with `health` and `interpret` Functions.
 - Separate Supabase project `wisht-dev` (`qtegdpscfsbvuczvlgfw`, Canada Central), `public.wishes` created, owner-only RLS enabled; security advisor no findings.
 - Netlify site `wisht-dev` serves the production UI at https://wisht-dev.netlify.app.
 - GitHub Actions Verify workflow is the CI gate for installing, typechecking, testing, and building frontend + API.
-- **Not yet proven:** live HTTP smoke POST to `/api/interpret`, anonymous sign-in, and actual browser save/read flow. Do not claim these have passed until tested.
+- **Live checks completed:** user successfully saved a wish in the browser; provided console results for a POST to `/api/interpret` with DeepSeek classification of “shutterbug” as photography and deterministic routing for “photographer”.
+- **Still not independently tested:** cross-user RLS isolation in a two-session browser test and a full local build on the user's Mac. These are separate hardening/acceptance checks, not CLOUD-002 blockers.
 
 ## Netlify configuration
 Set in [Netlify site](https://app.netlify.com/projects/wisht-dev) → Environment variables:
