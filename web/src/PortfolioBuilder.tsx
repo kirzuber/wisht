@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, ImagePlus, LockKeyhole, RefreshCw, ShieldCheck, Sparkles, Trash2, UploadCloud, Globe, ExternalLink, Copy } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ImagePlus, LockKeyhole, RefreshCw, Sparkles, Trash2, UploadCloud, Globe, ExternalLink, Copy } from 'lucide-react';
 import { getSupabase, getAuthenticatedUser } from './supabaseClient';
 import { preparePhoto, type PortfolioPhoto, type PreparedPhoto, MAX_PHOTOS } from './photoProcessing';
 import { pickInitialSelection } from './photoQuality';
+import WorkReceipts from './WorkReceipts';
 import { checkPhotographyWishAvailable, ensurePhotographyWish, rollbackUnusedWish, type PortfolioWishContext, type WishLink } from './wishOwnership';
 import { MAX_PUBLISHED_PHOTOS } from './portfolioPublicationModel';
 import { findPublication, publishPortfolio, unpublishPortfolio, publicGalleryPath, type PortfolioPublication } from './publishPortfolio';
@@ -51,7 +52,7 @@ export default function PortfolioBuilder({ initialId, wishContext, onBack, onCre
   const [progress, setProgress] = useState('');
   const [error, setError] = useState('');
   const [edited, setEdited] = useState(false);
-  const [rendered, setRendered] = useState<string[]>([]);
+  const [receiptVersion,setReceiptVersion]=useState(0);
   const [publication, setPublication] = useState<PortfolioPublication|null>(null);
   const [publishApproved,setPublishApproved]=useState(false);
   const [publishedMessage,setPublishedMessage]=useState('');
@@ -138,7 +139,7 @@ export default function PortfolioBuilder({ initialId, wishContext, onBack, onCre
       committed = true;
       const saved = data as Portfolio;
       setPortfolio(saved); setPhotos(saved.photos); setUrls(links);
-      setEdited(false); setRendered([]);setPublication(null);
+      setEdited(false);setPublication(null);
       onCreated(saved.id);
     } catch (cause) {
       if (!committed && uploaded.length) {
@@ -177,6 +178,7 @@ export default function PortfolioBuilder({ initialId, wishContext, onBack, onCre
       const snapshot=await publishPortfolio(portfolio.id);
       setPublication(snapshot);setPublishApproved(false);
       setPublishedMessage('Published and verified. You can now share the public gallery link.');
+      setReceiptVersion(x=>x+1);
     }catch(cause){setError(friendlyError(cause));}
     finally{setBusy(false);}
   };
@@ -188,6 +190,7 @@ export default function PortfolioBuilder({ initialId, wishContext, onBack, onCre
       await unpublishPortfolio(portfolio.id);
       setPublication(null);setPublishApproved(false);
       setPublishedMessage('Public gallery removed. Your private draft remains.');
+      setReceiptVersion(x=>x+1);
     }catch(cause){setError(friendlyError(cause));}
     finally{setBusy(false);}
   };
@@ -274,19 +277,12 @@ export default function PortfolioBuilder({ initialId, wishContext, onBack, onCre
           aria-pressed={photo.selected} className={`portfolio-tile ${photo.selected ? 'selected' : ''}`}
           onClick={() => togglePhoto(photo.id)}>
           <img src={urls[photo.id]} alt={photo.name} loading="lazy"
-            onLoad={() => setRendered(current => current.includes(photo.id) ? current : [...current, photo.id])}/>
+/>
           <span className="portfolio-check">{photo.selected ? <Check size={14}/> : '+'}</span>
           <span className="portfolio-name">{photo.name}</span>
         </button>)}
       </div>
-      <div className="portfolio-receipt">
-        <div className="portfolio-receipt-head"><ShieldCheck size={19}/> <strong>Work completed</strong></div>
-        <div><span>Optimized photos stored privately</span><strong>{photos.length}</strong></div>
-        <div><span>Gallery entries rendered in browser</span><strong>{rendered.length} / {photos.length}</strong></div>
-        <div><span>Exact duplicates</span><strong>Skipped</strong></div>
-        <div><span>Publication</span><strong>{publication ? 'Live · verified snapshot' : 'Not published'}</strong></div>
-        <p>This gallery was actually saved. Image ordering uses basic exposure, resolution and detail signals; it does not assess artistic merit.</p>
-      </div>
+
       <button type="button" className="primary" disabled={!edited || busy || !selected.length || !title.trim()} onClick={() => void saveChanges()}>
         {busy ? 'Saving...' : edited ? 'Save gallery changes' : 'All changes saved'} <Check size={16}/>
       </button>
@@ -319,6 +315,7 @@ export default function PortfolioBuilder({ initialId, wishContext, onBack, onCre
         </>}
         {publishedMessage && <p className="portfolio-publish-success">{publishedMessage}</p>}
       </div>
+      <WorkReceipts portfolioId={portfolio.id} refreshKey={receiptVersion}/>
       <div className="portfolio-secondary-actions">
         <button type="button" onClick={() => void deletePortfolio()} disabled={busy}><Trash2 size={15}/> Delete portfolio</button>
         <button type="button" onClick={() => window.location.reload()} disabled={busy}><RefreshCw size={15}/> Reload saved draft</button>
