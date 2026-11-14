@@ -4,6 +4,7 @@ import { getAuthenticatedUser, getSupabase } from './supabaseClient';
 import { duplicateWishGroups } from './wishDedup';
 import { artifactsForWish } from './wishArtifacts';
 import WorkReceipts from './WorkReceipts';
+import type { SubmissionRow } from './submissionModel';
 import type { SavedShortlist } from './opportunityTypes';
 import { MAX_SAVED_WISHES, wishesRemaining } from './wishLimit';
 import './myWishes.css';
@@ -31,6 +32,8 @@ type Props = {
   onOpenPortfolio: (id: string) => void;
   onNewPortfolio: (wishId: string) => void;
   onOpenScout: (wishId: string) => void;
+  onPrepareSubmission: (wishId:string, shortlistId:string, opportunityId:string) => void;
+  onOpenSubmission: (wishId:string, packageId:string) => void;
   onNewWish: () => void;
 };
 
@@ -38,10 +41,11 @@ function readable(value: string): string {
   return value.replace(/[-_]+/g, ' ').replace(/^\w/, letter => letter.toUpperCase());
 }
 
-export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onOpenScout, onNewWish }: Props) {
+export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onOpenScout, onPrepareSubmission, onOpenSubmission, onNewWish }: Props) {
   const [wishes, setWishes] = useState<SavedWish[]>([]);
   const [portfolios, setPortfolios] = useState<SavedPortfolio[]>([]);
   const [shortlists,setShortlists]=useState<SavedShortlist[]>([]);
+  const [submissionDrafts,setSubmissionDrafts]=useState<SubmissionRow[]>([]);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -56,18 +60,22 @@ export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onOpe
       try {
         const user = await getAuthenticatedUser();
         const db = getSupabase();
-        const [wishResult, portfolioResult, shortlistResult] = await Promise.all([
+        const [wishResult, portfolioResult, shortlistResult, submissionResult] = await Promise.all([
           db.from('wishes').select('id,aspiration,kind,mission_id,answer,status,created_at')
             .eq('user_id', user.id).order('created_at', { ascending: false }).limit(50),
           db.from('portfolios').select('id,wish_id,title,photos,status,created_at')
             .eq('user_id', user.id).order('created_at', { ascending: false }).limit(50),
           db.from('opportunity_shortlists')
             .select('id,wish_id,genre,free_only,source,feed_url,fetched_at,matches,created_at')
-            .eq('user_id',user.id).order('created_at',{ascending:false}).limit(20)
+            .eq('user_id',user.id).order('created_at',{ascending:false}).limit(20),
+          db.from('submission_packages')
+            .select('id,wish_id,shortlist_id,portfolio_id,opportunity_id,opportunity_title,deadline,listing_url,organizer_url,rules_notes,reviewed_by_user,artist_name,artist_statement,cover_note,selected_photos,created_at,updated_at')
+            .eq('user_id',user.id).order('updated_at',{ascending:false}).limit(50)
         ]);
         if (wishResult.error) throw wishResult.error;
         if (portfolioResult.error) throw portfolioResult.error;
         if (shortlistResult.error) throw shortlistResult.error;
+        if (submissionResult.error) throw submissionResult.error;
         const galleryIds=(portfolioResult.data || []).map((p:{id:string})=>p.id);
         const publishedResult=galleryIds.length
           ? await db.from('portfolio_publications').select('portfolio_id').in('portfolio_id',galleryIds)
@@ -77,6 +85,7 @@ export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onOpe
         if (active) {
           setWishes((wishResult.data || []) as SavedWish[]);
           setShortlists((shortlistResult.data||[]) as SavedShortlist[]);
+          setSubmissionDrafts((submissionResult.data||[]) as SubmissionRow[]);
           setPortfolios((portfolioResult.data || []).map((p:{id:string})=>({...p,published:liveIds.has(p.id)})) as SavedPortfolio[]);
           const photoWish=(wishResult.data||[]).find((wish:{kind:string})=>wish.kind==='photography');
           setExpanded(previous=>previous??photoWish?.id??null);
@@ -92,6 +101,10 @@ export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onOpe
   }, [refresh]);
 
   const deleteShortlist=async(record:SavedShortlist)=>{
+    if(submissionDrafts.some(d=>d.shortlist_id===record.id)){
+      setError('Delete the submission drafts made from this shortlist before removing it.');
+      return;
+    }
     if(!window.confirm('Remove this saved opportunity shortlist? Its historical Work Receipt will remain.'))return;
     setError('');
     try{
@@ -102,8 +115,8 @@ export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onOpe
     }catch(cause){setError(cause instanceof Error?cause.message:'Could not remove this shortlist.');}
   };
   const deleteWish = async (wish: SavedWish) => {
-    if (artifactsForWish(wish,portfolios).length || shortlists.some(s=>s.wish_id===wish.id)) {
-      setError('Remove portfolios and saved opportunity shortlists before deleting this wish.');
+    if (artifactsForWish(wish,portfolios).length || shortlists.some(s=>s.wish_id===wish.id) || submissionDrafts.some(d=>d.wish_id===wish.id)) {
+      setError('Remove linked portfolios, scouting results and submission drafts before deleting this wish.');
       return;
     }
     if (deleting || !window.confirm('Delete this wish? This cannot be undone.')) return;
@@ -153,7 +166,8 @@ export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onOpe
         : <div className="my-work-list">{wishes.map(wish=>{
             const owned=artifactsForWish(wish,portfolios);
             const savedScouts=shortlists.filter(item=>item.wish_id===wish.id);
-            const hasDeeds=owned.length>0||savedScouts.length>0;
+            const packs=submissionDrafts.filter(item=>item.wish_id===wish.id);
+            const hasDeeds=owned.length>0||savedScouts.length>0||packs.length>0;
             const opened=expanded===wish.id;
             return <article className="my-work-card" key={wish.id}>
               <button type="button" className="my-work-card-main" aria-expanded={opened}
@@ -164,7 +178,7 @@ export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onOpe
                     : 'WISH PLANNED · NO COMPLETED DEEDS'}</span>
                   <strong>{wish.aspiration}</strong>
                   <small>{hasDeeds
-                    ? owned.length+' portfolio(s) · '+savedScouts.length+' opportunity shortlist(s)'
+                    ? owned.length+' portfolio(s) · '+savedScouts.length+' shortlist(s) · '+packs.length+' submission draft(s)'
                     : readable(wish.mission_id)}</small>
                 </span>
                 <ArrowRight size={17} className={opened?'turned':''}/>
@@ -191,14 +205,33 @@ export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onOpe
                     <strong>{list.matches.length} potential opportunities · {list.genre==='any'?'All photography':list.genre}</strong>
                     <small>Checked {new Date(list.fetched_at).toLocaleDateString()} · Indexed listings, not verified organizer terms</small>
                     <div className="my-work-scout-links">
-                      {list.matches.map(m=><a href={m.sourceUrl} key={m.id} target="_blank" rel="noopener noreferrer">
-                         {m.title} · {m.deadline}
-                      </a>)}
+                      {list.matches.map(m=><div key={m.id} className="my-work-opportunity-row">
+                        <a href={m.sourceUrl} target="_blank" rel="noopener noreferrer">
+                          {m.title} · {m.deadline}
+                        </a>
+                        <button type="button" className="my-work-prep-action"
+                          onClick={()=>onPrepareSubmission(wish.id,list.id,m.id)}>
+                          Prepare submission <ArrowRight size={12}/>
+                        </button>
+                      </div>)}
                     </div>
                     <button type="button" className="my-work-delete" onClick={()=>void deleteShortlist(list)}>
                       <Trash2 size={13}/> Remove shortlist
                     </button>
                   </div>)}
+                </div>}
+                {packs.length>0 && <div className="my-work-nested">
+                  <p className="my-work-nested-label">YOUR SUBMISSION DRAFTS</p>
+                  {packs.map(draft=><button type="button" className="my-work-portfolio nested" key={draft.id}
+                    onClick={()=>onOpenSubmission(wish.id,draft.id)}>
+                    <span className="my-work-portfolio-icon"><Images size={18}/></span>
+                    <span className="my-work-card-text">
+                      <span className="my-work-status-label">{draft.reviewed_by_user?'RULES REVIEWED BY YOU':'RULES REVIEW NEEDED'} · NOT SUBMITTED</span>
+                      <strong>{draft.opportunity_title}</strong>
+                      <small>{draft.selected_photos.length} previews · Saved {new Date(draft.updated_at).toLocaleDateString()}</small>
+                    </span>
+                    <ArrowRight size={15}/>
+                  </button>)}
                 </div>}
                 {wish.kind==='photography' && <button type="button" className="my-work-add-portfolio"
                   onClick={()=>onOpenScout(wish.id)}>
@@ -216,7 +249,7 @@ export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onOpe
                     onClick={()=>void deleteWish(wish)}><Trash2 size={13}/> Delete wish</button>
                 </>}
                 {hasDeeds && <p className="my-work-nested-note">
-                  To delete this wish, remove the linked portfolios and saved shortlists first. Public gallery links stay unchanged until you unpublish.
+                  To delete this wish, remove its portfolios, saved shortlists and submission drafts first. Public gallery links stay unchanged until you unpublish.
                 </p>}
               </div>}
             </article>;
