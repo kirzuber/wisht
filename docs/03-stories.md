@@ -14,7 +14,7 @@ Acceptance and non-goals: docs/07-jinn-002-1-private-portfolio.md.
 ### JINN-002.1 continuation — Returning-user experience — COMPLETE
 Keep the Supabase session across reloads. Provide one compact My wishes view showing all the current verified user's saved wishes and private portfolios, and allow sign-out, wish deletion and reopening of private drafts from another device. No new tables, no dashboard, no external actions.
 
-## JINN-002.2 — Publish My Portfolio — IN REVIEW
+## JINN-002.2 — Publish My Portfolio — COMPLETE
 After inspecting the exact gallery preview, user grants explicit publication consent; create a verified hosted URL and support unpublish. Do not use original photos or publish previews without approval.
 
 ## JINN-003 — Work Receipt and Second Wish — LATER
@@ -31,3 +31,6 @@ One aspiration may have multiple possible deeds, but should occupy one saved wis
 
 ## JINN-002.2 — Acceptance & evidence
 See docs/08-jinn-002-2-publish-portfolio.md. Explicit snapshot review and approval → only selected images copied to public bucket → verified public URL → unpublish without deleting private draft. Does not consume another wish.
+
+## JINN-002.3 — Wish & Artifact Integrity — IN REVIEW
+One goal owns multiple portfolios and future deeds; automatic parent-wish saving, strict owner-safe FK, non-disruptive legacy linking, and nested My Wishes experience. See docs/09-jinn-002-3-wish-integrity.md.
