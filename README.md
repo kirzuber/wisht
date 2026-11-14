@@ -57,7 +57,7 @@ This is a deliberately narrow goal model, not unrestricted semantic search. Diff
 
 Private portfolios remain in `portfolio-previews`. The user previews selected photographs, approves publication explicitly, and clicks Publish. A separate `portfolio-public` Storage bucket holds **only approved WebP copies**, while `portfolio_publications` holds the public title, introduction and selected image paths. Public gallery URLs are `/p/<slug>`; visitors can open them without signing in. The private draft remains private. Unpublish removes public image copies and the public snapshot; deleting a private portfolio also unpublishes it first.
 
-Migration: `supabase/migrations/20261114230000_published_portfolios.sql`. The public bucket and snapshot table should not be created for production until this story passes review. The share link created locally uses `localhost`; the real external URL becomes functional once merged to Netlify `main`.
+Migration: `supabase/migrations/20261114230000_published_portfolios.sql` was **applied to wisht-dev** and its bucket, column grants, policies and deletion guard verified. The gallery UI remains on an unmerged PR and cannot publish via Netlify production until the story passes review. The share link created locally uses `localhost`; the real external URL becomes functional once merged to Netlify `main`.
 
 Before a public pilot, add moderation/abuse controls, usage quotas, and clear wording about CDN caching after unpublish. Public files may remain cached briefly even after deletion. No service-role key, queue or publishing function is required.
 
