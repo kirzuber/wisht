@@ -201,8 +201,23 @@ function WishApp(){
       <p className="lead narrower">{understood.message}</p>
       {understood.supported ? <>
         <p className="field-label">CHOOSE WHAT I SHOULD WORK ON FIRST</p>
-        <div className="mission-grid">{understood.missions.map((m,i)=><button className="mission-card" key={m.id} onClick={()=>choose(m)}><div className="mission-number">0{i+1}</div><div className="mission-body"><strong>{m.title}</strong><span>{m.promise}</span></div><ArrowRight size={19}/></button>)}</div>
-        <p className="subtle">These are planned missions. In this first story, we're choosing the right work—not executing it yet.</p>
+        <div className="mission-grid">{understood.missions.map((m,i)=>{
+          const planned=understood.kind==='soccer' && m.id!=='find-team';
+          return <button className={`mission-card${planned?' mission-card-unavailable':''}`}
+            key={m.id} onClick={()=>choose(m)} disabled={planned}
+            aria-label={m.title+(planned?' — coming later':' — available now')}>
+            <div className="mission-number">0{i+1}</div>
+            <div className="mission-body"><strong>{m.title}</strong><span>{m.promise}</span>
+              {understood.kind==='soccer' && <small className="mission-availability">
+                {planned?'Coming later':'Available now'}
+              </small>}
+            </div>
+            {!planned&&<ArrowRight size={19}/>}
+          </button>;
+        })}</div>
+        <p className="subtle">{understood.kind==='soccer'
+          ? 'Find my team is ready to use. Practice plans and tryout watches are future capabilities.'
+          : 'Some missions are still planned. Executable capabilities are available only where explicitly marked.'}</p>
       </>: <div className="unsupported"><Compass size={25}/><strong>My powers are still growing.</strong><p>You can try a photography, career, soccer, or independence wish. I won't claim to do something I can't.</p><button className="text-button" onClick={reset}>Try another wish <ArrowRight size={16}/></button></div>}
       <button className="back" onClick={()=>setStage('wish')}><ArrowLeft size={16}/> Change my wish</button>
     </section>}
