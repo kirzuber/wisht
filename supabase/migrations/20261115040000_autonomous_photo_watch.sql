@@ -26,7 +26,7 @@ create index due_photo_watches on public.photo_watches(next_check_at)
  where status='active';
 alter table public.photo_watches enable row level security;
 revoke all on public.photo_watches from anon,authenticated,public;
-grant select,delete to authenticated;
+grant select,delete on public.photo_watches to authenticated;
 grant insert(user_id,wish_id,genre,free_only) to authenticated;
 grant update(status) on public.photo_watches to authenticated;
 create policy "verified owner reads watches" on public.photo_watches
