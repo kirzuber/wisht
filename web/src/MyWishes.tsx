@@ -18,6 +18,7 @@ type SavedWish = {
 type SavedPortfolio = {
   id: string;
   wish_id: string;
+  published: boolean;
   title: string;
   photos: Array<{ id: string }>;
   status: 'PRIVATE';
@@ -59,9 +60,15 @@ export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onNew
         ]);
         if (wishResult.error) throw wishResult.error;
         if (portfolioResult.error) throw portfolioResult.error;
+        const galleryIds=(portfolioResult.data || []).map((p:{id:string})=>p.id);
+        const publishedResult=galleryIds.length
+          ? await db.from('portfolio_publications').select('portfolio_id').in('portfolio_id',galleryIds)
+          : {data:[],error:null};
+        if (publishedResult.error) throw publishedResult.error;
+        const liveIds=new Set((publishedResult.data || []).map((p:{portfolio_id:string})=>p.portfolio_id));
         if (active) {
           setWishes((wishResult.data || []) as SavedWish[]);
-          setPortfolios((portfolioResult.data || []) as SavedPortfolio[]);
+          setPortfolios((portfolioResult.data || []).map((p:{id:string})=>({...p,published:liveIds.has(p.id)})) as SavedPortfolio[]);
           const photoWish=(wishResult.data||[]).find((wish:{kind:string})=>wish.kind==='photography');
           setExpanded(previous=>previous??photoWish?.id??null);
         }
@@ -132,7 +139,7 @@ export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onNew
                 onClick={()=>setExpanded(current=>current===wish.id?null:wish.id)}>
                 <span className="my-work-card-text">
                   <span className="my-work-status-label">{owned.length
-                    ? `${owned.length} PORTFOLIO${owned.length===1?'':'S'} · PRIVATE WORK`
+                    ? `${owned.length} PORTFOLIO${owned.length===1?'':'S'} · WORK SAVED`
                     : 'WISH PLANNED · NO COMPLETED DEEDS'}</span>
                   <strong>{wish.aspiration}</strong>
                   <small>{owned.length
@@ -149,6 +156,7 @@ export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onNew
                     onClick={()=>onOpenPortfolio(portfolio.id)}>
                     <span className="my-work-portfolio-icon"><Images size={18}/></span>
                     <span className="my-work-card-text">
+                      <span className="my-work-status-label">{portfolio.published?'PUBLISHED · PUBLIC':'CREATED · PRIVATE'}</span>
                       <strong>{portfolio.title}</strong>
                       <small>{portfolio.photos.length} photographs</small>
                     </span>
