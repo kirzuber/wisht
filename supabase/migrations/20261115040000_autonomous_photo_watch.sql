@@ -107,6 +107,8 @@ create table public.photo_watch_runs(
    check(jsonb_typeof(matches)='array' and jsonb_array_length(matches)<=5),
  new_matches jsonb not null default '[]'::jsonb
    check(jsonb_typeof(new_matches)='array' and jsonb_array_length(new_matches)<=5),
+ changed_matches jsonb not null default '[]'::jsonb
+   check(jsonb_typeof(changed_matches)='array' and jsonb_array_length(changed_matches)<=5),
  error_message text not null default '' check(length(error_message)<=280),
  constraint watch_run_same_owner_fk foreign key (wish_id,user_id)
   references public.wishes(id,user_id) on delete cascade,
@@ -131,7 +133,7 @@ begin
  if linked.user_id is distinct from new.user_id or linked.wish_id is distinct from new.wish_id then
   raise exception 'WATCH_RUN_OWNER_MISMATCH' using errcode='P0001';
  end if;
- if new.state='failed' and (jsonb_array_length(new.matches)>0 or jsonb_array_length(new.new_matches)>0) then
+ if new.state='failed' and (jsonb_array_length(new.matches)>0 or jsonb_array_length(new.new_matches)>0 or jsonb_array_length(new.changed_matches)>0) then
   raise exception 'FAILED_WATCH_CANNOT_REPORT_RESULTS' using errcode='P0001';
  end if;
  if new.state='succeeded' and new.error_message<>'' then
@@ -219,7 +221,7 @@ begin
  elsif TG_TABLE_NAME='photo_watch_runs' and TG_OP='INSERT' and new.state='succeeded' then
   v_user:=new.user_id;v_wish:=new.wish_id;v_watch_run:=new.id;
   v_action:='WATCH_CHECK_COMPLETED';
-  v_opportunity_count:=pg_catalog.jsonb_array_length(new.new_matches);
+  v_opportunity_count:=pg_catalog.jsonb_array_length(new.new_matches)+pg_catalog.jsonb_array_length(new.changed_matches);
  else
   return null;
  end if;
