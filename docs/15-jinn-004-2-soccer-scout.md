@@ -1,6 +1,6 @@
 # JINN-004.2 — Soccer Opportunity Scout
 
-Status: READY FOR IMPLEMENTATION. Branch: `feature/jinn-004-2-soccer-scout`.
+Status: IMPLEMENTED IN FEATURE BRANCH — CI AND LOCAL ACCEPTANCE PENDING. Branch: `feature/jinn-004-2-soccer-scout`.
 
 ## Product intent
 Third executable wish family after photography and career. A person says “I want to play soccer”; the Jinn finds genuine local organizations and documented ways to take a next step. This tests whether one wish → deed → evidence → saved artifact → receipt architecture extends to geographically specific, non-job opportunities. Keep the experience welcoming, especially to beginners and parents, rather than presenting a technical directory.
@@ -73,3 +73,10 @@ This is the **last planned feature story before the MVP pause**. After user acce
 - Positioning, distribution, willingness to pay, and MVP go/no-go
 
 Never count an implementation as complete until genuine source evidence, local browser acceptance, security verification, CI and owner approval are all recorded.
+
+## Implementation record (November 14, 2026)
+- First-party public program pages were independently researched for Burlington Soccer, Oakville Soccer Club, Erin Mills SC, Guelph Soccer, Toronto High Park FC and Ottawa South United. No claim of current registration availability is made. Club program links and source verification timestamps are in `api/src/soccerCatalogue.ts`.
+- Kept this intentionally as a **curated static pilot catalogue**, not an automated live scan, and therefore zero model calls. Unlisted towns return honest no-match + Canada Soccer directory link.
+- Implemented anonymous `/api/soccer-scout`, user-owned save via `soccer_shortlists`, `SOCCER_SHORTLIST_SAVED` database receipt, and return access through My Wishes. Added automated input and evidence tests.
+- New source-backed records must be periodically reverified manually; the catalogue does NOT make claims about new 2027 enrollment, program eligibility or registration availability.
+- Owner browser acceptance still pending; no merge or production deployment authorized until approval.
