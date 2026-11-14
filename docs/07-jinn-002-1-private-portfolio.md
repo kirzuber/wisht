@@ -15,7 +15,7 @@ Someone who wishes to become a photographer can select “Build my portfolio,”
 
 ## Accepted behaviors
 - [ ] Onboarding stays free and does not create account records for visitors.
-- [ ] Saving a wish or starting a persistent portfolio requires six-digit email OTP; no anonymous account is created by either action.
+- [ ] Saving a wish or starting a persistent portfolio requires email OTP verification; no anonymous account is created by either action.
 - [ ] Returning users can sign back in with email on another device.
 - [ ] Supabase restrictive RLS policy rejects existing anonymous session tokens, including direct API requests.
 - [ ] User selects `build-portfolio` and sees a functioning upload path, not a disabled action.
@@ -58,3 +58,6 @@ Only merged `main` gets a Netlify production build. `netlify.toml` skips non-pro
 6. Existing anonymous data and storage may remain. Inspect aggregate counts and obtain explicit approval before any cleanup; do not delete on merge.
 
 **Important:** supabase-js passwordless email defaults to sending a magic link; our inline code form needs **both** email templates to contain `{{ .Token }}`. We cannot change this template through the current Supabase app connector; use the Supabase dashboard.
+
+## OTP length regression
+Supabase `wisht-dev` sends eight-digit codes. The initial UI accepted only six, truncating the value and causing `Token has expired or is invalid`. The code form now accepts 6–10 numeric digits (the full value from the email). Test against a newly issued eight-digit code before merging this PR. No secret code is committed.
