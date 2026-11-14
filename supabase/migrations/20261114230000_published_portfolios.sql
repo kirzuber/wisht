@@ -73,3 +73,21 @@ using(
   and (storage.foldername(name))[1]=(select auth.uid())::text
   and owner_id=(select auth.uid())::text
 );
+
+-- Prevent bypassing the UI to delete a private draft while its public copies
+-- still exist. The UI first removes public assets and publication, then draft.
+create or replace function private.require_unpublish_before_private_delete()
+returns trigger language plpgsql security invoker set search_path=''
+as $$
+begin
+  if exists(select 1 from public.portfolio_publications pub where pub.portfolio_id=old.id) then
+    raise exception 'UNPUBLISH_BEFORE_DELETE'
+      using errcode='P0001',
+      detail='Remove public image copies and publication before deleting the draft.';
+  end if;
+  return old;
+end $$;
+revoke all on function private.require_unpublish_before_private_delete() from public;
+create trigger require_unpublish_before_private_delete
+before delete on public.portfolios
+for each row execute function private.require_unpublish_before_private_delete();
