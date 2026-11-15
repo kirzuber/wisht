@@ -6,6 +6,7 @@ import { rollbackUnusedWish, type WishLink } from './wishOwnership';
 import type { CareerResult,CareerCountry } from './careerTypes';
 import WorkReceipts from './WorkReceipts';
 import ResultNavigator from './ResultNavigator';
+import NextDeed from './NextDeed';
 import './careerScout.css';
 
 type Props={
@@ -161,7 +162,12 @@ export default function CareerScout({wishId,aspiration,answer,onBack,onRequireAu
    {result.jobs.length>0&&<button className="primary" type="button" disabled={saving||!!savedWish} onClick={()=>void save()}>
     <Bookmark size={16}/> {saving?'Saving career shortlist…':savedWish?'Saved under my wish':'Save all '+result.jobs.length+' openings'} <ArrowRight size={15}/>
    </button>}
-   {savedWish&&<><p className="career-success">Saved under your existing career wish. The receipt confirms a saved shortlist, not a job application.</p>
+   {savedWish&&<><p className="career-success">Saved to your career wish. No application was submitted.</p>
+    {selectedJob&&<NextDeed title="Ready to explore this application?"
+      detail={`You can review the employer's instructions for “${selectedJob.title}”. Jinn won't apply on your behalf.`}
+      label="Open application page" href={selectedJob.applicationLink}
+      note="You're leaving Jinn. Check the employer's requirements and availability."
+    />}
     <details className="result-evidence-details"><summary>View Work Receipt</summary><WorkReceipts wishId={savedWish}/></details>
     <button type="button" className="back" onClick={onSaved}>Open My wishes <ArrowRight size={15}/></button>
    </>}
