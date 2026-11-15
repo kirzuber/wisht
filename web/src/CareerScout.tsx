@@ -7,6 +7,7 @@ import type { CareerResult,CareerCountry } from './careerTypes';
 import WorkReceipts from './WorkReceipts';
 import ResultNavigator from './ResultNavigator';
 import NextDeed from './NextDeed';
+import {nextDeedFor} from './nextDeedPolicy';
 import './careerScout.css';
 
 type Props={
@@ -15,6 +16,7 @@ type Props={
 };
 const API=import.meta.env.VITE_API_BASE_URL||'';
 const ERROR='Could not check remote job listings.';
+const nextStep=nextDeedFor('CAREER_SHORTLIST_SAVED');
 export default function CareerScout({wishId,aspiration,answer,onBack,onRequireAuth,onSaved}:Props){
  const [query,setQuery]=useState('');
  const [experience,setExperience]=useState('');
@@ -163,10 +165,10 @@ export default function CareerScout({wishId,aspiration,answer,onBack,onRequireAu
     <Bookmark size={16}/> {saving?'Saving career shortlist…':savedWish?'Saved under my wish':'Save all '+result.jobs.length+' openings'} <ArrowRight size={15}/>
    </button>}
    {savedWish&&<><p className="career-success">Saved to your career wish. No application was submitted.</p>
-    {selectedJob&&<NextDeed title="Ready to explore this application?"
+    {selectedJob&&<NextDeed title={nextStep.title}
       detail={`You can review the employer's instructions for “${selectedJob.title}”. Jinn won't apply on your behalf.`}
-      label="Open application page" href={selectedJob.applicationLink}
-      note="You're leaving Jinn. Check the employer's requirements and availability."
+      label={nextStep.label} href={selectedJob.applicationLink}
+      note={nextStep.note}
     />}
     <details className="result-evidence-details"><summary>View Work Receipt</summary><WorkReceipts wishId={savedWish}/></details>
     <button type="button" className="back" onClick={onSaved}>Open My wishes <ArrowRight size={15}/></button>
