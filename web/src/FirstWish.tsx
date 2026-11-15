@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, LockKeyhole, RotateCcw, Sparkles, Trash2 } from 'lucide-react';
 import type { Artifact, DeedReceipt, Section } from '../../api/src/firstDeed';
 import { getSupabase } from './supabaseClient';
+import { listJinns, type JinnIdentity } from './jinnStore';
 import { deleteFirstWish, loadFirstWish, saveFirstWish, updateFirstWish, type FirstWishRow } from './firstWishStore';
 import { correctSource, validateEditedArtifact } from './firstWishModel';
 import { browserDiagnostic, diagnosticCode } from './browserDiagnostics';
 import JinnAvatar from './JinnAvatar';
 
-type Props={wish:string;savedId?:string|null;onBack:()=>void;onRequireAuth:()=>void;onDeleted:()=>void;onSaved:(id:string)=>void};
+type Props={wish:string;savedId?:string|null;preferredJinnId?:string|null;onBack:()=>void;onRequireAuth:()=>void;onDeleted:()=>void;onSaved:(id:string)=>void};
 type Phase='clarify'|'answer'|'working'|'workspace'|'start-error';
 const API=import.meta.env.VITE_API_BASE_URL||'';
 const FOLLOW_UP_OPERATION='AI prepared a follow-up draft from the saved, corrected artifact';
@@ -33,19 +34,23 @@ async function endpoint(body:{mode:'clarify'|'prepare'|'continue'} & Record<stri
   return result;
 }
 
-export default function FirstWish({wish,savedId,onBack,onRequireAuth,onDeleted,onSaved}:Props){
+export default function FirstWish({wish,savedId,preferredJinnId,onBack,onRequireAuth,onDeleted,onSaved}:Props){
   const [phase,setPhase]=useState<Phase>('working');
   const [question,setQuestion]=useState<string|null>(null);
   const [answer,setAnswer]=useState('');
   const [artifact,setArtifact]=useState<Artifact|null>(null);
   const [receipt,setReceipt]=useState<DeedReceipt|null>(null);
   const [row,setRow]=useState<FirstWishRow|null>(null);
+  const [jinnChoices,setJinnChoices]=useState<JinnIdentity[]>([]);
+  const [saveJinnId,setSaveJinnId]=useState<string>(preferredJinnId||'');
+  const [jinnUnavailable,setJinnUnavailable]=useState(false);
   const [dirty,setDirty]=useState(false);
   const sourceBaseline=useRef('');
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const [retryAttempt,setRetryAttempt]=useState(0);
   const currentWish=row?.aspiration||wish;
+  const companionName=row?.jinn_name||jinnChoices.find(jinn=>jinn.id===saveJinnId)?.name||'Jinn';
   const ru=/[\u0400-\u04ff]/u.test(currentWish);
   const label=(english:string,russian:string)=>ru?russian:english;
   const receiptDescription=(item:DeedReceipt)=>{
@@ -62,6 +67,22 @@ export default function FirstWish({wish,savedId,onBack,onRequireAuth,onDeleted,o
       'ИИ подготовил и проверил редактируемый черновик.',
     );
   };
+
+  useEffect(()=>{
+    let live=true;
+    // Selecting a Jinn for a NEW Wish changes only its assignment, never its draft context.
+    const load=()=>{
+      void listJinns().then(items=>{
+        if(!live)return;
+        setJinnChoices(items);
+        if(preferredJinnId && !items.some(item=>item.id===preferredJinnId)) setJinnUnavailable(true);
+        else setJinnUnavailable(false);
+      }).catch(()=>{if(live)setJinnChoices([]);});
+    };
+    const {data:{subscription}}=getSupabase().auth.onAuthStateChange(()=>load());
+    load();
+    return()=>{live=false;subscription.unsubscribe();};
+  },[preferredJinnId]);
 
   useEffect(()=>{
     let live=true;
@@ -91,7 +112,7 @@ export default function FirstWish({wish,savedId,onBack,onRequireAuth,onDeleted,o
     try{
       validateEditedArtifact(artifact);
       if (!row) {
-        onSaved(await saveFirstWish(wish,artifact,receipt));
+        onSaved(await saveFirstWish(wish,artifact,receipt,saveJinnId||undefined));
         return;
       }
       const saved=await updateFirstWish(row,artifact);
@@ -125,8 +146,9 @@ export default function FirstWish({wish,savedId,onBack,onRequireAuth,onDeleted,o
     edit({...artifact,sections:artifact.sections.map((s,i)=>i===index?section:s)});
   };
   return <section className={'first-wish entrance '+(phase==='workspace'?'is-workspace':'is-conversation')} aria-live="polite">
-    <div className="journey-top"><button type="button" className="first-back" onClick={onBack}><ArrowLeft size={16}/> {savedId?label('My wishes','Мои желания'):label('Back to wish','Назад')}</button><span>{label('WISH · FIRST DEED · WORKSPACE','ЖЕЛАНИЕ · ПЕРВЫЙ ШАГ · РАБОТА')}</span></div>
-    <div className="first-jinn"><JinnAvatar size={phase==='workspace'?'small':'large'}/><span><strong>Jinn</strong><small>{row?label('Here with your saved wish','Здесь с вашим сохранённым желанием'):label('Here to help with this wish','Помогу с этим желанием')}</small></span></div>
+    <div className="journey-top"><button type="button" className="first-back" onClick={onBack}><ArrowLeft size={16}/> {savedId?label('My Jinns','Мои Jinn'):label('Back to wish','Назад')}</button><span>{label('WISH · FIRST DEED · WORKSPACE','ЖЕЛАНИЕ · ПЕРВЫЙ ШАГ · РАБОТА')}</span></div>
+    <div className="first-jinn"><JinnAvatar size={phase==='workspace'?'small':'large'}/><span><strong>{companionName}</strong><small>{row?label('Currently assigned to this Wish · Wish-local context','Сейчас помогает с этим желанием · отдельный контекст'):label('Here to help with this wish','Помогу с этим желанием')}</small></span>
+      {row&&<button type="button" className="first-jinn-switch" onClick={onBack}>{label('Switch Jinn / My Jinns','Сменить Jinn / Мои Jinn')}</button>}</div>
     {phase==='workspace'&&artifact&&<nav className="workspace-nav" aria-label={label('Wish workspace','Работа с желанием')}>
       <a href="#wish-current">{label('Current wish','Желание')}</a><a href="#wish-artifacts">{label('Artifacts','Документы')}</a><a href="#wish-next">{label('Next step','Следующий шаг')}</a><a href="#wish-history">{label('History','История')}</a>
     </nav>}
@@ -179,7 +201,7 @@ export default function FirstWish({wish,savedId,onBack,onRequireAuth,onDeleted,o
               onChange={e=>edit({...artifact,unknowns:e.target.value.split('\n').filter(Boolean)})}/></div>
           <p className="first-boundary">{artifact.boundary}</p>
         </article>
-        <aside className="first-side"><div className="first-current" id="wish-current"><p className="eyebrow">{label('CURRENT WISH','ВАШЕ ЖЕЛАНИЕ')}</p><h3>{currentWish}</h3><JinnAvatar size="medium"/></div><div className="first-next" id="wish-next"><p className="eyebrow">{label('ONE NEXT DEED','СЛЕДУЮЩИЙ ШАГ')}</p><h3>{artifact.nextDeed.title}</h3>
+        <aside className="first-side"><div className="first-current" id="wish-current"><p className="eyebrow">{label('CURRENT WISH','ВАШЕ ЖЕЛАНИЕ')}</p><h3>{currentWish}</h3><p className="first-current-jinn">{label('With','Помогает')}: {companionName}</p><JinnAvatar size="medium"/></div><div className="first-next" id="wish-next"><p className="eyebrow">{label('ONE NEXT DEED','СЛЕДУЮЩИЙ ШАГ')}</p><h3>{artifact.nextDeed.title}</h3>
           <p>{artifact.nextDeed.why}</p><small>{artifact.nextDeed.prompt}</small></div>
           <div className="first-receipt" id="wish-history"><p className="eyebrow">{label('HISTORY · WORK RECEIPT','ИСТОРИЯ · ЗАПИСЬ О РАБОТЕ')}</p><strong>{label('PREPARED','ПОДГОТОВЛЕНО')}</strong><p>{receiptDescription(receipt)}</p><small>{label('Private draft only. Nothing sent, published, or independently fact-checked.','Личный черновик. Ничего не отправлено, не опубликовано и не проверено во внешних источниках.')}</small></div>
           {row&&row.deed_history.length>1&&<details className="first-history"><summary>{label('Earlier Deeds','Предыдущие шаги')} ({row.deed_history.length-1})</summary>
@@ -188,8 +210,17 @@ export default function FirstWish({wish,savedId,onBack,onRequireAuth,onDeleted,o
           <div className="first-privacy"><LockKeyhole size={17}/><p>{row?label('Saved privately under your account.','Сохранено только в вашем аккаунте.'):label('This draft is only in this open session until you keep it.','Черновик останется только в этой сессии, пока вы его не сохраните.')} {label('No cross-wish memory or external action.','Нет общей памяти между желаниями и внешних действий.')}</p></div>
         </aside>
       </div>
+      {!row&&<div className="first-jinn-assignment">
+        <p>{label('Jinn will help you continue this Wish. You can name it later.','Jinn поможет Вам продолжить это желание. Имя можно выбрать позже.')}</p>
+        {jinnChoices.length>1&&<><label htmlFor="first-jinn-choice">{label('Keep this Wish with','Сохранить желание с')}</label>
+          <select id="first-jinn-choice" value={saveJinnId} onChange={event=>{setSaveJinnId(event.target.value);setJinnUnavailable(false);}}>
+            <option value="">{label('My default Jinn','Мой Jinn по умолчанию')}</option>
+            {jinnChoices.map(jinn=><option key={jinn.id} value={jinn.id}>{jinn.name}</option>)}
+          </select></>}
+        {jinnUnavailable&&<p className="error" role="alert">{label('The previously selected Jinn is unavailable for this account. Choose your default Jinn or return to My Jinns.','Выбранный Jinn недоступен в этом аккаунте. Выберите Jinn по умолчанию или вернитесь к списку.')}</p>}
+      </div>}
       <div className="first-footer-actions">
-        <button className="primary" disabled={busy||(!dirty&&!!row)} onClick={()=>void save()}>{busy?label('Working…','Подождите…'):row?(dirty?label('Save corrections','Сохранить исправления'):label('Corrections saved','Исправления сохранены')):label('Keep this wish','Сохранить желание')} {row&&!dirty?<Check size={16}/>:<ArrowRight size={16}/>}</button>
+        <button className="primary" disabled={busy||jinnUnavailable||(!dirty&&!!row)} onClick={()=>void save()}>{busy?label('Working…','Подождите…'):row?(dirty?label('Save corrections','Сохранить исправления'):label('Corrections saved','Исправления сохранены')):label('Keep this wish','Сохранить желание')} {row&&!dirty?<Check size={16}/>:<ArrowRight size={16}/>}</button>
         {row&&<button className="first-secondary" disabled={busy||dirty} onClick={()=>void continueWish()}><RotateCcw size={16}/> {label('Prepare next Deed','Подготовить следующий шаг')}</button>}
       </div>
       {dirty&&row&&<p className="first-hint">{label('Save your corrections before preparing the next Deed.','Сохраните исправления перед следующим шагом.')}</p>}
