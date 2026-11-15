@@ -31,7 +31,7 @@ select public.create_wish_with_deed((select id from public.jinns limit 1),'Help 
 select public.create_wish_with_deed((select id from public.jinns limit 1),'Make a family story book',(select artifact from fixture),(select receipt from fixture));
 select public.create_wish_with_deed((select id from public.jinns limit 1),'Start a garden',(select artifact from fixture),(select receipt from fixture));
 select public.create_wish_with_deed((select id from public.jinns limit 1),'Learn to play chess',(select artifact from fixture),(select receipt from fixture));
-do $$ begin if (select count(*) from public.wishes) <> 4 or (select count(*) from public.deeds) <> 4 or (select count(*) from public.artifacts) <> 4 then raise exception 'save or no-limit check failed'; end if; end $$;
+do $$ begin if (select count(*) from public.wish_records) <> 4 or (select count(*) from public.deeds) <> 4 or (select count(*) from public.artifacts) <> 4 then raise exception 'save or no-limit check failed'; end if; end $$;
 select public.correct_artifact((select id from public.artifacts where content->>'sourceNote'='Leaves drooping' limit 1),1,
   jsonb_set((select content from public.artifacts limit 1),'{sourceNote}','"Leaves firming"'::jsonb));
 do $$ begin if (select count(*) from public.artifacts where version=2 and content->>'sourceNote'='Leaves firming') <> 1 then raise exception 'correction failed'; end if; end $$;
@@ -42,18 +42,18 @@ set role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000002',false);
 select set_config('request.jwt.claims','{"is_anonymous":false}',false);
 do $$ declare changed integer; begin
- if (select count(*) from public.wishes) <> 0 or (select count(*) from public.deeds) <> 0 or (select count(*) from public.artifacts) <> 0 or (select count(*) from public.jinns) <> 0 then raise exception 'cross-owner read'; end if;
+ if (select count(*) from public.wish_records) <> 0 or (select count(*) from public.deeds) <> 0 or (select count(*) from public.artifacts) <> 0 or (select count(*) from public.jinns) <> 0 then raise exception 'cross-owner read'; end if;
  update public.jinns set name='Intruder'; get diagnostics changed=row_count; if changed<>0 then raise exception 'cross-owner Jinn update'; end if;
- update public.wishes set title='Intruder'; get diagnostics changed=row_count; if changed<>0 then raise exception 'cross-owner Wish update'; end if;
+ update public.wish_records set title='Intruder'; get diagnostics changed=row_count; if changed<>0 then raise exception 'cross-owner Wish update'; end if;
  update public.artifacts set version=version+1; get diagnostics changed=row_count; if changed<>0 then raise exception 'cross-owner Artifact update'; end if;
- delete from public.wishes; get diagnostics changed=row_count; if changed<>0 then raise exception 'cross-owner Wish delete'; end if;
+ delete from public.wish_records; get diagnostics changed=row_count; if changed<>0 then raise exception 'cross-owner Wish delete'; end if;
 end $$;
 SQL
 docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
 set role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);
 select set_config('request.jwt.claims','{"is_anonymous":false}',false);
-do $$ begin if (select count(*) from public.wishes) <> 4 or (select count(*) from public.artifacts where version=2) <> 1 then raise exception 'return failed'; end if; end $$;
+do $$ begin if (select count(*) from public.wish_records) <> 4 or (select count(*) from public.artifacts where version=2) <> 1 then raise exception 'return failed'; end if; end $$;
 select public.append_prepared_deed(a.wish_id,a.id,a.version,a.content,
   '{"status":"PREPARED","operation":"AI prepared follow-up","recordedAt":"2026-11-15T00:00:00Z","scope":"Private draft"}'::jsonb)
 from public.artifacts a where a.version=2;
@@ -63,12 +63,12 @@ do $$ begin
  raise exception 'stale version was accepted';
  exception when others then if sqlerrm='stale version was accepted' then raise; end if;
 end $$;
-delete from public.wishes where original_intent='Help my houseplant';
-do $$ begin if (select count(*) from public.wishes) <> 3 or (select count(*) from public.deeds) <> 3 or (select count(*) from public.artifacts) <> 3 then raise exception 'cascade deletion failed'; end if; end $$;
+delete from public.wish_records where original_intent='Help my houseplant';
+do $$ begin if (select count(*) from public.wish_records) <> 3 or (select count(*) from public.deeds) <> 3 or (select count(*) from public.artifacts) <> 3 then raise exception 'cascade deletion failed'; end if; end $$;
 SQL
 docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
 set role anon;
-do $$ begin if (select count(*) from public.wishes) <> 0 then raise exception 'anonymous saved-work access'; end if;
+do $$ begin if (select count(*) from public.wish_records) <> 0 then raise exception 'anonymous saved-work access'; end if;
  exception when insufficient_privilege then null; end $$;
 SQL
 echo 'F03 schema, four wishes, atomic save/edit/follow-up, return, RLS and deletion: PASS'

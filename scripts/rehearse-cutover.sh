@@ -37,7 +37,7 @@ docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
 do $$ begin
  if (select count(*) from legacy_archive.wishes)<>1 or (select count(*) from legacy_archive.portfolios)<>1
  or (select count(*) from legacy_archive.portfolio_publications)<>1 then raise exception 'archive rows missing'; end if;
- if (select count(*) from public.wishes)<>0 or to_regclass('public.artifacts') is null then raise exception 'F03 baseline absent'; end if;
+ if (select count(*) from public.wish_records)<>0 or to_regclass('public.artifacts') is null then raise exception 'F03 baseline absent'; end if;
  if (select count(*) from auth.users)<>1 then raise exception 'Auth altered'; end if;
 end $$;
 SQL
@@ -50,7 +50,7 @@ docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
 do $$ begin
  if (select count(*) from public.wishes)<>1 or (select count(*) from public.portfolios)<>1
  or (select count(*) from public.portfolio_publications)<>1 then raise exception 'rollback lost legacy data'; end if;
- if to_regclass('f03_rollback.wishes') is null or (select count(*) from auth.users)<>1 then raise exception 'rollback lost new schema or Auth'; end if;
+ if to_regclass('f03_rollback.wish_records') is null or (select count(*) from auth.users)<>1 then raise exception 'rollback lost new schema or Auth'; end if;
 end $$;
 SQL
 echo 'Synthetic legacy dependency graph archive -> F03 baseline -> non-destructive rollback: PASS'

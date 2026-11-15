@@ -1,7 +1,6 @@
--- JINN-F03-001 fresh-environment baseline. Never apply this to an existing
--- legacy project with `db push`; its separate, approval-gated cutover is in
--- supabase/cutover/. Historical migrations are preserved unchanged in
--- supabase/legacy-migrations/.
+-- JINN-F03 additive, domain-neutral persistence. Uses public.wish_records,
+-- leaving legacy public.wishes (and its saved data, policies and triggers) alone.
+-- Apply only as a reviewed migration to intended Supabase project; no blind remote db push.
 
 create table public.jinns (
   id uuid primary key default gen_random_uuid(),
@@ -16,7 +15,7 @@ create table public.jinns (
 create unique index jinns_one_primary_per_owner on public.jinns(user_id) where is_primary;
 create index jinns_owner_created on public.jinns(user_id, created_at);
 
-create table public.wishes (
+create table public.wish_records (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   primary_jinn_id uuid not null,
@@ -30,7 +29,7 @@ create table public.wishes (
   constraint wishes_primary_jinn_owner foreign key (primary_jinn_id, user_id)
     references public.jinns(id, user_id) on delete restrict
 );
-create index wishes_owner_updated on public.wishes(user_id, updated_at desc);
+create index wish_records_owner_updated on public.wish_records(user_id, updated_at desc);
 
 create table public.deeds (
   id uuid primary key default gen_random_uuid(),
@@ -44,7 +43,7 @@ create table public.deeds (
   updated_at timestamptz not null default now(),
   unique (id, wish_id, user_id),
   constraint deeds_wish_owner foreign key (wish_id, user_id)
-    references public.wishes(id, user_id) on delete cascade,
+    references public.wish_records(id, user_id) on delete cascade,
   constraint prepared_receipt_matches check (status <> 'PREPARED' or receipt->>'status' = 'PREPARED')
 );
 create index deeds_wish_history on public.deeds(wish_id, created_at, id);
@@ -66,21 +65,21 @@ create table public.artifacts (
   updated_at timestamptz not null default now(),
   unique (id, wish_id, user_id),
   constraint artifacts_wish_owner foreign key (wish_id, user_id)
-    references public.wishes(id, user_id) on delete cascade,
+    references public.wish_records(id, user_id) on delete cascade,
   constraint artifacts_origin_owner foreign key (origin_deed_id, wish_id, user_id)
     references public.deeds(id, wish_id, user_id) on delete restrict
 );
 create index artifacts_wish_updated on public.artifacts(wish_id, updated_at desc);
 
 alter table public.jinns enable row level security;
-alter table public.wishes enable row level security;
+alter table public.wish_records enable row level security;
 alter table public.deeds enable row level security;
 alter table public.artifacts enable row level security;
-revoke all on public.jinns, public.wishes, public.deeds, public.artifacts from public, anon, authenticated;
+revoke all on public.jinns, public.wish_records, public.deeds, public.artifacts from public, anon, authenticated;
 grant select, insert on public.jinns to authenticated;
 grant update (name, settings, updated_at) on public.jinns to authenticated;
-grant select, insert, delete on public.wishes to authenticated;
-grant update (title, state, wish_context, updated_at) on public.wishes to authenticated;
+grant select, insert, delete on public.wish_records to authenticated;
+grant update (title, state, wish_context, updated_at) on public.wish_records to authenticated;
 grant select, insert on public.deeds to authenticated;
 grant select, insert on public.artifacts to authenticated;
 grant update (content, origin_deed_id, version, updated_at) on public.artifacts to authenticated;
@@ -93,14 +92,14 @@ create policy "owner updates jinns" on public.jinns for update to authenticated
   using ((select auth.uid()) = user_id and coalesce((select (auth.jwt()->>'is_anonymous')::boolean), true) is false)
   with check ((select auth.uid()) = user_id and coalesce((select (auth.jwt()->>'is_anonymous')::boolean), true) is false);
 
-create policy "owner reads wishes" on public.wishes for select to authenticated
+create policy "owner reads wishes" on public.wish_records for select to authenticated
   using ((select auth.uid()) = user_id and coalesce((select (auth.jwt()->>'is_anonymous')::boolean), true) is false);
-create policy "owner creates wishes" on public.wishes for insert to authenticated
+create policy "owner creates wishes" on public.wish_records for insert to authenticated
   with check ((select auth.uid()) = user_id and coalesce((select (auth.jwt()->>'is_anonymous')::boolean), true) is false);
-create policy "owner updates wishes" on public.wishes for update to authenticated
+create policy "owner updates wishes" on public.wish_records for update to authenticated
   using ((select auth.uid()) = user_id and coalesce((select (auth.jwt()->>'is_anonymous')::boolean), true) is false)
   with check ((select auth.uid()) = user_id and coalesce((select (auth.jwt()->>'is_anonymous')::boolean), true) is false);
-create policy "owner deletes wishes" on public.wishes for delete to authenticated
+create policy "owner deletes wishes" on public.wish_records for delete to authenticated
   using ((select auth.uid()) = user_id and coalesce((select (auth.jwt()->>'is_anonymous')::boolean), true) is false);
 
 create policy "owner reads deeds" on public.deeds for select to authenticated
@@ -130,7 +129,7 @@ begin
     or jsonb_typeof(p_artifact) <> 'object' or p_receipt->>'status' <> 'PREPARED' then
     raise exception 'Invalid first Deed payload.';
   end if;
-  insert into public.wishes(user_id, primary_jinn_id, title, original_intent, state, wish_context)
+  insert into public.wish_records(user_id, primary_jinn_id, title, original_intent, state, wish_context)
     values(v_user, p_jinn_id, left(p_intent, 100), p_intent, 'active',
       jsonb_build_object('sourceNote', coalesce(p_artifact->>'sourceNote','')))
     returning id into v_wish;
@@ -154,7 +153,7 @@ begin
     where id = p_artifact_id and user_id = v_user and version = p_expected_version
     returning wish_id, version into v_wish, v_version;
   if v_wish is null then raise exception 'This artifact changed in another session or is unavailable.'; end if;
-  update public.wishes set wish_context = jsonb_build_object('sourceNote', coalesce(p_content->>'sourceNote','')),
+  update public.wish_records set wish_context = jsonb_build_object('sourceNote', coalesce(p_content->>'sourceNote','')),
     updated_at = now() where id = v_wish and user_id = v_user;
   return v_version;
 end $$;
@@ -180,7 +179,7 @@ begin
   update public.artifacts set content = p_artifact, origin_deed_id = v_deed, version = version + 1,
     updated_at = now() where id = p_artifact_id and user_id = v_user
     returning version into v_version;
-  update public.wishes set updated_at = now() where id = p_wish_id and user_id = v_user;
+  update public.wish_records set updated_at = now() where id = p_wish_id and user_id = v_user;
   return v_version;
 end $$;
 

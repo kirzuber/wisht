@@ -1,0 +1,14 @@
+import { it } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+const read = (path: string) => readFileSync(new URL('../../' + path, import.meta.url), 'utf8');
+it('generic wish persistence does not collide with legacy public.wishes', () => {
+  const sql=read('supabase/migrations/20261115201523_f03_domain_neutral_baseline.sql');
+  assert.match(sql,/create table public\.wish_records\s*\(/);
+  assert.doesNotMatch(sql,/create table public\.wishes\s*\(/);
+  for(const path of ['web/src/firstWishStore.ts','api/src/firstDeed.ts']) {
+    const src=read(path);
+    assert.match(src,/\.from\('wish_records'\)/);
+    assert.doesNotMatch(src,/\.from\('wishes'\)/);
+  }
+});

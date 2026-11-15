@@ -87,3 +87,9 @@ An older Vite process was already serving port 5173 with the hosted `wisht-dev` 
 ## Remaining limits
 
 The new branch is stacked on `codex/jinn-f02-002`; it is incompatible with the current hosted legacy schema until a separately approved cutover. Legacy public galleries and their links need a deliberate disposition. The synthetic cutover rehearsal validates dependency ordering and rollback mechanics, not the full hosted snapshot. The app currently prepares private drafts and follow-up drafts only; it does not send, publish, book, fact-check or maintain cross-Wish memory.
+
+## Non-destructive integration (Mira, 15 November 2026)
+
+The generic F03 runtime now targets **public.wish_records**, separate from the old public.wishes. New jinns, wish_records, deeds and artifacts are additive and RLS-protected. Legacy wishes, portfolios, publication records, Auth users, and Storage objects remain untouched. Generic saved wishes will initially be empty; historical vertical wishes are NOT silently transformed into generic Deeds. No destructive archive/cutover is required to enable new generic Wish saving. The previous guarded archive/rollback scripts remain for a separately authorized later retirement and are NOT part of initial activation.
+
+Apply the new schema only to verified wisht-dev through a reviewed migration, not blind db push. Test from a frontend/API bundle on this branch: first Deed, authenticated save, list, reload, correction, follow-up and delete, second user isolation. CI/local fixtures do not prove hosted browser readiness. Legacy/public gallery URLs require separate user-impact review before removal.

@@ -16,7 +16,7 @@ export type FirstWishRow = {
 export function listFirstWishes(): Promise<WishSummary[]> {
   return logWishOperation('list', async () => {
     const user = await getAuthenticatedUser();
-    const { data, error, status } = await getSupabase().from('wishes').select('id,original_intent,updated_at,state')
+    const { data, error, status } = await getSupabase().from('wish_records').select('id,original_intent,updated_at,state')
       .eq('user_id', user.id).order('updated_at', { ascending: false });
     if (error) throw new WishPersistenceError('read wishes', error, status);
     return data.map(item => ({
@@ -29,7 +29,7 @@ export function loadFirstWish(id: string): Promise<FirstWishRow> {
   return logWishOperation('open', async () => {
     const user = await getAuthenticatedUser();
     const db = getSupabase();
-    const wish = await db.from('wishes').select('id,original_intent')
+    const wish = await db.from('wish_records').select('id,original_intent')
       .eq('id', id).eq('user_id', user.id).maybeSingle();
     if (wish.error) throw new WishPersistenceError('read wish', wish.error, wish.status);
     if (!wish.data) throw new Error('This saved wish is unavailable.');
@@ -118,7 +118,7 @@ export async function updateFirstWish(row: FirstWishRow, artifact: Artifact, rec
 export function deleteFirstWish(id: string): Promise<void> {
   return logWishOperation('delete', async () => {
     const user = await getAuthenticatedUser();
-    const { data, error, status } = await getSupabase().from('wishes').delete()
+    const { data, error, status } = await getSupabase().from('wish_records').delete()
       .eq('id', id).eq('user_id', user.id).select('id');
     if (error) throw new WishPersistenceError('delete wish', error, status);
     if (!data.length) throw new Error('This wish could not be deleted.');

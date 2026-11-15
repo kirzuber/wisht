@@ -237,7 +237,7 @@ export async function loadOwnedWish(token: string, wishId: string, env: NodeJS.P
     global:{headers:{Authorization:`Bearer ${token}`}}});
   const {data:{user},error:authError} = await db.auth.getUser(token);
   if (authError || !user || user.is_anonymous || !user.email_confirmed_at) throw new Error('Sign in to continue this wish.');
-  const {data:wish,error:wishError} = await db.from('wishes').select('id,original_intent')
+  const {data:wish,error:wishError} = await db.from('wish_records').select('id,original_intent')
     .eq('id',wishId).eq('user_id',user.id).single();
   if (wishError || !wish) throw new Error('Saved wish not found.');
   const {data:artifacts,error:artifactError} = await db.from('artifacts').select('content')

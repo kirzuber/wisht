@@ -55,18 +55,18 @@ try{
  if(!otherOtp)throw new Error('Second local OTP missing.');
  const {error:otherVerify}=await other.auth.verifyOtp({email:otherEmail,token:otherOtp,type:'email'});
  if(otherVerify)throw otherVerify;
- for(const table of ['jinns','wishes','deeds','artifacts']){
+ for(const table of ['jinns','wish_records','deeds','artifacts']){
   const {data,error}=await other.from(table).select('id');
   if(error)throw error;assert.equal(data.length,0,`cross-owner ${table} read`);
  }
- const {data:crossDelete,error:crossDeleteError}=await other.from('wishes').delete().eq('id',wishId).select('id');
+ const {data:crossDelete,error:crossDeleteError}=await other.from('wish_records').delete().eq('id',wishId).select('id');
  if(crossDeleteError)throw crossDeleteError;assert.equal(crossDelete.length,0);
  const {error:crossEdit}=await other.rpc('correct_artifact',{p_artifact_id:artifactRow.id,p_expected_version:2,p_content:{...artifact,sourceNote:'Intruder'}});
  assert.ok(crossEdit,'second account must not edit owner artifact');
  await other.auth.signOut();
  console.log('Local Auth token → server owner read → correction; second account isolation: PASS');
 }finally{
- const {error:deleteError}=await client.from('wishes').delete().eq('id',wishId);
+ const {error:deleteError}=await client.from('wish_records').delete().eq('id',wishId);
  if(deleteError)throw deleteError;
  await client.auth.signOut();
 }

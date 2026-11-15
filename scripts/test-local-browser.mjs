@@ -91,7 +91,7 @@ try{
  assert.equal(await page.locator('#first-source-note').inputValue(),'Sunday pancakes with Grandma');
 
  // A committed save followed by a failed read should retry opening the saved ID.
- const openRequest=url=>url.href.startsWith(`${rest}/wishes?`)&&url.searchParams.get('select')==='id,original_intent';
+ const openRequest=url=>url.href.startsWith(`${rest}/wish_records?`)&&url.searchParams.get('select')==='id,original_intent';
  await page.route(openRequest,route=>route.fulfill(schemaFailure('42703')));
  const savedLog=page.waitForEvent('console',{predicate:message=>message.text().includes('[Wisht] wish.save.succeeded')});
  await page.getByRole('button',{name:/Keep this wish/}).click();
@@ -103,7 +103,7 @@ try{
  await page.getByRole('button',{name:'Retry opening wish'}).click();
  await page.locator('#first-source-note').waitFor();
 
- const listRequest=url=>url.href.startsWith(`${rest}/wishes?`)&&url.searchParams.get('select')?.includes('updated_at');
+ const listRequest=url=>url.href.startsWith(`${rest}/wish_records?`)&&url.searchParams.get('select')?.includes('updated_at');
  await page.route(listRequest,route=>route.fulfill(schemaFailure('42703')));
  const listFailure=page.waitForEvent('console',{predicate:message=>message.type()==='error'&&message.text().includes('[Wisht] wish.list.failed')});
  await page.getByRole('banner').getByRole('button',{name:'My wishes'}).click();

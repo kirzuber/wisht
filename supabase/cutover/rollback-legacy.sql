@@ -12,7 +12,7 @@ create schema if not exists f03_rollback;
 revoke all on schema f03_rollback from public, anon, authenticated;
 alter table public.artifacts set schema f03_rollback;
 alter table public.deeds set schema f03_rollback;
-alter table public.wishes set schema f03_rollback;
+alter table public.wish_records set schema f03_rollback;
 alter table public.jinns set schema f03_rollback;
 alter table if exists legacy_archive.jinns set schema public;
 alter table legacy_archive.wishes set schema public;
