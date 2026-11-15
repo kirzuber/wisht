@@ -30,7 +30,7 @@ SQL
 {
  printf 'begin;\nset local wisht.cutover_approved = yes;\nset local wisht.backup_verified = yes;\n'
  cat supabase/cutover/archive-legacy.sql
- cat supabase/migrations/20261115201523_f03_domain_neutral_baseline.sql
+ cat supabase/migrations/20261115224928_f03_additive_generic_wish_records.sql
  printf 'commit;\n'
 } | docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q
 docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'

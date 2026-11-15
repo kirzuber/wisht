@@ -17,7 +17,7 @@ grant execute on function auth.uid() to authenticated;
 grant execute on function auth.jwt() to authenticated;
 insert into auth.users values('00000000-0000-0000-0000-000000000001'),('00000000-0000-0000-0000-000000000002');
 SQL
-docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q < supabase/migrations/20261115201523_f03_domain_neutral_baseline.sql
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q < supabase/migrations/20261115224928_f03_additive_generic_wish_records.sql
 docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
 set role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);

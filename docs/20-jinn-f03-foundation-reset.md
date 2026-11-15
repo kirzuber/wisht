@@ -1,6 +1,6 @@
 # JINN-F03-001 — foundation reset and hosted cutover packet
 
-Status: implementation and local rehearsal only. **No hosted database migration, bucket deletion, merge, or deploy is authorized by this PR.** The canonical fresh-install migration is `supabase/migrations/20261115201523_f03_domain_neutral_baseline.sql`. Previously applied migrations are archived without editing in `supabase/legacy-migrations`; historical vertical product notes are in `docs/legacy`.
+Status: implementation and local rehearsal only. **No hosted database migration, bucket deletion, merge, or deploy is authorized by this PR.** The canonical fresh-install migration is `supabase/migrations/20261115224928_f03_additive_generic_wish_records.sql`. Previously applied migrations are archived without editing in `supabase/legacy-migrations`; historical vertical product notes are in `docs/legacy`.
 
 ## Architecture
 
