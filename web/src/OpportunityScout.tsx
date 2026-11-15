@@ -6,6 +6,7 @@ import type { ScoutResult, PhotoGenre } from './opportunityTypes';
 import WorkReceipts from './WorkReceipts';
 import ResultNavigator from './ResultNavigator';
 import NextDeed from './NextDeed';
+import {nextDeedFor} from './nextDeedPolicy';
 import './opportunityScout.css';
 
 type Props={
@@ -24,6 +25,7 @@ const OPTIONS:{value:PhotoGenre;label:string}[]=[
 ];
 const API=import.meta.env.VITE_API_BASE_URL||'';
 
+const nextStep=nextDeedFor('PHOTO_SHORTLIST_SAVED');
 export default function OpportunityScout({wishContext,initialGenre='any',preview,onPreview,onBack,onRequireAuth,onSaved,onPrepareSubmission}:Props){
  const [genre,setGenre]=useState<PhotoGenre>(initialGenre);
  const [freeOnly,setFreeOnly]=useState(true);
@@ -139,10 +141,10 @@ export default function OpportunityScout({wishContext,initialGenre='any',preview
    {savedWishId && <>
     <p className="scout-success">Saved under your photography wish. Jinn hasn't submitted anything.</p>
     {savedShortlistId&&selectedOpportunity&&<NextDeed
-      title="Want to prepare an entry?"
+      title={nextStep.title}
       detail={`I can help you prepare a private submission draft for “${selectedOpportunity.title}”. You'll review the organizer's rules first.`}
-      label="Prepare a submission draft"
-      note="Preparation only. No external submission or eligibility verification."
+      label={nextStep.label}
+      note={nextStep.note}
       onAction={()=>onPrepareSubmission(savedWishId,savedShortlistId,selectedOpportunity.id)}
     />}
     <details className="result-evidence-details"><summary>View Work Receipt</summary><WorkReceipts wishId={savedWishId}/></details>
