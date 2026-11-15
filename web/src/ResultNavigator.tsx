@@ -11,7 +11,7 @@ type Props={
 /** Navigate a bounded, source-ordered shortlist without treating source order as a quality ranking. */
 export default function ResultNavigator({count,index,onChange,noun='result'}:Props){
  if(count<=1)return null;
- return <nav className="result-navigator" aria-label={`Browse ${noun}s`}>
+ return <nav className="result-navigator" aria-label="Browse search results">
   <button type="button" onClick={()=>onChange(Math.max(0,index-1))}
    disabled={index<=0} aria-label={`Previous ${noun}`}>
    <ArrowLeft size={16}/> Previous
