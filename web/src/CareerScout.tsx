@@ -5,6 +5,7 @@ import { ensureCareerWish } from './careerWishOwnership';
 import { rollbackUnusedWish, type WishLink } from './wishOwnership';
 import type { CareerResult,CareerCountry } from './careerTypes';
 import WorkReceipts from './WorkReceipts';
+import ResultNavigator from './ResultNavigator';
 import './careerScout.css';
 
 type Props={
@@ -19,6 +20,8 @@ export default function CareerScout({wishId,aspiration,answer,onBack,onRequireAu
  const [country,setCountry]=useState<CareerCountry>('CA');
  const [allowAi,setAllowAi]=useState(false);
  const [result,setResult]=useState<CareerResult|null>(null);
+ const [editing,setEditing]=useState(true);
+ const [activeIndex,setActiveIndex]=useState(0);
  const [lastInput,setLastInput]=useState('');
  const [busy,setBusy]=useState(false);
  const [saving,setSaving]=useState(false);
@@ -55,7 +58,7 @@ export default function CareerScout({wishId,aspiration,answer,onBack,onRequireAu
    if(!response.ok)throw new Error(payload.error||ERROR);
    if(!Array.isArray(payload.jobs)||payload.source!=='himalayas_jobs')throw new Error('Unexpected career results.');
    setLastInput(JSON.stringify({query:request.query,country}));
-   setResult(payload);
+   setResult(payload);setActiveIndex(0);setEditing(false);
   }catch(e){setError(e instanceof Error?e.message:ERROR);}
   finally{setBusy(false);}
  };
@@ -87,15 +90,17 @@ export default function CareerScout({wishId,aspiration,answer,onBack,onRequireAu
   }finally{setSaving(false);}
  };
  const changed=(fn:()=>void)=>{fn();setSavedWish(null);};
+ const selectedJob=result?.jobs[activeIndex];
  return <section className="career-scout entrance">
   <button type="button" className="back" onClick={onBack}><ArrowLeft size={16}/> Back</button>
-  <div className="career-heading">
+  {(!result||editing)&&<div className="career-heading">
    <div className="portfolio-spark"><BriefcaseBusiness size={22}/></div>
    <p className="eyebrow">ONE WISH · A CAREER DEED</p>
    <h2>Find your <em>next opportunity.</em></h2>
    <p>I'll look for real remote openings. If you opt in, I'll also compare them against your actual experience.</p>
-  </div>
-  <div className="career-form">
+  </div>}
+  {result&&!editing&&<div className="result-search-summary"><div><span>{result.query} · {result.country==='worldwide'?'Worldwide':result.country} remote</span><small>{result.jobs.length} listings returned</small></div><button type="button" onClick={()=>setEditing(true)}>Change search</button></div>}
+  {(!result||editing)&&<div className="career-form">
    <label>Target role or specialty
     <input value={query} maxLength={90} placeholder="e.g. Solution Architect, Product Manager, Java Engineer"
      onChange={e=>changed(()=>setQuery(e.target.value))}/>
@@ -121,32 +126,38 @@ export default function CareerScout({wishId,aspiration,answer,onBack,onRequireAu
     <Search size={17}/> {busy?'Checking remote openings…':'Find remote openings'} <ArrowRight size={16}/>
    </button>
    <p className="career-hint"><LockKeyhole size={13}/> Browse listings without an account. AI comparisons and saving require verified sign-in.</p>
-  </div>
+  </div>}
   {error&&<p className="error" role="alert">{error}</p>}
-  {result&&<div className="career-results">
+  {result&&!editing&&<div className="career-results">
    <p className="eyebrow">SOURCE-BACKED RESULTS</p>
    <h3>{result.jobs.length} {result.jobs.length===1?'opening':'openings'} from Himalayas</h3>
-   <p className="career-meta">Indexed {new Date(result.checkedAt).toLocaleString()} · {result.candidateCount} source search matches · {result.country==='worldwide'?'Worldwide remote':result.country+' remote'} </p>
+   <p className="result-provenance">Source-indexed jobs · check employer availability before applying.</p>
    {result.aiStatus==='completed'&&<p className="career-ai"><Sparkles size={14}/> AI comparison completed using your supplied experience. Its judgments are advisory, not hiring decisions.</p>}
    {result.aiStatus==='unavailable'&&<p className="career-notice">AI matching was unavailable; showing genuine source listings without fabricated assessments.</p>}
    {!result.jobs.length&&<p className="career-notice">No suitable current remote listings were returned. Try a broader title or another region.</p>}
-   {result.jobs.map(job=><article key={job.id} className="career-job">
-     <div className="career-job-top"><strong>{job.title}</strong><span>{job.company}</span></div>
-     <p>{job.excerpt||job.description.slice(0,220)}</p>
-     <small>{job.employmentType} · {job.seniority||'Seniority not listed'} · {job.salary}</small>
-     <small>{job.locations.length?job.locations.join(', '):'Location restrictions: check source'} · Updated {job.publishedAt==='Unknown'?'unknown':new Date(job.publishedAt).toLocaleDateString()}</small>
-     {job.fit!=='not_assessed'&&<div className="career-fit">
-       <strong>AI fit: {job.fit}</strong><p>{job.reason}</p>{job.gap&&<p>Check: {job.gap}</p>}
+   {selectedJob&&<article key={selectedJob.id} className="career-job">
+     <div className="career-job-top"><strong>{selectedJob.title}</strong><span>{selectedJob.company}</span></div>
+     <p>{selectedJob.excerpt||selectedJob.description.slice(0,220)}</p>
+     <small>{selectedJob.employmentType} · {selectedJob.salary}</small>
+     {selectedJob.fit!=='not_assessed'&&<div className="career-fit">
+       <strong>AI fit: {selectedJob.fit}</strong><p>{selectedJob.reason}</p>{selectedJob.gap&&<p>Check: {selectedJob.gap}</p>}
      </div>}
      <div className="career-job-links">
-       <a href={job.sourceUrl} target="_blank" rel="noopener noreferrer">Listing on Himalayas <ExternalLink size={13}/></a>
-       <a href={job.applicationLink} target="_blank" rel="noopener noreferrer">Apply via source link <ExternalLink size={13}/></a>
+       <a href={selectedJob.sourceUrl} target="_blank" rel="noopener noreferrer">View listing <ExternalLink size={13}/></a>
+       <a href={selectedJob.applicationLink} target="_blank" rel="noopener noreferrer">Apply at source <ExternalLink size={13}/></a>
      </div>
-   </article>)}
-   <div className="career-evidence"><ShieldAlert size={17}/><div>
-    <strong>What's verified?</strong><p>{result.evidenceScope}</p>
-    <a href="https://himalayas.app" target="_blank" rel="noopener noreferrer">Jobs sourced from Himalayas <ExternalLink size={12}/></a>
-   </div></div>
+     <details className="result-evidence-details">
+      <summary>Job details</summary>
+      <p>{selectedJob.seniority||'Seniority not listed'} · {selectedJob.locations.length?selectedJob.locations.join(', '):'Location restrictions: check source'} · Posted {selectedJob.publishedAt==='Unknown'?'date unknown':new Date(selectedJob.publishedAt).toLocaleDateString()}</p>
+     </details>
+   </article>}
+   <ResultNavigator noun="role" count={result.jobs.length} index={activeIndex} onChange={setActiveIndex}/>
+   <details className="result-evidence-details">
+    <summary>About these results</summary>
+    <p>{result.evidenceScope}</p>
+    <p>Checked {new Date(result.checkedAt).toLocaleString()}. {result.candidateCount} source candidates; displayed items are not ranked by suitability.</p>
+    <a href="https://himalayas.app" target="_blank" rel="noopener noreferrer">Source: Himalayas <ExternalLink size={12}/></a>
+   </details>
    {result.jobs.length>0&&<button className="primary" type="button" disabled={saving||!!savedWish} onClick={()=>void save()}>
     <Bookmark size={16}/> {saving?'Saving career shortlist…':savedWish?'Saved under my wish':'Save these openings to my career wish'} <ArrowRight size={15}/>
    </button>}
