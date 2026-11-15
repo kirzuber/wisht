@@ -1,8 +1,9 @@
 import { getAuthenticatedUser, getSupabase } from './supabaseClient';
 import { logWishOperation, WishPersistenceError } from './wishDiagnostics';
 import type { Artifact, DeedReceipt } from '../../api/src/firstDeed';
+import { ensurePrimaryJinn } from './jinnStore';
 
-export type WishSummary = { id: string; aspiration: string; updated_at: string; state: string };
+export type WishSummary = { id: string; aspiration: string; updated_at: string; state: string; jinn_id: string };
 export type FirstWishRow = {
   id: string;
   aspiration: string;
@@ -11,16 +12,20 @@ export type FirstWishRow = {
   deed_history: DeedReceipt[];
   revision: number;
   artifact_id: string;
+  jinn_id: string;
+  jinn_name: string;
+  jinn_purpose: string;
 };
 
 export function listFirstWishes(): Promise<WishSummary[]> {
   return logWishOperation('list', async () => {
     const user = await getAuthenticatedUser();
-    const { data, error, status } = await getSupabase().from('wish_records').select('id,original_intent,updated_at,state')
+    const { data, error, status } = await getSupabase().from('wish_records').select('id,original_intent,updated_at,state,primary_jinn_id')
       .eq('user_id', user.id).order('updated_at', { ascending: false });
     if (error) throw new WishPersistenceError('read wishes', error, status);
     return data.map(item => ({
       id: item.id, aspiration: item.original_intent, updated_at: item.updated_at, state: item.state,
+      jinn_id: item.primary_jinn_id,
     }));
   });
 }
@@ -29,10 +34,16 @@ export function loadFirstWish(id: string): Promise<FirstWishRow> {
   return logWishOperation('open', async () => {
     const user = await getAuthenticatedUser();
     const db = getSupabase();
-    const wish = await db.from('wish_records').select('id,original_intent')
+    const wish = await db.from('wish_records').select('id,original_intent,primary_jinn_id')
       .eq('id', id).eq('user_id', user.id).maybeSingle();
     if (wish.error) throw new WishPersistenceError('read wish', wish.error, wish.status);
     if (!wish.data) throw new Error('This saved wish is unavailable.');
+
+    // Never silently substitute a default Jinn for an unexpected missing assignment.
+    const assigned = await db.from('jinns').select('id,name,settings')
+      .eq('id', wish.data.primary_jinn_id).eq('user_id', user.id).maybeSingle();
+    if (assigned.error) throw new WishPersistenceError('read assigned Jinn', assigned.error, assigned.status);
+    if (!assigned.data) throw new Error('The Jinn assigned to this Wish is unavailable. Open My Jinns and retry.');
 
     const [artifacts, deeds] = await Promise.all([
       db.from('artifacts').select('id,content,version,origin_deed_id').eq('wish_id', id).eq('user_id', user.id)
@@ -57,34 +68,18 @@ export function loadFirstWish(id: string): Promise<FirstWishRow> {
       ],
       revision: artifact.version,
       artifact_id: artifact.id,
+      jinn_id: assigned.data.id,
+      jinn_name: assigned.data.name,
+      jinn_purpose: typeof assigned.data.settings?.purpose === 'string' ? assigned.data.settings.purpose : '',
     };
   });
 }
 
-async function primaryJinn(userId: string): Promise<string> {
-  const db = getSupabase();
-  const find = () => db.from('jinns').select('id').eq('user_id', userId).eq('is_primary', true).maybeSingle();
-  const found = await find();
-  if (found.error) throw new WishPersistenceError('read primary Jinn', found.error, found.status);
-  if (found.data) return found.data.id;
-
-  const created = await db.from('jinns').insert({ user_id: userId, is_primary: true, name: 'Jinn' })
-    .select('id').single();
-  if (!created.error) return created.data.id;
-
-  // Another tab can create the primary Jinn between the read and insert.
-  if (created.error.code === '23505') {
-    const concurrent = await find();
-    if (concurrent.error) throw new WishPersistenceError('reload primary Jinn', concurrent.error, concurrent.status);
-    if (concurrent.data) return concurrent.data.id;
-  }
-  throw new WishPersistenceError('create primary Jinn', created.error, created.status);
-}
-
-export function saveFirstWish(wish: string, artifact: Artifact, receipt: DeedReceipt): Promise<string> {
+export function saveFirstWish(wish: string, artifact: Artifact, receipt: DeedReceipt, selectedJinnId?: string): Promise<string> {
   return logWishOperation('save', async () => {
-    const user = await getAuthenticatedUser();
-    const jinnId = await primaryJinn(user.id);
+    await getAuthenticatedUser();
+    // No selection means default; an explicit selection is enforced by the same-owner FK.
+    const jinnId = selectedJinnId || (await ensurePrimaryJinn()).id;
     const { data, error, status } = await getSupabase().rpc('create_wish_with_deed', {
       p_jinn_id: jinnId, p_intent: wish, p_artifact: artifact, p_receipt: receipt,
     });
