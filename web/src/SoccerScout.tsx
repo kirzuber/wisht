@@ -5,6 +5,7 @@ import {ensureSoccerWish} from './soccerWishOwnership';
 import {rollbackUnusedWish,type WishLink} from './wishOwnership';
 import type {SoccerAge,SoccerLevel,SoccerResult} from './soccerTypes';
 import WorkReceipts from './WorkReceipts';
+import ResultNavigator from './ResultNavigator';
 import './careerScout.css';
 import './soccerScout.css';
 type Props={wishId?:string;aspiration?:string;answer?:string;onBack:()=>void;onRequireAuth:()=>void;onSaved:()=>void};
@@ -17,6 +18,8 @@ export default function SoccerScout({wishId,aspiration,answer,onBack,onRequireAu
  const [busy,setBusy]=useState(false);
  const [saving,setSaving]=useState(false);
  const [result,setResult]=useState<SoccerResult|null>(null);
+ const [editing,setEditing]=useState(true);
+ const [activeIndex,setActiveIndex]=useState(0);
  const [savedWish,setSavedWish]=useState<string|null>(null);
  const [error,setError]=useState('');
  const [searched,setSearched]=useState('');
@@ -34,7 +37,7 @@ export default function SoccerScout({wishId,aspiration,answer,onBack,onRequireAu
    const payload=await response.json() as SoccerResult&{error?:string};
    if(!response.ok)throw new Error(payload.error||'Could not look up soccer clubs.');
    if(payload.source!=='curated_ontario_clubs_v1'||!Array.isArray(payload.clubs))throw new Error('Unexpected soccer catalogue response.');
-   setResult(payload);setSearched(fingerprint());
+   setResult(payload);setSearched(fingerprint());setActiveIndex(0);setEditing(false);
   }catch(e){setError(e instanceof Error?e.message:'Could not look up soccer clubs.');}
   finally{setBusy(false);}
  };
@@ -64,15 +67,17 @@ export default function SoccerScout({wishId,aspiration,answer,onBack,onRequireAu
   }finally{setSaving(false);}
  };
  const changed=(f:()=>void)=>{f();setSavedWish(null);};
+ const selectedClub=result?.clubs[activeIndex];
  return <section className="career-scout soccer-scout entrance">
   <button type="button" className="back" onClick={onBack}><ArrowLeft size={16}/> Back</button>
-  <div className="career-heading">
+  {(!result||editing)&&<div className="career-heading">
    <div className="portfolio-spark"><MapPin size={22}/></div>
    <p className="eyebrow">ONE WISH · FIND A PLACE TO PLAY</p>
    <h2>Find your <em>first pitch.</em></h2>
    <p>I'll show you documented soccer clubs and programs near your chosen Ontario city. You can check with them directly about joining.</p>
-  </div>
-  <div className="career-form">
+  </div>}
+  {result&&!editing&&<div className="result-search-summary"><div><span>{result.city} · {result.level} · {result.ageGroup}</span><small>Ontario club catalogue</small></div><button type="button" onClick={()=>setEditing(true)}>Change search</button></div>}
+  {(!result||editing)&&<div className="career-form">
    <label>Which Ontario city?
     <input value={city} maxLength={65} placeholder="e.g. Burlington, Oakville, Toronto" list="soccer-cities"
       onChange={e=>changed(()=>setCity(e.target.value))}/>
@@ -92,35 +97,33 @@ export default function SoccerScout({wishId,aspiration,answer,onBack,onRequireAu
    <button className="primary" type="button" disabled={busy||city.trim().length<2} onClick={()=>void search()}>
     {busy?'Checking known clubs…':'Find soccer clubs'} <ArrowRight size={16}/>
    </button>
-  </div>
+  </div>}
   {error&&<p className="error" role="alert">{error}</p>}
-  {result&&<div className="career-results">
+  {result&&!editing&&<div className="career-results">
    <p className="eyebrow">SOURCE-BACKED CLUBS</p>
    <h3>{result.clubs.length} {result.clubs.length===1?'club / program':'clubs / programs'} documented for {result.city}</h3>
-   <p className="career-meta">Catalogue last checked 14 Nov 2026 · {result.level} · {result.ageGroup}</p>
+   <p className="result-provenance">Documented club programs, not confirmed registration availability.</p>
    {result.clubs.length===0&&<p className="career-notice">No matching entry in our limited catalogue. This does not mean there are no clubs in your area. Try another category or use the official Canada Soccer club directory below.</p>}
-   {result.clubs.map(club=><article className="career-job" key={club.id}>
-    <div className="career-job-top"><strong>{club.name}</strong><span>{club.city} · {club.region}</span></div>
-    <p>{club.programNote}</p>
-    <small>Program documented on the club's own website · Checked {club.verifiedAt}</small>
+   {selectedClub&&<article className="career-job" key={selectedClub.id}>
+    <div className="career-job-top"><strong>{selectedClub.name}</strong><span>{selectedClub.city} · {selectedClub.region}</span></div>
+    <p>{selectedClub.programNote}</p>
     <div className="career-job-links">
-     <a href={club.sourceUrl} target="_blank" rel="noopener noreferrer">Club website <ExternalLink size={13}/></a>
-     <a href={club.programUrl} target="_blank" rel="noopener noreferrer">Program information <ExternalLink size={13}/></a>
+     <a href={selectedClub.programUrl} target="_blank" rel="noopener noreferrer">View program <ExternalLink size={13}/></a>
+     <a href={selectedClub.sourceUrl} target="_blank" rel="noopener noreferrer">Club website <ExternalLink size={13}/></a>
     </div>
-    <p className="soccer-confirm">Confirm availability, eligibility and registration dates directly with the club.</p>
-   </article>)}
-   <div className="career-evidence"><ShieldAlert size={17}/><div>
-    <strong>What have I actually checked?</strong>
+    <p className="soccer-confirm">Ask the club about registration, available places and eligibility.</p>
+   </article>}
+   <ResultNavigator noun="club" count={result.clubs.length} index={activeIndex} onChange={setActiveIndex}/>
+   <details className="result-evidence-details">
+    <summary>About these club listings</summary>
     <p>{result.evidenceScope} {result.coverage}</p>
-    <a href="https://canadasoccer.com/clubs/club-directory/" target="_blank" rel="noopener noreferrer">
-      Find other clubs in Canada Soccer's official directory <ExternalLink size={12}/>
-    </a>
-   </div></div>
+    <a href="https://canadasoccer.com/clubs/club-directory/" target="_blank" rel="noopener noreferrer">Browse the official Canada Soccer directory <ExternalLink size={12}/></a>
+   </details>
    {result.clubs.length>0&&<button className="primary" type="button" disabled={saving||!!savedWish} onClick={()=>void save()}>
-    <Bookmark size={15}/> {saving?'Saving…':savedWish?'Saved under my soccer wish':'Save these clubs to my wish'} <ArrowRight size={15}/>
+    <Bookmark size={15}/> {saving?'Saving…':savedWish?'Saved under my soccer wish':'Save all '+result.clubs.length+' club entries'} <ArrowRight size={15}/>
    </button>}
    {savedWish&&<><p className="career-success">Saved! Your receipt confirms saved research, not a club registration or booked tryout.</p>
-    <WorkReceipts wishId={savedWish}/>
+    <details className="result-evidence-details"><summary>View Work Receipt</summary><WorkReceipts wishId={savedWish}/></details>
     <button type="button" className="back" onClick={onSaved}>Open My wishes <ArrowRight size={15}/></button>
    </>}
   </div>}

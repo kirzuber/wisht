@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { ArrowLeft, ArrowRight, Bookmark, CalendarDays, Compass, ExternalLink, LockKeyhole, Search, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Bookmark, CalendarDays, Compass, ExternalLink, LockKeyhole, Search } from 'lucide-react';
 import { getAuthenticatedUser, getSupabase } from './supabaseClient';
 import { ensurePhotographyWish, rollbackUnusedWish, type PortfolioWishContext, type WishLink } from './wishOwnership';
 import type { ScoutResult, PhotoGenre } from './opportunityTypes';
 import WorkReceipts from './WorkReceipts';
+import ResultNavigator from './ResultNavigator';
 import './opportunityScout.css';
 
 type Props={
@@ -28,6 +29,8 @@ export default function OpportunityScout({wishContext,initialGenre='any',preview
  const [saving,setSaving]=useState(false);
  const [error,setError]=useState('');
  const [savedWishId,setSavedWishId]=useState<string|null>(null);
+ const [editing,setEditing]=useState(true);
+ const [activeIndex,setActiveIndex]=useState(0);
 
  const run=async()=>{
   if(loading)return;
@@ -38,7 +41,7 @@ export default function OpportunityScout({wishContext,initialGenre='any',preview
    const data=await res.json() as ScoutResult & {error?:string};
    if(!res.ok)throw new Error(data.error||'The opportunity source could not be checked.');
    if(!Array.isArray(data.opportunities) || !data.feedUrl)throw new Error('Unexpected opportunity response.');
-   onPreview(data);
+   onPreview(data);setEditing(false);setActiveIndex(0);
   }catch(cause){setError(cause instanceof Error?cause.message:'The search could not be completed.');}
   finally{setLoading(false);}
  };
@@ -72,15 +75,17 @@ export default function OpportunityScout({wishContext,initialGenre='any',preview
   }finally{setSaving(false);}
  };
  const selectedQueryMatches=preview?.filters.genre===genre&&preview?.filters.freeOnly===freeOnly;
+ const selectedOpportunity=preview?.opportunities[activeIndex];
  return <section className="scout-workspace entrance">
   <button type="button" className="portfolio-back" onClick={onBack}><ArrowLeft size={16}/> Back</button>
-  <div className="scout-heading">
+  {(!preview||editing)&&<div className="scout-heading">
    <div className="portfolio-spark"><Compass size={22}/></div>
    <p className="eyebrow">ONE WISH · A NEW DEED</p>
    <h2>I'll look for <em>your next opening.</em></h2>
    <p>Let me check current public photography calls and bring back a short list with deadlines and source links.</p>
-  </div>
-  <div className="scout-controls">
+  </div>}
+  {preview&&!editing&&<div className="result-search-summary"><div><span>{OPTIONS.find(o=>o.value===preview.filters.genre)?.label||'Photography'} · {preview.filters.freeOnly?'Free entry only':'All fees'}</span><small>{preview.opportunities.length} source listings returned</small></div><button type="button" onClick={()=>setEditing(true)}>Change search</button></div>}
+  {(!preview||editing)&&<div className="scout-controls">
    <label className="scout-field-label">What kind of photography?</label>
    <div className="scout-options">{OPTIONS.map(opt=><button type="button"
     key={opt.value} className={genre===opt.value?'selected':''}
@@ -96,36 +101,40 @@ export default function OpportunityScout({wishContext,initialGenre='any',preview
     <Search size={17}/>{loading?'Checking public listings…':'Find opportunities'} <ArrowRight size={16}/>
    </button>
    <p className="scout-caption"><LockKeyhole size={14}/> No account or wish slot needed to search. Save only when you want to keep the results.</p>
-  </div>
+  </div>}
   {error && <p className="error" role="alert">{error}</p>}
-  {preview && <div className="scout-findings">
+  {preview&&!editing && <div className="scout-findings">
    <div className="scout-findings-header">
     <div><p className="eyebrow">SCOUT FINDINGS</p><h3>{preview.opportunities.length} {preview.opportunities.length===1?'potential opening':'potential openings'}</h3></div>
-    <span>Checked {new Date(preview.checkedAt).toLocaleString()}</span>
+    <span>Calendar listings · organizer not verified</span>
    </div>
    {!selectedQueryMatches && <p className="scout-notice">Your preferences changed. Run the scout again to refresh these results.</p>}
    {!preview.opportunities.length && <p className="scout-empty">No matching future deadlines were found in the indexed calendar. Try a broader topic or include paid calls. I won't invent opportunities.</p>}
-   <div className="scout-results">{preview.opportunities.map(op=><article key={op.id} className="scout-opportunity">
-    <div className="scout-opportunity-meta"><CalendarDays size={13}/> Deadline listed: {op.deadline} · Organizer not yet verified</div>
-    <h4>{op.title}</h4>
-    {op.summary&&<p>{op.summary}</p>}
-    <p>{op.relevance}</p>
-    <small>{op.feeNote}</small>
-    <a href={op.sourceUrl} target="_blank" rel="noopener noreferrer">View source listing <ExternalLink size={14}/></a>
-   </article>)}</div>
-   <div className="scout-evidence">
-    <ShieldAlert size={18}/>
-    <div><strong>What was checked?</strong><p>{preview.evidenceScope}</p>
-     <a href={preview.feedUrl} target="_blank" rel="noopener noreferrer">Source calendar <ExternalLink size={12}/></a>
-    </div>
-   </div>
+   {selectedOpportunity&&<article className="scout-opportunity" key={selectedOpportunity.id}>
+    <div className="scout-opportunity-meta"><CalendarDays size={13}/> Listed deadline: {selectedOpportunity.deadline}</div>
+    <h4>{selectedOpportunity.title}</h4>
+    {selectedOpportunity.summary&&<p>{selectedOpportunity.summary}</p>}
+    <a href={selectedOpportunity.sourceUrl} target="_blank" rel="noopener noreferrer">View listing <ExternalLink size={14}/></a>
+    <details className="result-evidence-details">
+     <summary>Listing notes</summary>
+     <p>{selectedOpportunity.relevance}</p>
+     <p>{selectedOpportunity.feeNote}</p>
+    </details>
+   </article>}
+   <ResultNavigator noun="opportunity" count={preview.opportunities.length} index={activeIndex} onChange={setActiveIndex}/>
+   <details className="result-evidence-details">
+    <summary>About this search</summary>
+    <p>{preview.evidenceScope}</p>
+    <p>Checked {new Date(preview.checkedAt).toLocaleString()}. Results are source-ordered and not organizer-verified.</p>
+    <a href={preview.feedUrl} target="_blank" rel="noopener noreferrer">Source calendar <ExternalLink size={12}/></a>
+   </details>
    {preview.opportunities.length>0 && <button className="primary" type="button"
     disabled={saving||!!savedWishId||!selectedQueryMatches} onClick={()=>void save()}>
-    <Bookmark size={17}/> {saving?'Saving your shortlist…':savedWishId?'Shortlist saved':'Save these findings to my wish'} <ArrowRight size={16}/>
+    <Bookmark size={17}/> {saving?'Saving your shortlist…':savedWishId?'Shortlist saved':'Save all '+preview.opportunities.length+' findings'} <ArrowRight size={16}/>
    </button>}
    {savedWishId && <>
     <p className="scout-success">Saved under your photography wish. The Work Receipt confirms the saved shortlist, not organizer eligibility.</p>
-    <WorkReceipts wishId={savedWishId}/>
+    <details className="result-evidence-details"><summary>View Work Receipt</summary><WorkReceipts wishId={savedWishId}/></details>
     <button className="back" type="button" onClick={onSaved}>Open My wishes <ArrowRight size={15}/></button>
    </>}
   </div>}
