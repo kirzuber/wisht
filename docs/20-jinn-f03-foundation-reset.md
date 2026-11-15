@@ -1,16 +1,16 @@
 # JINN-F03-001 — foundation reset and hosted cutover packet
 
-Status: implementation and local rehearsal only. **No hosted database migration, bucket deletion, merge, or deploy is authorized by this PR.** The canonical fresh-install migration is `supabase/migrations/20261115224928_f03_additive_generic_wish_records.sql`. Previously applied migrations are archived without editing in `supabase/legacy-migrations`; historical vertical product notes are in `docs/legacy`.
+**Current status (15 November 2026):** The additive migration `20261115224928_f03_additive_generic_wish_records` is **already recorded on hosted `wisht-dev`**. A read-only inspection confirms that `jinns`, `wish_records`, `deeds`, and `artifacts` coexist with five preserved legacy `public.wishes` rows. **The application is not merged or deployed; hosted authenticated end-to-end behavior is not verified.** No hosted deletion, table archive, bucket change, merge, or deploy is authorized by this report. The only active F03 migration is `supabase/migrations/20261115224928_f03_additive_generic_wish_records.sql`; existing historical migrations remain under `supabase/legacy-migrations`. The older archive/cutover packet below is a **deferred legacy-retirement option, not a prerequisite or instruction for this additive release**.
 
 ## Architecture
 
 ```mermaid
 erDiagram
   AUTH_USERS ||--o{ JINNS : owns
-  AUTH_USERS ||--o{ WISHES : owns
-  JINNS ||--o{ WISHES : primary_for
-  WISHES ||--o{ DEEDS : records
-  WISHES ||--o{ ARTIFACTS : contains
+  AUTH_USERS ||--o{ WISH_RECORDS : owns
+  JINNS ||--o{ WISH_RECORDS : primary_for
+  WISH_RECORDS ||--o{ DEEDS : records
+  WISH_RECORDS ||--o{ ARTIFACTS : contains
   DEEDS ||--o{ ARTIFACTS : originated
 ```
 
@@ -20,28 +20,28 @@ erDiagram
 
 | Hosted legacy object | Count at audit | F03 treatment |
 | --- | ---: | --- |
-| `wishes` | 5 | Archive existing rows; new `wishes` has generic intent/state/context. Legacy rows are **not silently converted** to new Wishes. |
-| `portfolios` | 2 | Archive with owner and FK links; no active gallery code. |
-| `portfolio_publications` | 1 | Archive; list public URLs before cutover. |
-| `opportunity_shortlists` | 1 | Archive. |
-| `submission_packages` | 1 | Archive. |
-| `photo_watches`, `photo_watch_runs` | 1 each | Archive; scheduled Netlify function removed from branch. |
-| `career_shortlists`, `soccer_shortlists` | 0 each | Archive if present at cutover. |
-| `work_receipts` | 6 | Archive; new `deeds` is the generic receipt history. Old receipts remain recoverable in archive. |
-| `jinns` / F02 first-deed columns | Absent hosted | New canonical `jinns`, `deeds`, `artifacts`; do not assume F02 migration is already hosted. |
+| `wishes` | 5 | **Preserved unchanged** as `public.wishes`; new generic intents are stored separately in `public.wish_records`. No implicit conversion. |
+| `portfolios` | 2 | **Preserved in place** with owner/FK links; the current F03 app does not serve the legacy portfolio experience. |
+| `portfolio_publications` | 1 | **Preserved in place**; evaluate published URL behavior before releasing F03 UI. |
+| `opportunity_shortlists` | 1 | Preserved in place; legacy-only. |
+| `submission_packages` | 1 | Preserved in place; legacy-only. |
+| `photo_watches`, `photo_watch_runs` | 1 each | Preserved in place; scheduled Netlify function is removed from F03 app. |
+| `career_shortlists`, `soccer_shortlists` | 0 each | Preserved in place; legacy-only. |
+| `work_receipts` | 6 | Preserved in place; new `deeds` stores only generic prepared-draft receipts. |
+| Generic `jinns`, `wish_records`, `deeds`, `artifacts` | 0 each after migration | Installed additively on hosted; do not assume historical F02 first-deed columns were installed on legacy `wishes`. |
 | `portfolio-previews` Storage | 10 objects, private | Preserve and export object bytes/metadata before any future deletion. |
 | `portfolio-public` Storage | 5 objects, public | Preserve and inventory public URLs before any future deletion. |
 | Supabase Auth | 6 users at latest check | Preserve accounts, sessions and settings. One extra local-test-named Auth user was accidentally created during this work; see exception below. |
 
 The read-only hosted audit found composite Wish/owner foreign keys in the vertical tables, private validation and receipt triggers, a three-wish trigger, and the public `claim_due_photo_watches(integer)` RPC. The forward fragment moves legacy tables into an unexposed archive and revokes that RPC; no `DROP ... CASCADE` is used. The legacy triggers and their function dependencies remain attached to archived tables for recovery. Before a hosted cutover, inspect the actual function/policy dependency graph again, including any changes since this audit.
 
-## Backup and preflight, requiring separate approval
+## Deferred historical legacy-retirement plan (NOT part of the additive release)
 
-### Hosted blockers confirmed during PR #19 stabilization
+### Historical hosted blockers resolved by PR #20's additive schema
 
 A read-only catalog check of `wisht-dev` (`qtegdpscfsbvuczvlgfw`) on November 15, 2026 found ten public application tables and five legacy Wish rows. Hosted `public.wishes` exposes `id`, `user_id`, `aspiration`, `kind`, `mission_id`, `answer`, `status`, and `created_at`. The F03 client selects `original_intent` and `state` and orders by `updated_at`, which explains the `42703` list error. Saving also needs `public.jinns` and `create_wish_with_deed(uuid,text,jsonb,jsonb)`, both absent along with `public.deeds` and `public.artifacts`. The migration history has no `20261115201523` entry.
 
-The release gate is the approved archive and cutover below. After approval, verify the actual frontend and API project references, then exercise hosted sign-in, save, list, reload, delete and owner isolation before declaring this branch hosted-ready. The fresh baseline is for new environments. This stabilization uses the canonical F03 queries and made no hosted changes.
+The originally proposed archive-and-rename cutover is **superseded for the current release**. The additive `wish_records` migration is already installed on hosted `wisht-dev`. The remaining release gates are the exact frontend/API environment mapping, real-provider drafting, authenticated hosted save/list/reopen/edit/next-Deed, owner isolation, public-gallery URL disposition, and explicit founder approval to merge/deploy. The numbered procedures below apply **only if a separate future legacy retirement is authorized**; do not run them for Foundation-03 integration.
 
 1. Freeze writes and record current schema, migration versions, table row counts, owners, FK/trigger/function list, `auth.users` count, active sessions, bucket names, object counts, object paths and all public gallery slugs/URLs. The counts above are a dated inventory, not a substitute for the cutover inventory.
 2. Export a consistent PostgreSQL backup of `public`, `auth`, `storage` metadata and migration history with a reviewed `pg_dump` command. Export **object bytes separately** for both Storage buckets, preserving path, content type and visibility metadata. Record checksums and verify an isolated restore of both DB and objects. Protect the backup as customer data; do not add it to Git or a PR.
@@ -86,7 +86,7 @@ An older Vite process was already serving port 5173 with the hosted `wisht-dev` 
 
 ## Remaining limits
 
-The new branch is stacked on `codex/jinn-f02-002`; it is incompatible with the current hosted legacy schema until a separately approved cutover. Legacy public galleries and their links need a deliberate disposition. The synthetic cutover rehearsal validates dependency ordering and rollback mechanics, not the full hosted snapshot. The app currently prepares private drafts and follow-up drafts only; it does not send, publish, book, fact-check or maintain cross-Wish memory.
+PR #20 is still stacked on PR #19 (and transitively #18/#17) until the integration PR is retargeted to `main`. The hosted schema now supports additive generic persistence but the exact F03 application has not been verified there. Legacy public galleries and their links need a deliberate disposition. The synthetic cutover rehearsal validates dependency ordering and rollback mechanics, not the full hosted snapshot. The app currently prepares private drafts and follow-up drafts only; it does not send, publish, book, fact-check or maintain cross-Wish memory.
 
 ## Non-destructive integration (Mira, 15 November 2026)
 
