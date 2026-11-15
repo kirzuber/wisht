@@ -5,6 +5,7 @@ import { preparePhoto, type PortfolioPhoto, type PreparedPhoto, MAX_PHOTOS } fro
 import { pickInitialSelection } from './photoQuality';
 import WorkReceipts from './WorkReceipts';
 import NextDeed from './NextDeed';
+import {nextDeedFor} from './nextDeedPolicy';
 import { checkPhotographyWishAvailable, ensurePhotographyWish, rollbackUnusedWish, type PortfolioWishContext, type WishLink } from './wishOwnership';
 import { MAX_PUBLISHED_PHOTOS } from './portfolioPublicationModel';
 import { findPublication, publishPortfolio, unpublishPortfolio, publicGalleryPath, type PortfolioPublication } from './publishPortfolio';
@@ -46,6 +47,7 @@ async function signedPhotoUrls(photos: PortfolioPhoto[]): Promise<Record<string,
   return Object.fromEntries(entries);
 }
 
+const nextStep=nextDeedFor('PORTFOLIO_PUBLISHED');
 export default function PortfolioBuilder({ initialId, wishContext, onBack, onCreated, onFindOpportunities }: Props) {
   const [files, setFiles] = useState<File[]>([]);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
@@ -322,10 +324,10 @@ export default function PortfolioBuilder({ initialId, wishContext, onBack, onCre
         {publishedMessage && <p className="portfolio-publish-success">{publishedMessage}</p>}
       </div>
       {publication && portfolio.wish_id && <NextDeed
-        title="Want to show your work somewhere new?"
+        title={nextStep.title}
         detail="I can look for public photography opportunities and deadlines for your gallery. You'll decide which ones are worth pursuing."
-        label="Find photography opportunities"
-        note="Public-source search only. Organizer eligibility and rules still need your review."
+        label={nextStep.label}
+        note={nextStep.note}
         onAction={()=>onFindOpportunities(portfolio.wish_id!)}
       />}
       <WorkReceipts portfolioId={portfolio.id} refreshKey={receiptVersion}/>
