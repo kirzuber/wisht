@@ -16,8 +16,77 @@ grant usage on schema auth to authenticated;
 grant execute on function auth.uid() to authenticated;
 grant execute on function auth.jwt() to authenticated;
 insert into auth.users values('00000000-0000-0000-0000-000000000001'),('00000000-0000-0000-0000-000000000002');
+
+-- Simulate the populated hosted legacy schema before applying the additive F03 migration.
+-- Its name, composite FKs, RLS policy, trigger, and sample data must survive unchanged.
+create table public.wishes (
+  id uuid primary key,
+  user_id uuid not null references auth.users(id),
+  aspiration text not null,
+  kind text not null,
+  mission_id text,
+  answer jsonb not null default '{}'::jsonb,
+  status text not null default 'active',
+  created_at timestamptz not null default now(),
+  unique (id, user_id)
+);
+create table public.portfolios (
+  id uuid primary key,
+  user_id uuid not null references auth.users(id),
+  wish_id uuid not null,
+  unique (id, user_id),
+  constraint legacy_portfolio_owner foreign key (wish_id, user_id)
+    references public.wishes(id, user_id)
+);
+create table public.portfolio_publications (
+  id uuid primary key,
+  user_id uuid not null,
+  portfolio_id uuid not null,
+  slug text not null unique,
+  constraint legacy_publication_owner foreign key (portfolio_id, user_id)
+    references public.portfolios(id, user_id)
+);
+alter table public.wishes enable row level security;
+create policy "legacy owner reads wishes" on public.wishes for select to authenticated
+  using (auth.uid() = user_id);
+create function public.legacy_wish_noop() returns trigger language plpgsql as $
+begin return new; end $;
+create trigger legacy_wish_trigger before insert or update on public.wishes
+  for each row execute function public.legacy_wish_noop();
+insert into public.wishes(id, user_id, aspiration, kind) values
+ ('10000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001','Build a photo portfolio','photography'),
+ ('10000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000001','Find a new job','career'),
+ ('10000000-0000-0000-0000-000000000003','00000000-0000-0000-0000-000000000001','Join a team','soccer'),
+ ('10000000-0000-0000-0000-000000000004','00000000-0000-0000-0000-000000000002','Capture city photos','photography'),
+ ('10000000-0000-0000-0000-000000000005','00000000-0000-0000-0000-000000000002','Explore nearby clubs','soccer');
+insert into public.portfolios(id, user_id, wish_id) values
+ ('20000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001'),
+ ('20000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000004');
+insert into public.portfolio_publications(id, user_id, portfolio_id, slug) values
+ ('30000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','legacy-portfolio');
 SQL
 docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q < supabase/migrations/20261115224928_f03_additive_generic_wish_records.sql
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
+-- The generic schema must coexist with real legacy table names and linked rows.
+do $ begin
+ if (select count(*) from public.wishes) <> 5
+   or (select count(*) from public.portfolios) <> 2
+   or (select count(*) from public.portfolio_publications) <> 1
+   or (select aspiration from public.wishes where id='10000000-0000-0000-0000-000000000001') <> 'Build a photo portfolio'
+   or (select slug from public.portfolio_publications limit 1) <> 'legacy-portfolio'
+   then raise exception 'F03 altered legacy rows or linked portfolio records'; end if;
+ if not exists (select 1 from pg_policies
+   where schemaname='public' and tablename='wishes' and policyname='legacy owner reads wishes')
+   or not exists (select 1 from pg_trigger
+   where tgname='legacy_wish_trigger' and tgrelid='public.wishes'::regclass and not tgisinternal)
+   or not exists (select 1 from pg_constraint
+   where conname='legacy_portfolio_owner' and conrelid='public.portfolios'::regclass)
+   then raise exception 'F03 altered legacy RLS, trigger or owner FK'; end if;
+ if to_regclass('public.wish_records') is null or to_regclass('public.jinns') is null
+   or to_regclass('public.deeds') is null or to_regclass('public.artifacts') is null
+   then raise exception 'F03 generic tables missing'; end if;
+end $;
+SQL
 docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
 set role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);
@@ -71,4 +140,4 @@ set role anon;
 do $$ begin if (select count(*) from public.wish_records) <> 0 then raise exception 'anonymous saved-work access'; end if;
  exception when insufficient_privilege then null; end $$;
 SQL
-echo 'F03 schema, four wishes, atomic save/edit/follow-up, return, RLS and deletion: PASS'
+echo 'F03 legacy coexistence, four generic wishes, atomic save/edit/follow-up, return, RLS and deletion: PASS'
