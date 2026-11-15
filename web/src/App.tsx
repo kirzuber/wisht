@@ -234,13 +234,14 @@ function WishApp(){
          : {aspiration:wish.trim()||undefined,missionId:'find-photo-opportunities'}}
        initialGenre="any"
        preview={scoutPreview} onPreview={setScoutPreview}
-       onBack={backFromScout} onRequireAuth={()=>setAuthIntent('scout')} onSaved={showMyWishes}/>
+       onBack={backFromScout} onRequireAuth={()=>setAuthIntent('scout')} onSaved={showMyWishes}
+       onPrepareSubmission={prepareSubmission}/>
     </div>}
     {!authIntent && stage==='portfolio' && <PortfolioBuilder initialId={openedPortfolioId}
       wishContext={portfolioWishId
         ? {wishId:portfolioWishId}
         : {aspiration:wish.trim() || undefined,missionId:selected?.id}}
-      onBack={backFromPortfolio} onCreated={id=>{
+      onBack={backFromPortfolio} onFindOpportunities={startScoutForWish} onCreated={id=>{
       setOpenedPortfolioId(id);
       const url=new URL(window.location.href);
       url.searchParams.set('portfolio',id);
