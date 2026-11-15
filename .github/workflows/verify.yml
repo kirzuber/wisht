@@ -17,6 +17,8 @@ jobs:
           node-version: '22'
       - name: Install
         run: npm install --no-audit --no-fund
+      - name: Check local startup script syntax
+        run: node --check scripts/dev.mjs
       - name: Typecheck
         run: npm run typecheck
       - name: Tests
