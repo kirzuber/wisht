@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, ArrowRight, KeyRound, LockKeyhole, Mail, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, ArrowRight, KeyRound, Mail, ShieldCheck } from 'lucide-react';
 import { getAuthenticatedUser, getSupabase } from './supabaseClient';
+import JinnAvatar from './JinnAvatar';
 
-type Props = { purpose: string; onAuthenticated: () => void; onCancel: () => void };
-export default function AuthGate({ purpose, onAuthenticated, onCancel }: Props) {
+type Props = { purpose: string; onAuthenticated: () => void; onCancel: () => void; showCompanion?: boolean };
+export default function AuthGate({ purpose, onAuthenticated, onCancel, showCompanion = false }: Props) {
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [sent, setSent] = useState(false);
@@ -46,6 +47,7 @@ export default function AuthGate({ purpose, onAuthenticated, onCancel }: Props) 
   };
 
   return <section className="content entrance">
+    {showCompanion&&<JinnAvatar size="medium"/>}
     <p className="eyebrow">ONE QUICK THING</p>
     <h2>Let's make this <em>yours.</em></h2>
     <p className="lead narrower">{purpose} Verify your email so you can return to the work later.</p>
@@ -74,6 +76,5 @@ export default function AuthGate({ purpose, onAuthenticated, onCancel }: Props) 
     {error && <p className="error" role="alert">{error}</p>}
     <p className="mini-note"><ShieldCheck size={15}/> No password needed. Your work is saved only after verification.</p>
     <button type="button" className="back" onClick={onCancel}><ArrowLeft size={16}/> Not now — keep exploring</button>
-    <p className="subtle"><LockKeyhole size={13}/> During development, Supabase must be configured to send an email verification code.</p>
   </section>;
 }

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, ArrowRight, Images, LockKeyhole, RefreshCw, Sparkles, Trash2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Images, LockKeyhole, RefreshCw, Trash2 } from 'lucide-react';
 import { getAuthenticatedUser, getSupabase } from './supabaseClient';
 import { duplicateWishGroups } from './wishDedup';
 import { artifactsForWish } from './wishArtifacts';
 import WorkReceipts from './WorkReceipts';
 import PhotoWatch from './PhotoWatch';
+import JinnAvatar from './JinnAvatar';
 import type { SubmissionRow } from './submissionModel';
 import type { SavedShortlist } from './opportunityTypes';
 import type { CareerSaved } from './careerTypes';
@@ -175,10 +176,10 @@ export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onOpe
 
   return <section className="my-work entrance">
     <div className="my-work-heading">
-      <div className="portfolio-spark"><Sparkles size={23}/></div>
-      <p className="eyebrow">YOUR PRIVATE SPACE</p>
-      <h2>My <em>wishes.</em></h2>
-      <p className="my-work-subtitle">Your wishes and completed drafts, ready whenever you return.</p>
+      <JinnAvatar size="medium"/>
+      <p className="eyebrow">YOUR WISH SPACE</p>
+      <h2>Welcome back.<br/><em>Where shall we pick up?</em></h2>
+      <p className="my-work-subtitle">Your wishes, drafts, and next steps are here whenever you return.</p>
       <p className="my-work-email"><LockKeyhole size={13}/> Signed in as {email}</p>
     </div>
 

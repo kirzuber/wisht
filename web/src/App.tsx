@@ -11,6 +11,7 @@ import { getAuthenticatedUser, getSupabase, isVerifiedAccount } from './supabase
 import type { User } from '@supabase/supabase-js';
 import PortfolioBuilder from './PortfolioBuilder';
 import FirstWish from './FirstWish';
+import JinnAvatar from './JinnAvatar';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, ArrowRight, ChevronRight, LockKeyhole, Sparkles } from 'lucide-react';
 
@@ -163,9 +164,10 @@ function WishApp(){
    setAccount(null);reset();
   } catch(cause) {setError(cause instanceof Error?cause.message:'Could not sign out.');}
  };
- return <div className="app">
+ const experience=stage==='wish'||stage==='first'||stage==='library'||authIntent==='first'||authIntent==='account';
+ return <div className={`app${experience?' jinn-experience':''}`}>
    <header className="topbar">
-     <button className="brand" onClick={reset} aria-label="Jinn home"><span className="brand-mark"><Sparkles size={18} strokeWidth={1.7}/></span><span>jinn<span className="brand-dot">.</span></span></button>
+     <button className="brand" onClick={reset} aria-label="Jinn home"><span className="brand-mark">{experience?<JinnAvatar size="tiny"/>:<Sparkles size={18} strokeWidth={1.7}/>}</span><span>Jinn<span className="brand-dot">.</span></span></button>
      <div className="top-right">
        {sessionReady && (account ? <>
          <button type="button" className="account-link" onClick={showMyWishes}>My wishes</button>
@@ -175,26 +177,35 @@ function WishApp(){
    </header>
    <main className="main" aria-live="polite">
     <div className="hero-glow" aria-hidden="true"/>
-    {(stage==='wish'||stage==='choose') && !authIntent && <div className="hero-icon" aria-hidden="true"><Sparkles size={30} strokeWidth={1.25}/></div>}
-    {authIntent && <AuthGate purpose={authIntent==='first'?'Your draft is ready to keep.':authIntent==='portfolio'?'Your portfolio is ready to begin.':authIntent==='scout'?'Your findings are ready to keep.':authIntent==='career-scout'?'Sign in for AI matching or saving.':authIntent==='soccer-scout'?'Sign in to save your soccer research.':'Sign in to see your saved work.'}
+    {stage==='choose' && !authIntent && <div className="hero-icon" aria-hidden="true"><Sparkles size={30} strokeWidth={1.25}/></div>}
+    {authIntent && <AuthGate showCompanion={authIntent==='first'||authIntent==='account'} purpose={authIntent==='first'?'Your draft is ready to keep.':authIntent==='portfolio'?'Your portfolio is ready to begin.':authIntent==='scout'?'Your findings are ready to keep.':authIntent==='career-scout'?'Sign in for AI matching or saving.':authIntent==='soccer-scout'?'Sign in to save your soccer research.':'Sign in to see your saved work.'}
        onAuthenticated={afterAuth} onCancel={()=>setAuthIntent(null)}/>}
-    {!authIntent && stage==='wish' && <section className="content entrance">
-       <h1>Make a <em>wish.</em></h1>
-       <p className="lead">What would you like to make happen?</p>
-       <form onSubmit={e=>{e.preventDefault();startFirstWish();}} className="wish-form">
-         <label htmlFor="wish" className="field-label">YOUR WISH</label>
-         <textarea id="wish" maxLength={280} value={wish} onChange={e=>setWish(e.target.value)}
-           placeholder="I want to…" rows={2}/>
-         <button type="submit" className="primary" disabled={wish.trim().length<2||busy}>
-           Prepare my first Deed <ArrowRight size={18}/>
-         </button>
-       </form>
-       <p className="try-label">Or try an idea</p>
-       <div className="chips">{examples.map(x=><button key={x} type="button" className="chip"
-         onClick={()=>setWish(x)}>{x}<ChevronRight size={13}/></button>)}</div>
-       {error&&<p className="error" role="alert">{error}</p>}
-       <p className="mini-note"><LockKeyhole size={14}/> Start without signing in. Your wish is sent to AI to prepare a private draft.</p>
-       <button type="button" className="back" onClick={()=>void interpret()}>Explore existing photography, career and soccer tools</button>
+    {!authIntent && stage==='wish' && <section className="welcome entrance">
+       <div className="welcome-copy">
+         <p className="welcome-kicker"><span className="welcome-kicker-line"/> YOUR WISH STARTS HERE</p>
+         <h1>What would you <em>like to do?</em></h1>
+         <p className="welcome-lead">Tell Jinn what matters to you. We’ll find one useful first step together.</p>
+         <form onSubmit={e=>{e.preventDefault();startFirstWish();}} className="wish-form">
+           <label htmlFor="wish" className="field-label">YOUR WISH</label>
+           <textarea id="wish" maxLength={280} value={wish} onChange={e=>setWish(e.target.value)}
+             placeholder="I want to…" rows={3}/>
+           <button type="submit" className="primary" disabled={wish.trim().length<2||busy}>
+             Continue with Jinn <ArrowRight size={18}/>
+           </button>
+         </form>
+         <p className="try-label">A few places to begin</p>
+         <div className="chips">{examples.map(x=><button key={x} type="button" className="chip"
+           onClick={()=>setWish(x)}>{x}<ChevronRight size={13}/></button>)}</div>
+         {error&&<p className="error" role="alert">{error}</p>}
+         <p className="mini-note"><LockKeyhole size={14}/> Start without signing in. Your wish is sent to AI to prepare a private draft.</p>
+         <button type="button" className="back" onClick={()=>void interpret()}>Explore existing photography, career and soccer tools</button>
+       </div>
+       <aside className="welcome-companion" aria-label="Jinn, your wish companion">
+         <div className="welcome-orbit"><JinnAvatar size="large"/></div>
+         <p className="welcome-companion-title">One wish.<br/><em>One meaningful start.</em></p>
+         <p>Jinn helps you shape a first Deed you can inspect, edit, and keep.</p>
+         <div className="welcome-progress" aria-label="Wish journey"><span className="active">01 <small>Your wish</small></span><span>02 <small>One question</small></span><span>03 <small>First Deed</small></span></div>
+       </aside>
      </section>}
      {!authIntent && stage==='choose' && understood && <section className="content entrance">
       {executableMissions(understood.missions).length>0 ? <>
