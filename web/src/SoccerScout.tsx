@@ -120,7 +120,7 @@ export default function SoccerScout({wishId,aspiration,answer,onBack,onRequireAu
     <a href="https://canadasoccer.com/clubs/club-directory/" target="_blank" rel="noopener noreferrer">Browse the official Canada Soccer directory <ExternalLink size={12}/></a>
    </details>
    {result.clubs.length>0&&<button className="primary" type="button" disabled={saving||!!savedWish} onClick={()=>void save()}>
-    <Bookmark size={15}/> {saving?'Saving…':savedWish?'Saved under my soccer wish':'Save these clubs to my wish'} <ArrowRight size={15}/>
+    <Bookmark size={15}/> {saving?'Saving…':savedWish?'Saved under my soccer wish':'Save all '+result.clubs.length+' club entries'} <ArrowRight size={15}/>
    </button>}
    {savedWish&&<><p className="career-success">Saved! Your receipt confirms saved research, not a club registration or booked tryout.</p>
     <WorkReceipts wishId={savedWish}/>
