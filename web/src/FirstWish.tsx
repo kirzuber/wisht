@@ -48,6 +48,20 @@ export default function FirstWish({wish,savedId,onBack,onRequireAuth,onDeleted,o
   const currentWish=row?.aspiration||wish;
   const ru=/[\u0400-\u04ff]/u.test(currentWish);
   const label=(english:string,russian:string)=>ru?russian:english;
+  const receiptDescription=(item:DeedReceipt)=>{
+    if(item.draftSource==='worksheet') return label(
+      'Jinn prepared a starter worksheet. Fill in what you know and leave the rest open.',
+      'Jinn подготовил рабочий лист. Запишите то, что Вы знаете, и оставьте остальное открытым.',
+    );
+    if(item.draftSource==='repaired_model') return label(
+      'AI revised the draft and checked it against your supplied facts.',
+      'ИИ исправил черновик и сверил его с предоставленными Вами фактами.',
+    );
+    return label(
+      item.operation===FOLLOW_UP_OPERATION?FOLLOW_UP_OPERATION:'AI generated and checked an editable draft against supplied facts',
+      'ИИ подготовил и проверил редактируемый черновик.',
+    );
+  };
 
   useEffect(()=>{
     let live=true;
@@ -167,9 +181,9 @@ export default function FirstWish({wish,savedId,onBack,onRequireAuth,onDeleted,o
         </article>
         <aside className="first-side"><div className="first-current" id="wish-current"><p className="eyebrow">{label('CURRENT WISH','ВАШЕ ЖЕЛАНИЕ')}</p><h3>{currentWish}</h3><JinnAvatar size="medium"/></div><div className="first-next" id="wish-next"><p className="eyebrow">{label('ONE NEXT DEED','СЛЕДУЮЩИЙ ШАГ')}</p><h3>{artifact.nextDeed.title}</h3>
           <p>{artifact.nextDeed.why}</p><small>{artifact.nextDeed.prompt}</small></div>
-          <div className="first-receipt" id="wish-history"><p className="eyebrow">{label('HISTORY · WORK RECEIPT','ИСТОРИЯ · ЗАПИСЬ О РАБОТЕ')}</p><strong>{label('PREPARED','ПОДГОТОВЛЕНО')}</strong><p>{ru?'ИИ подготовил и проверил структуру редактируемого черновика.':receipt.operation===FOLLOW_UP_OPERATION?FOLLOW_UP_OPERATION:'AI generated and checked an editable draft against supplied facts'}</p><small>{label('Private draft only. Nothing sent, published, or independently fact-checked.','Личный черновик. Ничего не отправлено, не опубликовано и не проверено во внешних источниках.')}</small></div>
+          <div className="first-receipt" id="wish-history"><p className="eyebrow">{label('HISTORY · WORK RECEIPT','ИСТОРИЯ · ЗАПИСЬ О РАБОТЕ')}</p><strong>{label('PREPARED','ПОДГОТОВЛЕНО')}</strong><p>{receiptDescription(receipt)}</p><small>{label('Private draft only. Nothing sent, published, or independently fact-checked.','Личный черновик. Ничего не отправлено, не опубликовано и не проверено во внешних источниках.')}</small></div>
           {row&&row.deed_history.length>1&&<details className="first-history"><summary>{label('Earlier Deeds','Предыдущие шаги')} ({row.deed_history.length-1})</summary>
-            <ol>{row.deed_history.slice(0,-1).map((item,index)=><li key={`${item.recordedAt}-${index}`}><strong>{label('PREPARED','ПОДГОТОВЛЕНО')}</strong><span>{ru?'Черновик подготовлен ИИ.':item.operation===FOLLOW_UP_OPERATION?FOLLOW_UP_OPERATION:'AI generated and checked an editable draft against supplied facts'}</span><time>{new Date(item.recordedAt).toLocaleString()}</time></li>)}</ol>
+            <ol>{row.deed_history.slice(0,-1).map((item,index)=><li key={`${item.recordedAt}-${index}`}><strong>{label('PREPARED','ПОДГОТОВЛЕНО')}</strong><span>{receiptDescription(item)}</span><time>{new Date(item.recordedAt).toLocaleString()}</time></li>)}</ol>
           </details>}
           <div className="first-privacy"><LockKeyhole size={17}/><p>{row?label('Saved privately under your account.','Сохранено только в вашем аккаунте.'):label('This draft is only in this open session until you keep it.','Черновик останется только в этой сессии, пока вы его не сохраните.')} {label('No cross-wish memory or external action.','Нет общей памяти между желаниями и внешних действий.')}</p></div>
         </aside>

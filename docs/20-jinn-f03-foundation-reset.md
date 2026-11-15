@@ -37,6 +37,12 @@ The read-only hosted audit found composite Wish/owner foreign keys in the vertic
 
 ## Backup and preflight, requiring separate approval
 
+### Hosted blockers confirmed during PR #19 stabilization
+
+A read-only catalog check of `wisht-dev` (`qtegdpscfsbvuczvlgfw`) on November 15, 2026 found ten public application tables and five legacy Wish rows. Hosted `public.wishes` exposes `id`, `user_id`, `aspiration`, `kind`, `mission_id`, `answer`, `status`, and `created_at`. The F03 client selects `original_intent` and `state` and orders by `updated_at`, which explains the `42703` list error. Saving also needs `public.jinns` and `create_wish_with_deed(uuid,text,jsonb,jsonb)`, both absent along with `public.deeds` and `public.artifacts`. The migration history has no `20261115201523` entry.
+
+The release gate is the approved archive and cutover below. After approval, verify the actual frontend and API project references, then exercise hosted sign-in, save, list, reload, delete and owner isolation before declaring this branch hosted-ready. The fresh baseline is for new environments. This stabilization uses the canonical F03 queries and made no hosted changes.
+
 1. Freeze writes and record current schema, migration versions, table row counts, owners, FK/trigger/function list, `auth.users` count, active sessions, bucket names, object counts, object paths and all public gallery slugs/URLs. The counts above are a dated inventory, not a substitute for the cutover inventory.
 2. Export a consistent PostgreSQL backup of `public`, `auth`, `storage` metadata and migration history with a reviewed `pg_dump` command. Export **object bytes separately** for both Storage buckets, preserving path, content type and visibility metadata. Record checksums and verify an isolated restore of both DB and objects. Protect the backup as customer data; do not add it to Git or a PR.
 3. Decide explicitly whether historical vertical wishes remain archive-only, are transformed after consent, or remain accessible through a temporary read-only export. This PR does not infer an equivalent generic Deed for work that was not actually done. Resolve public gallery URL retirement and any user communication before release.
@@ -46,6 +52,24 @@ The read-only hosted audit found composite Wish/owner foreign keys in the vertic
 The prepared SQL is in `supabase/cutover/archive-legacy.sql` and `rollback-legacy.sql`. Both are guarded by session flags and intentionally require manual orchestration; the archive fragment must be followed by the F03 baseline in the same transaction. If the forward transaction fails, roll it back. After a committed cutover, the rollback fragment moves new generic tables to `f03_rollback` and restores legacy table names without deleting either data set. Reverting the UI/API must be coordinated with that rollback. Storage buckets and Auth are not touched by either fragment.
 
 ## Local evidence
+
+### First Deed grounding
+
+Each generated draft must pass section validation, the language check and the grounding reviewer. A rejected draft gets one generation attempt with a reason code and fresh instructions based only on the supplied input. The replacement must pass the same checks. The provider calls share a 25-second budget. If both candidates are unusable for the first Deed, Jinn supplies a fixed worksheet with the original source note and labels the receipt as a worksheet. For a follow-up, Jinn returns HTTP 422 and leaves the current saved artifact available.
+
+Draft failures log `grounding_rejected` or `draft_validation_failed` with an attempt number. Provider outages and timeouts remain HTTP 503. Invalid grounding responses get a distinct provider-response error. Those errors return no artifact or receipt. The logs omit Wish text, source notes and draft contents.
+
+Live checks on November 15, 2026 used the configured DeepSeek `deepseek-flash` model and synthetic input through the local request handler:
+
+| Scenario | Observed result |
+| --- | --- |
+| Five pre-fix gardening requests with no confirmed site | Three HTTP 200 responses, one HTTP 422 for an unsupported artifact section, and one HTTP 503 for an invalid model response. The original generic grounding 503 from the review did not recur naturally in these five runs. |
+| Final clarification for “I want to try gardening” | HTTP 200. The question offered possible spaces and made clear that none needed to be confirmed. |
+| Final preparation with no answer and with an explicit unknown location | Both HTTP 200, about six seconds each. Both drafts treated growing space, light, and permission as open. An earlier patched run rejected a malformed first candidate and succeeded after one live repair. |
+| One planted candidate that invented a backyard, six hours of sun, and owner permission | A live review rejected it with `grounding_rejected / unconfirmed_location_or_permission`. Live repair and re-review produced a draft marked `repaired_model`. |
+| Two planted candidates with the same unsupported claims | Both live reviews rejected them. The returned `worksheet` contained neither candidate's backyard, sunlight, or permission assertions. |
+
+The planted candidates were supplied by the test harness to force the rejection path. They were not reported as outputs of the live drafting model. Provider and malformed reviewer error paths were also checked with simulated responses.
 
 - Fresh local Supabase CLI stack applied the F03 baseline. The local email OTP template worked through AuthGate and Mailpit.
 - `npm run typecheck`, `npm test`, `npm run test:db`, `npm run build`: pass.

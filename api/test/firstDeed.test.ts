@@ -1,6 +1,6 @@
 import {describe,it} from 'node:test';
 import assert from 'node:assert/strict';
-import {loadOwnedWish,prepareDeed,reviewGrounding,serveFirstDeed,suggestClarification,validateArtifact} from '../src/firstDeed.ts';
+import {callFirstDeedModel,loadOwnedWish,prepareDeed,reviewGrounding,serveFirstDeed,suggestClarification,validateArtifact} from '../src/firstDeed.ts';
 
 it('reports missing provider config at clarification, even when the wish needs no question', async context => {
   const provider = process.env.LLM_PROVIDER;
@@ -47,6 +47,14 @@ const plant={title:'Houseplant observation log',sections:[
   nextDeed:{title:'Record soil moisture',why:'An observation can narrow possible causes.',prompt:'Add what you see to the care log.'},
   boundary:'No photo was inspected, diagnosis verified or reminder scheduled.'};
 const model=(result:unknown)=>async()=>result;
+const approve=async()=>({safe:true} as const);
+const reject=async()=>({safe:false,reason:'unconfirmed_location_or_permission'} as const);
+const unsafeGarden={...garden,sections:[{type:'document',title:'First planting',body:'Use your backyard, which has six hours of sun.'}]};
+const openGarden={...garden,title:'Options for starting a garden',
+  sections:[{type:'questions',title:'Possible growing space',items:['Is there a place you could use?']}],
+  unknowns:['A growing location has not been identified.'],
+  nextDeed:{title:'List one possibility',why:'A possible location helps narrow the options.',prompt:'Write an option if you know one; otherwise leave it open.'},
+  boundary:'Private planning only. No location or permission was verified.'};
 
 describe('JINN-F03 generic first Deed',()=>{
   it('accepts only the fixed editable component grammar',()=>{
@@ -57,14 +65,14 @@ describe('JINN-F03 generic first Deed',()=>{
   it('asks at most one question and tolerates an unsure answer',async()=>{
     assert.equal(await suggestClarification('I want a book about my family',model({question:'What is one memory you want to keep?'})),
       'What is one memory you want to keep?');
-    const prepared=await prepareDeed('I want a book about my family','',null,model(book),async()=>true);
+    const prepared=await prepareDeed('I want a book about my family','',null,model(book),approve);
     assert.equal(prepared.artifact.sourceNote,'');
     assert.equal(prepared.receipt.status,'PREPARED');
   });
   it('uses the same grammar for book, garden and unexpected wish',async()=>{
-    const a=await prepareDeed('I want a book about my family','Sunday pancakes with Grandma',null,model(book),async()=>true);
-    const b=await prepareDeed('I want a garden on a vacant lot. Owner unknown.','',null,model(garden),async()=>true);
-    const c=await prepareDeed('My houseplant is unhealthy','',null,model(plant),async()=>true);
+    const a=await prepareDeed('I want a book about my family','Sunday pancakes with Grandma',null,model(book),approve);
+    const b=await prepareDeed('I want a garden on a vacant lot. Owner unknown.','',null,model(garden),approve);
+    const c=await prepareDeed('My houseplant is unhealthy','',null,model(plant),approve);
     assert.deepEqual([a,b,c].map(x=>x.artifact.sections.map(s=>s.type)),
       [['document','questions'],['checklist','document'],['checklist','document']]);
     assert.match(b.artifact.nextDeed.title,/Identify/);
@@ -77,7 +85,7 @@ describe('JINN-F03 generic first Deed',()=>{
     assert.doesNotMatch(JSON.stringify(corrected),/Grandma/);
     let sent='';
     await prepareDeed('I want a book about my family',corrected.sourceNote,corrected,
-      async messages=>{sent=messages[1].content;return {...book,sections:[{type:'questions',title:'Follow-up',items:['What does Aunt recall?']}]} },async()=>true);
+      async messages=>{sent=messages[1].content;return {...book,sections:[{type:'questions',title:'Follow-up',items:['What does Aunt recall?']}]} },approve);
     assert.match(sent,/Aunt/);
     assert.doesNotMatch(sent,/Grandma/);
   });
@@ -87,16 +95,83 @@ describe('JINN-F03 generic first Deed',()=>{
     assert.throws(()=>validateEditedArtifact({...artifact,unknowns:Array(7).fill('unknown')}),/six unknowns/);
   });
   it('labels unsupported sending as prepared, never sent or verified',async()=>{
-    const result=await prepareDeed('Send these garden invitations now','',null,model(garden),async()=>true);
+    const result=await prepareDeed('Send these garden invitations now','',null,model(garden),approve);
     assert.equal(result.receipt.status,'PREPARED');
     assert.match(result.receipt.scope,/No external action/);
     assert.match(result.artifact.sections[1].type==='document'?result.artifact.sections[1].body:'',/not sent/);
   });
-  it('fails closed when the grounding review rejects invented details',async()=>{
-    const unsafe={...book,sections:[{type:'document',title:'Memory',body:'The griddle filled a warm kitchen.'}]};
-    assert.equal(await reviewGrounding('Book idea','Pancakes',validateArtifact(unsafe,'Pancakes'),model({safe:false})),false);
-    await assert.rejects(prepareDeed('Book idea','Pancakes',null,model(unsafe),async()=>false),
-      /could not be grounded/);
+  it('repairs a rejected assumption once and independently reviews the replacement',async()=>{
+    const reviewed:string[]=[];
+    let generations=0;
+    const result=await prepareDeed('I want to try gardening','',null,async messages=>{
+      if (++generations===1) return unsafeGarden;
+      assert.match(messages[0].content,/single repair attempt.*grounding_rejected/);
+      assert.doesNotMatch(JSON.stringify(messages),/six hours of sun/);
+      return openGarden;
+    },async(_wish,_note,artifact)=>{
+      reviewed.push(artifact.title);
+      return artifact.title===openGarden.title ? approve() : reject();
+    });
+    assert.equal(generations,2);
+    assert.deepEqual(reviewed,[unsafeGarden.title,openGarden.title]);
+    assert.equal(result.receipt.draftSource,'repaired_model');
+    assert.equal(result.artifact.sourceNote,'');
+    assert.match(result.artifact.unknowns.join(' '),/location/);
+    assert.doesNotMatch(JSON.stringify(result.artifact),/backyard|six hours of sun/);
+  });
+  it('serves a fixed worksheet after two rejected drafts and preserves the exact source note',async()=>{
+    let generations=0;
+    const result=await prepareDeed('I want to try gardening','Where is still open.',null,
+      async()=>{generations++; return unsafeGarden;},reject);
+    assert.equal(generations,2);
+    assert.equal(result.receipt.draftSource,'worksheet');
+    assert.equal(result.artifact.sourceNote,'Where is still open.');
+    assert.match(result.receipt.operation,/worksheet/);
+    assert.doesNotMatch(JSON.stringify(result.artifact),/backyard|six hours of sun/);
+  });
+  it('keeps a saved follow-up artifact when a replacement fails both grounding checks',async()=>{
+    await assert.rejects(
+      prepareDeed('I want to try gardening','',validateArtifact(openGarden,''),model(unsafeGarden),reject),
+      {code:'grounding_rejected',status:422},
+    );
+  });
+  it('repairs an invalid section without letting it reach the reviewer',async()=>{
+    let calls=0;
+    const result=await prepareDeed('I want to try gardening','',null,async messages=>{
+      if (++calls===1) return {...openGarden,sections:[{type:'html',title:'Unsupported'}]};
+      assert.match(messages[0].content,/draft_validation_failed/);
+      return openGarden;
+    },async(_wish,_note,artifact)=>{
+      assert.deepEqual(artifact.sections,openGarden.sections);
+      return approve();
+    });
+    assert.equal(calls,2);
+    assert.equal(result.receipt.draftSource,'repaired_model');
+  });
+  it('repairs an unparseable generation response without treating it as downtime',async()=>{
+    let generations=0;
+    const result=await prepareDeed('I want to try gardening','',null,async messages=>{
+      if (++generations===1) return callFirstDeedModel([],1,{LLM_PROVIDER:'openai',OPENAI_API_KEY:'fixture'},
+        async()=>Response.json({choices:[{message:{content:'{"sections": ['}}]}));
+      assert.match(messages[0].content,/draft_validation_failed.*invalid_model_output/);
+      return openGarden;
+    },approve);
+    assert.equal(generations,2);
+    assert.equal(result.receipt.draftSource,'repaired_model');
+  });
+  it('does not treat malformed review or provider failure as rejection',async()=>{
+    const artifact=validateArtifact(unsafeGarden,'');
+    assert.deepEqual(await reviewGrounding('Garden','',artifact,model({safe:false})),
+      {safe:false,reason:'unsupported_fact'});
+    await assert.rejects(reviewGrounding('Garden','',artifact,model({safe:'false'})),{code:'grounding_review_invalid',status:502});
+    let calls=0;
+    const outage=()=>callFirstDeedModel([],1,{LLM_PROVIDER:'openai',OPENAI_API_KEY:'fixture'},
+      async()=>new Response(null,{status:429}));
+    await assert.rejects(prepareDeed('I want to try gardening','',null,async()=>{
+      if (++calls===1) return unsafeGarden;
+      return outage();
+    },reject),{code:'ai_provider_rejected',status:503,upstreamStatus:429});
+    assert.equal(calls,2);
   });
   it('requires an owner-scoped server read for continuation',async()=>{
     let filters:Array<[string,string]>=[];
