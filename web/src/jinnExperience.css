@@ -55,8 +55,10 @@
 .welcome h1 em { color: #8570ca; font-weight: 400; }
 .welcome-lead { color: #5a6477; font-size: 18px; line-height: 1.55; max-width: 470px; margin: 0 0 31px; }
 .welcome .wish-form { max-width: 570px; padding: 7px; background: #fff; border: 1px solid #e4ddec; border-radius: 20px; box-shadow: 0 20px 62px #5c4a7919; }
+.welcome .wish-form:has(textarea:focus-visible) { border-color: #8070d5; box-shadow: 0 0 0 3px #8070d5, 0 20px 62px #5c4a7919; }
 .welcome .wish-form .field-label { margin: 15px 16px 5px; color: #6b5aaf; }
 .welcome .wish-form textarea { min-height: 95px; font-size: 18px; color: #202943; padding: 10px 16px 16px; }
+.app.jinn-experience .welcome .wish-form textarea:focus-visible { outline: none; }
 .welcome .wish-form textarea::placeholder { color: #9ba2b1; }
 .welcome .wish-form .primary { width: 100%; }
 .welcome .try-label { text-align: left; color: #7c8190; margin: 21px 0 10px; }

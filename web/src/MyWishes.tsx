@@ -11,27 +11,19 @@ import type { SavedShortlist } from './opportunityTypes';
 import type { CareerSaved } from './careerTypes';
 import type { SoccerSaved } from './soccerTypes';
 import { MAX_SAVED_WISHES, wishesRemaining } from './wishLimit';
+import { dataErrorMessage, loadOptionalSavedRows, loadSavedWishRows, type SavedWish } from './savedWishRows';
 import './myWishes.css';
 
-type SavedWish = {
-  id: string;
-  aspiration: string;
-  kind: string;
-  mission_id: string;
-  answer: string;
-  status: 'PLANNED';
-  created_at: string;
-  first_artifact?: unknown;
-};
 type SavedPortfolio = {
   id: string;
   wish_id: string;
-  published: boolean;
+  published: boolean | null;
   title: string;
   photos: Array<{ id: string }>;
   status: 'PRIVATE';
   created_at: string;
 };
+type PortfolioRow = Omit<SavedPortfolio, 'published'>;
 type Props = {
   email: string;
   onOpenPortfolio: (id: string) => void;
@@ -48,7 +40,6 @@ type Props = {
 function readable(value: string): string {
   return value.replace(/[-_]+/g, ' ').replace(/^\w/, letter => letter.toUpperCase());
 }
-
 export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onOpenScout, onCareerScout, onSoccerScout, onPrepareSubmission, onOpenSubmission, onNewWish, onOpenFirstWish }: Props) {
   const [wishes, setWishes] = useState<SavedWish[]>([]);
   const [portfolios, setPortfolios] = useState<SavedPortfolio[]>([]);
@@ -60,58 +51,73 @@ export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onOpe
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadWarnings, setLoadWarnings] = useState<string[]>([]);
+  const [relatedWorkComplete, setRelatedWorkComplete] = useState(true);
   const [refresh, setRefresh] = useState(0);
   const duplicateGroups = duplicateWishGroups(wishes);
 
   useEffect(() => {
     let active = true;
     const load = async () => {
-      setLoading(true); setError('');
+      setLoading(true); setError(''); setLoadFailed(false); setLoadWarnings([]);
       try {
         const user = await getAuthenticatedUser();
         const db = getSupabase();
-        const [wishResult, portfolioResult, shortlistResult, submissionResult, careerResult, soccerResult] = await Promise.all([
-          db.from('wishes').select('id,aspiration,kind,mission_id,answer,status,created_at,first_artifact')
+        const { wishes: savedWishes, warning: artifactWarning, artifactStatus } = await loadSavedWishRows(
+          () => db.from('wishes').select('id,aspiration,kind,mission_id,answer,status,created_at')
             .eq('user_id', user.id).order('created_at', { ascending: false }).limit(50),
-          db.from('portfolios').select('id,wish_id,title,photos,status,created_at')
-            .eq('user_id', user.id).order('created_at', { ascending: false }).limit(50),
-          db.from('opportunity_shortlists')
+          ids => db.from('wishes').select('id,first_artifact').eq('user_id', user.id).in('id', ids)
+        );
+        const warnings: string[] = artifactWarning ? [artifactWarning] : [];
+        let complete = artifactStatus !== 'unavailable';
+        const optionalRows = async <T,>(label: string, query: PromiseLike<{ data: T[] | null; error: { message: string; code?: string } | null }>, affectsLinkedWork = true): Promise<T[]> => {
+          const result = await loadOptionalSavedRows(label, query);
+          if (result.warning) {
+            if (affectsLinkedWork) complete = false;
+            warnings.push(result.warning);
+          }
+          return result.rows;
+        };
+        const [portfolioRows, shortlistRows, submissionRows, careerRows, soccerRows] = await Promise.all([
+          optionalRows<PortfolioRow>('Portfolios', db.from('portfolios').select('id,wish_id,title,photos,status,created_at')
+            .eq('user_id', user.id).order('created_at', { ascending: false }).limit(50)),
+          optionalRows<SavedShortlist>('Opportunity shortlists', db.from('opportunity_shortlists')
             .select('id,wish_id,genre,free_only,source,feed_url,fetched_at,matches,created_at')
-            .eq('user_id',user.id).order('created_at',{ascending:false}).limit(20),
-          db.from('submission_packages')
+            .eq('user_id',user.id).order('created_at',{ascending:false}).limit(20)),
+          optionalRows<SubmissionRow>('Submission drafts', db.from('submission_packages')
             .select('id,wish_id,shortlist_id,portfolio_id,opportunity_id,opportunity_title,deadline,listing_url,organizer_url,rules_notes,reviewed_by_user,artist_name,artist_statement,cover_note,selected_photos,created_at,updated_at')
-            .eq('user_id',user.id).order('updated_at',{ascending:false}).limit(50),
-          db.from('career_shortlists')
+            .eq('user_id',user.id).order('updated_at',{ascending:false}).limit(50)),
+          optionalRows<CareerSaved>('Career shortlists', db.from('career_shortlists')
             .select('id,wish_id,query,country,fetched_at,ai_used,matches,created_at')
-            .eq('user_id',user.id).order('created_at',{ascending:false}).limit(20),
-          db.from('soccer_shortlists')
+            .eq('user_id',user.id).order('created_at',{ascending:false}).limit(20)),
+          optionalRows<SoccerSaved>('Soccer shortlists', db.from('soccer_shortlists')
             .select('id,wish_id,city,level,age_group,fetched_at,matches,created_at')
-            .eq('user_id',user.id).order('created_at',{ascending:false}).limit(20)
+            .eq('user_id',user.id).order('created_at',{ascending:false}).limit(20))
         ]);
-        if (wishResult.error) throw wishResult.error;
-        if (portfolioResult.error) throw portfolioResult.error;
-        if (shortlistResult.error) throw shortlistResult.error;
-        if (submissionResult.error) throw submissionResult.error;
-        if (careerResult.error) throw careerResult.error;
-        if (soccerResult.error) throw soccerResult.error;
-        const galleryIds=(portfolioResult.data || []).map((p:{id:string})=>p.id);
-        const publishedResult=galleryIds.length
-          ? await db.from('portfolio_publications').select('portfolio_id').in('portfolio_id',galleryIds)
-          : {data:[],error:null};
-        if (publishedResult.error) throw publishedResult.error;
-        const liveIds=new Set((publishedResult.data || []).map((p:{portfolio_id:string})=>p.portfolio_id));
+        const galleryIds = portfolioRows.map(p => p.id);
+        const publicationRows = galleryIds.length
+          ? await optionalRows<{ portfolio_id: string }>('Publication status', db.from('portfolio_publications').select('portfolio_id').in('portfolio_id', galleryIds), false)
+          : [];
+        const publicationStatusKnown = !warnings.some(warning => warning.startsWith('Publication status'));
+        const liveIds = new Set(publicationRows.map(p => p.portfolio_id));
         if (active) {
-          setWishes((wishResult.data || []) as SavedWish[]);
-          setShortlists((shortlistResult.data||[]) as SavedShortlist[]);
-          setCareerLists((careerResult.data||[]) as CareerSaved[]);
-          setSoccerLists((soccerResult.data||[]) as SoccerSaved[]);
-          setSubmissionDrafts((submissionResult.data||[]) as SubmissionRow[]);
-          setPortfolios((portfolioResult.data || []).map((p:{id:string})=>({...p,published:liveIds.has(p.id)})) as SavedPortfolio[]);
-          const photoWish=(wishResult.data||[]).find((wish:{kind:string})=>wish.kind==='photography');
+          setWishes(savedWishes);
+          setShortlists(shortlistRows);
+          setCareerLists(careerRows);
+          setSoccerLists(soccerRows);
+          setSubmissionDrafts(submissionRows);
+          setPortfolios(portfolioRows.map(p => ({ ...p, published: publicationStatusKnown ? liveIds.has(p.id) : null })));
+          setLoadWarnings(warnings);
+          setRelatedWorkComplete(complete);
+          const photoWish = savedWishes.find(wish => wish.kind === 'photography');
           setExpanded(previous=>previous??photoWish?.id??null);
         }
       } catch (cause) {
-        if (active) setError(cause instanceof Error ? cause.message : 'Could not load your saved work.');
+        if (active) {
+          setLoadFailed(true);
+          setError(dataErrorMessage(cause, 'Could not load your saved wishes.'));
+        }
       } finally {
         if (active) setLoading(false);
       }
@@ -155,6 +161,10 @@ export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onOpe
     }catch(cause){setError(cause instanceof Error?cause.message:'Could not remove this shortlist.');}
   };
   const deleteWish = async (wish: SavedWish) => {
+    if (!relatedWorkComplete) {
+      setError('Some linked work could not load. Refresh after the error is resolved before deleting this wish.');
+      return;
+    }
     if (artifactsForWish(wish,portfolios).length || shortlists.some(s=>s.wish_id===wish.id) || submissionDrafts.some(d=>d.wish_id===wish.id) || careerLists.some(c=>c.wish_id===wish.id) || soccerLists.some(c=>c.wish_id===wish.id)) {
       setError('Remove linked portfolios, saved shortlists and submission drafts before deleting this wish.');
       return;
@@ -184,7 +194,12 @@ export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onOpe
     </div>
 
     {error && <p className="error" role="alert">{error}</p>}
-    {loading ? <p className="my-work-status">Opening your saved work…</p> : <>
+    {loadWarnings.length > 0 && <div className="my-work-cap-warning" role="status">
+      <strong>Some saved details are unavailable.</strong>
+      <ul>{loadWarnings.map(warning => <li key={warning}>{warning}</li>)}</ul>
+    </div>}
+    {loading ? <p className="my-work-status">Opening your saved work…</p> : loadFailed
+      ? <p className="my-work-status">Your saved wishes could not be loaded. Refresh saved work to try again.</p> : <>
       <div className="my-work-section-header">
         <h3>Saved wishes</h3>
         <span>{wishes.length} / {MAX_SAVED_WISHES}</span>
@@ -217,8 +232,8 @@ export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onOpe
               <button type="button" className="my-work-card-main" aria-expanded={opened}
                 onClick={()=>setExpanded(current=>current===wish.id?null:wish.id)}>
                 <span className="my-work-card-text">
-                  <span className="my-work-status-label">{wish.first_artifact?'FIRST DEED PREPARED · WISH SAVED':hasDeeds
-                    ? 'WORK SAVED · MULTIPLE DEEDS'
+                  <span className="my-work-status-label">{wish.first_artifact?'FIRST DEED PREPARED · WISH SAVED':!relatedWorkComplete?'SAVED WORK STATUS UNAVAILABLE':hasDeeds
+                    ? 'WORK SAVED · OPEN FOR DETAILS'
                     : 'WISH PLANNED · NO COMPLETED DEEDS'}</span>
                   <strong>{wish.aspiration}</strong>
                   <small>{wish.first_artifact?'Editable artifact · Jinn continuity':hasDeeds
@@ -238,7 +253,7 @@ export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onOpe
                     onClick={()=>onOpenPortfolio(portfolio.id)}>
                     <span className="my-work-portfolio-icon"><Images size={18}/></span>
                     <span className="my-work-card-text">
-                      <span className="my-work-status-label">{portfolio.published?'PUBLISHED · PUBLIC':'CREATED · PRIVATE'}</span>
+                      <span className="my-work-status-label">{portfolio.published === null?'PUBLICATION STATUS UNAVAILABLE':portfolio.published?'PUBLISHED · PUBLIC':'CREATED · PRIVATE'}</span>
                       <strong>{portfolio.title}</strong>
                       <small>{portfolio.photos.length} photographs</small>
                     </span>
@@ -329,7 +344,7 @@ export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onOpe
                   className="my-work-add-portfolio" onClick={()=>onNewPortfolio(wish.id)}>
                   <Images size={15}/> Build another portfolio under this wish <ArrowRight size={14}/>
                 </button>}
-                {!hasDeeds && <>
+                {!hasDeeds && !wish.first_artifact && relatedWorkComplete && <>
                   <p><strong>First planned deed:</strong> {readable(wish.mission_id)}</p>
                   <p><strong>Your choice:</strong> {readable(wish.answer)}</p>
                   <p>We have not executed this mission yet.</p>
