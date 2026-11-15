@@ -11,7 +11,7 @@ create policy "owner deletes empty non-primary jinns"
     and coalesce((select (auth.jwt()->>'is_anonymous')::boolean), true) is false
     and is_primary = false
     and not exists (
-      select 1 from public.wish_records w where w.primary_jinn_id = id
+      select 1 from public.wish_records w where w.primary_jinn_id = public.jinns.id
     )
   );
 
