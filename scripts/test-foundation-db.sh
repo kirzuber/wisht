@@ -49,8 +49,8 @@ create table public.portfolio_publications (
 alter table public.wishes enable row level security;
 create policy "legacy owner reads wishes" on public.wishes for select to authenticated
   using (auth.uid() = user_id);
-create function public.legacy_wish_noop() returns trigger language plpgsql as $
-begin return new; end $;
+create function public.legacy_wish_noop() returns trigger language plpgsql as $$
+begin return new; end $$;
 create trigger legacy_wish_trigger before insert or update on public.wishes
   for each row execute function public.legacy_wish_noop();
 insert into public.wishes(id, user_id, aspiration, kind) values
@@ -68,7 +68,7 @@ SQL
 docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q < supabase/migrations/20261115224928_f03_additive_generic_wish_records.sql
 docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
 -- The generic schema must coexist with real legacy table names and linked rows.
-do $ begin
+do $$ begin
  if (select count(*) from public.wishes) <> 5
    or (select count(*) from public.portfolios) <> 2
    or (select count(*) from public.portfolio_publications) <> 1
@@ -85,7 +85,7 @@ do $ begin
  if to_regclass('public.wish_records') is null or to_regclass('public.jinns') is null
    or to_regclass('public.deeds') is null or to_regclass('public.artifacts') is null
    then raise exception 'F03 generic tables missing'; end if;
-end $;
+end $$;
 SQL
 docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
 set role authenticated;
