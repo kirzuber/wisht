@@ -22,7 +22,7 @@ Filter the browser console or dev terminal by `[Wisht]` for drafting, sign-in an
 - The AI remains server-side. It proposes bounded drafts from user-supplied facts; a second grounding pass rejects unsupported personal claims. No browsing, sending, booking, publication, or cross-Wish memory is available.
 - Legacy vertical runtime modules, scheduled watch, and domain-specific API functions are retired. Their SQL migration history is retained unchanged under `supabase/legacy-migrations` for audit and rollback planning.
 
-**Hosted Supabase has not been cut over.** The fresh baseline migration in `supabase/migrations` is for new local projects only. Do not run `db push` against `wisht-dev`. The backup inventory, guarded transition SQL, rollback rehearsal, and approval gate are in [the F03 cutover report](docs/20-jinn-f03-foundation-reset.md). Production deployment must wait for a separately approved hosted data cutover.
+**Hosted `wisht-dev` has the additive F03 tables** (`jinns`, `wish_records`, `deeds`, `artifacts`) installed alongside preserved legacy tables. PR #20 application changes must still be merged and released to make the new saved-Wish UI work there. Never run a blind hosted `db push` or archive/rename the legacy tables; their eventual retirement remains separately approval gated. See [the F03 report](docs/20-jinn-f03-foundation-reset.md).
 
 ### Local branch and schema alignment
 
