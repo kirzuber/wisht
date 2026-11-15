@@ -134,7 +134,7 @@ export default function OpportunityScout({wishContext,initialGenre='any',preview
    </button>}
    {savedWishId && <>
     <p className="scout-success">Saved under your photography wish. The Work Receipt confirms the saved shortlist, not organizer eligibility.</p>
-    <WorkReceipts wishId={savedWishId}/>
+    <details className="result-evidence-details"><summary>View Work Receipt</summary><WorkReceipts wishId={savedWishId}/></details>
     <button className="back" type="button" onClick={onSaved}>Open My wishes <ArrowRight size={15}/></button>
    </>}
   </div>}
