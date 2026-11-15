@@ -193,7 +193,7 @@
 .is-workspace > .error { color: #ffb9b6; }
 #wish-current, #wish-artifacts, #wish-next, #wish-history { scroll-margin-top: 20px; }
 
-/* Return view preserves all older specialized work inside the new Wish space. */
+/* Return view uses the same Canva composition for every saved Wish. */
 .app.jinn-experience .main:has(.my-work) { justify-content: flex-start; padding-top: 10px; }
 .app.jinn-experience .my-work { width: min(1060px, 100%); padding: 9px 0 55px; }
 .app.jinn-experience .my-work-heading { text-align: left; display: grid; grid-template-columns: 130px minmax(0, 1fr); align-items: center; column-gap: 22px; margin: 0 0 22px; }
@@ -208,12 +208,9 @@
 .app.jinn-experience .my-work-card { background: #fffdfa; border-color: #e1dbea; border-radius: 15px; box-shadow: 0 5px 20px #232d4c0c; color: #28324b; }
 .app.jinn-experience .my-work-card-main { padding: 22px; }
 .app.jinn-experience .my-work-card-main:hover,
-.app.jinn-experience .my-work-portfolio:hover { background: #f5f0fc; }
 .app.jinn-experience .my-work-card-text strong { color: #28324a; font-family: 'DM Serif Display', Georgia, serif; font-size: 22px; font-weight: 400; }
 .app.jinn-experience .my-work-card-text small { color: #677086; }
 .app.jinn-experience .my-work-status-label { color: #7763b6; }
-.app.jinn-experience .my-work-add-portfolio { background: #e8e1fb; color: #342766; border-color: #cfc3ed; }
-.app.jinn-experience .my-work-add-portfolio:hover { background: #ded4f7; }
 .app.jinn-experience .my-work-actions { max-width: 100%; display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
 .app.jinn-experience .my-work-actions .back { margin: 0; color: #6254a0; }
 .app.jinn-experience .my-work-empty { border-color: #d9d0ee; color: #58647e; }

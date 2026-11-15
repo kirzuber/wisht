@@ -91,7 +91,7 @@ export async function suggestClarification(wish: string, call = callFirstDeedMod
   if (wish.trim().split(/\s+/u).length >= 10) return null;
   let result: unknown;
   try { result = await call([
-    {role:'system',content:`${baseInstruction} ${language(wish)} Return JSON {"question": string|null}. Ask at most one essential question only if its answer would materially improve the first useful draft. If the wish already gives enough to make a practical starter artifact, return null. Do not ask again about a fact the person explicitly says is unknown. For a family book, ask for one memory. For vague goals, ask one gentle question. Do not ask for personal details or an account.`},
+    {role:'system',content:`${baseInstruction} ${language(wish)} Return JSON {"question": string|null}. Ask at most one essential question only if its answer would materially improve the first useful draft. If the wish already gives enough to make a practical starter artifact, return null. Do not ask again about a fact the person explicitly says is unknown. For a story or memory wish, ask for one concrete detail. For vague goals, ask one gentle question. Do not ask for personal details or an account.`},
     {role:'user',content:wish}
   ], 150); } catch { return null; }
   if (!object(result) || (result.question !== null && !string(result.question, 180))) return null;
@@ -114,7 +114,7 @@ export async function prepareDeed(wish: string, sourceNote: string, previous: Ar
     `Goal: ${wish}\nCurrent authoritative, user-corrected artifact: ${JSON.stringify(previous)}\nPrepare the next bounded deed using ONLY the corrected artifact for personal facts. Never reintroduce superseded facts.` :
     `Goal: ${wish}\nPerson's optional answer or source note: ${sourceNote || 'No detail supplied; do not invent any.'}`;
   const result = await call([
-    {role:'system',content:`${baseInstruction} ${language(wish)} Return compact JSON with title, sections, unknowns, nextDeed, boundary. sections is 2-3 items from: {"type":"document","title":string,"body":string}, {"type":"checklist","title":string,"items":[{"text":string,"dependsOn":optional zero-based earlier index}]}, {"type":"questions","title":string,"items":[string]}. Limit each document body to 500 characters, each checklist to 5 items, each questions section to 3 prompts, unknowns to 5, and boundary to 180 characters. Make one first step, not a full project plan. Include substantive goal-specific work. Do not write a scene or sentimental narrative: use neutral worksheets, useful templates and questions with unknowns. For a family book with a memory, make a story seed and three relevant interview prompts, never a fabricated chapter. For unknown land ownership, identifying the owner precedes permission. A message is a draft, never sent. Do not include sourceNote in output; the server supplies it. Exactly one nextDeed {title,why,prompt}; each field under 180 characters.`},
+    {role:'system',content:`${baseInstruction} ${language(wish)} Return compact JSON with title, sections, unknowns, nextDeed, boundary. sections is 2-3 items from: {"type":"document","title":string,"body":string}, {"type":"checklist","title":string,"items":[{"text":string,"dependsOn":optional zero-based earlier index}]}, {"type":"questions","title":string,"items":[string]}. Limit each document body to 500 characters, each checklist to 5 items, each questions section to 3 prompts, unknowns to 5, and boundary to 180 characters. Make one first step, not a full project plan. Include substantive goal-specific work. Do not write a scene or sentimental narrative: use neutral worksheets, useful templates and questions with unknowns. For a wish involving memories, make a source-anchored seed and relevant prompts, never fabricate a scene. Where ownership or permission is unknown, put identifying the responsible person before seeking permission. A message is a draft, never sent. Do not include sourceNote in output; the server supplies it. Exactly one nextDeed {title,why,prompt}; each field under 180 characters.`},
     {role:'user',content:context}
   ], 1500);
   const artifact = validateArtifact(result, previous?.sourceNote ?? sourceNote);
@@ -133,10 +133,14 @@ export async function loadOwnedWish(token: string, wishId: string, env: NodeJS.P
     global:{headers:{Authorization:`Bearer ${token}`}}});
   const {data:{user},error:authError} = await db.auth.getUser(token);
   if (authError || !user || user.is_anonymous || !user.email_confirmed_at) throw new Error('Sign in to continue this wish.');
-  const {data,error} = await db.from('wishes').select('id,aspiration,first_artifact')
+  const {data:wish,error:wishError} = await db.from('wishes').select('id,original_intent')
     .eq('id',wishId).eq('user_id',user.id).single();
-  if (error || !data || !data.first_artifact) throw new Error('Saved wish not found.');
-  return {wish:data.aspiration as string, artifact:validateArtifact(data.first_artifact, String(data.first_artifact.sourceNote || ''))};
+  if (wishError || !wish) throw new Error('Saved wish not found.');
+  const {data:artifacts,error:artifactError} = await db.from('artifacts').select('content')
+    .eq('wish_id',wishId).eq('user_id',user.id).order('updated_at',{ascending:false}).limit(1);
+  if (artifactError || !artifacts?.length) throw new Error('Saved artifact not found.');
+  const content=artifacts[0].content;
+  return {wish:wish.original_intent as string, artifact:validateArtifact(content, String(content.sourceNote || ''))};
 }
 
 export async function serveFirstDeed(request: Request): Promise<Response> {

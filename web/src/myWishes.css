@@ -1,53 +1,11 @@
-.my-work{position:relative;z-index:1;width:min(100%,660px);padding:8px 0 30px}
-.my-work-heading{text-align:center;margin:0 auto 36px}
-.my-work-heading h2{font-family:'DM Serif Display',Georgia,serif;font-weight:400;letter-spacing:-1px;line-height:1.1;font-size:clamp(42px,6vw,60px);margin:8px 0 12px}
-.my-work-heading em{font-weight:400;color:#ab8950}
-.my-work-subtitle{font-size:14px;color:#737970;line-height:1.55}
-.my-work-email{display:flex;align-items:center;gap:6px;justify-content:center;font-size:11px;color:#91978c;overflow-wrap:anywhere}
-.my-work-section-header{display:flex;justify-content:space-between;align-items:center;margin:30px 2px 12px}
-.my-work-section-header h3{font-size:15px;margin:0;font-weight:700;color:#34483a}
-.my-work-section-header span{font-size:12px;color:#8d917d}
-.my-work-list{display:grid;gap:9px}
-.my-work-card{border:1px solid #e5dfd3;border-radius:13px;background:#fffdf9;color:#334739;overflow:hidden}
-.my-work-card-main,.my-work-portfolio{width:100%;display:flex;align-items:center;gap:15px;padding:16px;text-align:left}
-.my-work-card-main{background:none;border:0;color:inherit}
-.my-work-card-main>svg,.my-work-portfolio>svg:last-child{color:#977e53;flex:none;transition:transform .2s}
-.my-work-card-main>svg.turned{transform:rotate(90deg)}
-.my-work-card-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
-.my-work-card-text strong{font-size:15px;font-weight:700;color:#2f4237}
-.my-work-card-text small{font-size:12px;color:#8e9286}
-.my-work-status-label{font-size:9px;letter-spacing:1px;font-weight:700;color:#a18455}
-.my-work-details{padding:0 16px 16px;border-top:1px solid #eee9df}
-.my-work-details p{font-size:12px;line-height:1.5;color:#767c71}
-.my-work-details p strong{color:#3b5042}
-.my-work-delete{display:flex;align-items:center;gap:6px;border:0;background:none;color:#9b5749;font-size:11px;padding:7px 0}
-.my-work-portfolio{cursor:pointer}
-.my-work-portfolio:hover,.my-work-card-main:hover{background:#fffaf0}
-.my-work-portfolio-icon{width:40px;height:40px;border-radius:11px;background:#e9e9dd;color:#58705f;display:flex;align-items:center;justify-content:center}
-.my-work-empty{border:1px dashed #ddd7c9;border-radius:11px;padding:19px;color:#858b7e;font-size:12px;line-height:1.6;text-align:center}
-.my-work-actions{margin:30px auto 0;max-width:460px}
-.my-work-actions .back{margin-top:10px}
-.my-work-status{text-align:center;font-size:13px;color:#8e9286}
-@media(max-width:600px){.my-work{padding:0 2px 25px}.my-work-heading{margin-bottom:25px}.my-work-card-main,.my-work-portfolio{padding:13px}.my-work-section-header{margin-top:23px}}
-
-.my-work-cap-note,.my-work-cap-warning{font-size:12px;line-height:1.55;padding:11px 14px;border-radius:9px;margin:10px 0 14px}
-.my-work-cap-note{background:#edeae0;color:#6d715f}
-.my-work-cap-warning{background:#fff4e6;border:1px solid #e8d8ba;color:#87673d}
-
-.my-work-nested{padding-top:8px;display:grid;gap:9px}
-.my-work-nested-label{font-size:10px!important;font-weight:700;letter-spacing:1.1px;color:#a18455!important;margin:6px 0 3px!important}
-.my-work-portfolio.nested{border:1px solid #e4dfd2;border-radius:9px;padding:11px;background:#fbfaf5}
-.my-work-portfolio.nested:hover{background:#f4f0e6}
-.my-work-add-portfolio{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:#f0eee7;border:1px solid #ded8c9;border-radius:9px;color:#46634e;padding:12px;margin-top:12px;font-size:11px;font-weight:700}
-.my-work-nested-note{font-size:10px!important;color:#989489!important}
-
-.my-work-scout-card{border:1px solid #e6dfd0;background:#fffdf7;border-radius:10px;padding:14px}
-.my-work-scout-card strong{display:block;font-size:12px;color:#394d3e}
-.my-work-scout-card>small{display:block;font-size:10px;color:#999185;margin:6px 0}
-.my-work-scout-links{display:grid;gap:7px;margin:12px 0}
-.my-work-scout-links a{font-size:11px;line-height:1.5;color:#42704e;text-decoration:underline;overflow-wrap:anywhere}
-
-.my-work-opportunity-row{display:grid;gap:4px;border-bottom:1px solid #ece8df;padding:8px 0}
-.my-work-opportunity-row:last-child{border-bottom:0}
-.my-work-prep-action{border:1px solid #c9d8c9;background:#eef2e9;border-radius:8px;color:#416149;padding:8px 10px;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;width:max-content;max-width:100%}
-.my-work-prep-action:hover{background:#e3ecdf}
+.my-work{position:relative;z-index:1;width:min(100%,1060px);padding:8px 0 30px}
+.my-work-heading{margin:0 auto 36px}.my-work-heading h2{font-family:'DM Serif Display',Georgia,serif;font-weight:400;letter-spacing:-1px;line-height:1.1;font-size:clamp(42px,6vw,60px);margin:8px 0 12px}
+.my-work-heading em{font-weight:400;color:#ab8950}.my-work-subtitle{font-size:14px;color:#737970;line-height:1.55}.my-work-email{display:flex;align-items:center;gap:6px;font-size:11px;color:#91978c;overflow-wrap:anywhere}
+.my-work-section-header{display:flex;justify-content:space-between;align-items:center;margin:30px 2px 12px}.my-work-section-header h3{font-size:24px;margin:0;color:#34483a}.my-work-section-header span{font-size:12px;color:#8d917d}
+.my-work-list{display:grid;gap:9px}.my-work-card{border:1px solid #e5dfd3;border-radius:13px;background:#fffdf9;color:#334739;overflow:hidden}
+.my-work-card-main{width:100%;display:flex;align-items:center;gap:15px;padding:16px;text-align:left;background:none;border:0;color:inherit}.my-work-card-main>svg{color:#977e53;flex:none}.my-work-card-main:hover{background:#f5f0fc}
+.my-work-card-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}.my-work-card-text strong{font-size:15px;font-weight:700;color:#2f4237}.my-work-card-text small{font-size:12px;color:#8e9286}.my-work-status-label{font-size:9px;letter-spacing:1px;font-weight:700;color:#a18455}
+.my-work-details{padding:0 16px 12px;border-top:1px solid #eee9df}.my-work-delete{display:flex;align-items:center;gap:6px;border:0;background:none;color:#9b5749;font-size:11px;padding:7px 0}
+.my-work-empty{border:1px dashed #ddd7c9;border-radius:11px;padding:19px;color:#858b7e;font-size:12px;line-height:1.6;text-align:center}.my-work-actions{margin:30px auto 0;max-width:460px}.my-work-status{text-align:center;font-size:13px;color:#8e9286}
+.my-work-cap-warning{font-size:12px;line-height:1.55;padding:11px 14px;border-radius:9px;margin:10px 0 14px;background:#fff4e6;border:1px solid #e8d8ba;color:#87673d}.my-work-cap-warning button{display:inline-flex;align-items:center;gap:5px;border:0;background:none;color:inherit;text-decoration:underline}
+@media(max-width:600px){.my-work{padding:0 2px 25px}.my-work-heading{margin-bottom:25px}.my-work-card-main{padding:13px}.my-work-section-header{margin-top:23px}}

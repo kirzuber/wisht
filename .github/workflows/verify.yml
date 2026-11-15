@@ -21,7 +21,7 @@ jobs:
         run: npm run typecheck
       - name: Tests
         run: npm test
-      - name: First wish database tests
+      - name: Foundation database tests
         run: npm run test:db
       - name: Build
         run: npm run build

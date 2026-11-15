@@ -2,7 +2,6 @@ import {describe,it} from 'node:test';
 import assert from 'node:assert/strict';
 import {loadOwnedWish,prepareDeed,reviewGrounding,serveFirstDeed,suggestClarification,validateArtifact} from '../src/firstDeed.ts';
 import {correctSource,validateEditedArtifact} from '../../web/src/firstWishModel.ts';
-import {matchingWish} from '../../web/src/wishDedup.ts';
 
 const book={title:'Story seed and interview kit',sections:[
   {type:'document',title:'Story seed',body:'Start with Sunday pancakes with Grandma. Ask what happened; do not assume details.'},
@@ -25,7 +24,7 @@ const plant={title:'Houseplant observation log',sections:[
   boundary:'No photo was inspected, diagnosis verified or reminder scheduled.'};
 const model=(result:unknown)=>async()=>result;
 
-describe('JINN-F02 first real wish',()=>{
+describe('JINN-F03 generic first Deed',()=>{
   it('accepts only the fixed editable component grammar',()=>{
     assert.equal(validateArtifact(book,'Sunday pancakes with Grandma').sections.length,2);
     assert.throws(()=>validateArtifact({...book,sections:[{type:'html',title:'Bad',body:'<script />'}]},''));
@@ -37,10 +36,6 @@ describe('JINN-F02 first real wish',()=>{
     const prepared=await prepareDeed('I want a book about my family','',null,model(book),async()=>true);
     assert.equal(prepared.artifact.sourceNote,'');
     assert.equal(prepared.receipt.status,'PREPARED');
-  });
-  it('keeps unrelated Russian wishes distinct',()=>{
-    assert.equal(matchingWish({aspiration:'Хочу заняться садом',kind:'personal'},
-      [{aspiration:'Хочу писать книгу',kind:'personal'}]),undefined);
   });
   it('uses the same grammar for book, garden and unexpected wish',async()=>{
     const a=await prepareDeed('I want a book about my family','Sunday pancakes with Grandma',null,model(book),async()=>true);
