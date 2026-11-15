@@ -9,3 +9,28 @@
 .my-work-empty{border:1px dashed #ddd7c9;border-radius:11px;padding:19px;color:#858b7e;font-size:12px;line-height:1.6;text-align:center}.my-work-actions{margin:30px auto 0;max-width:460px}.my-work-status{text-align:center;font-size:13px;color:#8e9286}
 .my-work-cap-warning{font-size:12px;line-height:1.55;padding:11px 14px;border-radius:9px;margin:10px 0 14px;background:#fff4e6;border:1px solid #e8d8ba;color:#87673d}.my-work-cap-warning button{display:inline-flex;align-items:center;gap:5px;border:0;background:none;color:inherit;text-decoration:underline}
 @media(max-width:600px){.my-work{padding:0 2px 25px}.my-work-heading{margin-bottom:25px}.my-work-card-main{padding:13px}.my-work-section-header{margin-top:23px}}
+
+/* F03-003: focused multi-Jinn identity and Wish association, same visual language. */
+.jinn-collection{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:11px;margin:4px 0 24px}
+.jinn-choice{display:flex;align-items:center;gap:12px;text-align:left;border:1px solid #e0d9cc;background:#fffdf9;padding:15px;border-radius:14px;color:#2f4237;min-width:0}
+.jinn-choice:hover{background:#f7f1fc}.jinn-choice.is-selected{border-color:#8f7fa9;box-shadow:0 0 0 2px #d8c8e999}
+.jinn-choice-content{display:flex;flex-direction:column;gap:5px;min-width:0}.jinn-choice-content strong{font-size:16px}
+.jinn-choice-content small{color:#8b9188;font-size:11px;overflow-wrap:anywhere}.jinn-choice-content .jinn-purpose{font-size:12px;color:#677268}
+.jinn-action{display:inline-flex;align-items:center;gap:5px;border:1px solid #dcd6c9;border-radius:9px;background:#fffdf9;color:#384c40;padding:9px 12px;font-weight:600;font-size:12px}
+.jinn-action:hover:not(:disabled){background:#f0ecf5}.jinn-action:disabled{opacity:.55}
+.jinn-editor,.jinn-workspace{background:#fffdf9;border:1px solid #e5dfd3;border-radius:16px;padding:22px;margin:14px 0}
+.jinn-editor{max-width:570px;display:flex;flex-direction:column;gap:8px}.jinn-editor h3{font-family:'DM Serif Display',Georgia,serif;font-size:27px;font-weight:400;margin:0 0 7px}
+.jinn-editor label,.jinn-move label{color:#536659;font-size:12px;font-weight:700}
+.jinn-editor input,.jinn-editor textarea,.jinn-move select{width:100%;background:#fff;border:1px solid #dcd8cc;border-radius:9px;padding:10px 12px;color:#293e32;font-size:13px}
+.jinn-editor textarea{resize:vertical}.jinn-explainer{font-size:11px;color:#848d83;line-height:1.5;margin:2px 0 10px}
+.jinn-editor-actions{display:flex;gap:10px;align-items:center}.jinn-editor-actions .primary{max-width:230px}
+.jinn-workspace{margin-top:19px}.jinn-workspace-header{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
+.jinn-workspace-identity{display:flex;gap:13px;align-items:center;min-width:0}.jinn-workspace-identity .eyebrow{margin-bottom:5px}
+.jinn-workspace-identity h3{font-family:'DM Serif Display',Georgia,serif;font-size:29px;font-weight:400;margin:0;color:#34483a}
+.jinn-workspace-identity p:last-child{color:#828b80;font-size:12px;margin:7px 0;overflow-wrap:anywhere}
+.jinn-workspace-tools{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.jinn-workspace .my-work-section-header{margin-top:28px}
+.jinn-move{margin:9px 0 12px;padding:12px;background:#f9f7f2;border-radius:9px;display:flex;flex-direction:column;gap:7px}
+.jinn-move select{max-width:410px}.jinn-move-confirm{padding:9px 11px;border-left:3px solid #9c85b8;background:#f0eafb;border-radius:6px}
+.jinn-move-confirm p{font-size:12px;line-height:1.5;margin:0 0 10px;color:#596458}
+.jinn-move-confirm .jinn-action{margin-right:9px;margin-top:3px}
+@media(max-width:600px){.jinn-collection{grid-template-columns:1fr}.jinn-editor,.jinn-workspace{padding:15px}.jinn-workspace-identity h3{font-size:26px}.jinn-editor-actions{flex-direction:column;align-items:stretch}.jinn-editor-actions .primary{max-width:none}}
