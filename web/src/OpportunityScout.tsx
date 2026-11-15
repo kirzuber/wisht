@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, ArrowRight, Bookmark, CalendarDays, Compass, ExternalLink, LockKeyhole, Search, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Bookmark, CalendarDays, Compass, ExternalLink, LockKeyhole, Search } from 'lucide-react';
 import { getAuthenticatedUser, getSupabase } from './supabaseClient';
 import { ensurePhotographyWish, rollbackUnusedWish, type PortfolioWishContext, type WishLink } from './wishOwnership';
 import type { ScoutResult, PhotoGenre } from './opportunityTypes';
@@ -130,7 +130,7 @@ export default function OpportunityScout({wishContext,initialGenre='any',preview
    </details>
    {preview.opportunities.length>0 && <button className="primary" type="button"
     disabled={saving||!!savedWishId||!selectedQueryMatches} onClick={()=>void save()}>
-    <Bookmark size={17}/> {saving?'Saving your shortlist…':savedWishId?'Shortlist saved':'Save these findings to my wish'} <ArrowRight size={16}/>
+    <Bookmark size={17}/> {saving?'Saving your shortlist…':savedWishId?'Shortlist saved':'Save all '+preview.opportunities.length+' findings'} <ArrowRight size={16}/>
    </button>}
    {savedWishId && <>
     <p className="scout-success">Saved under your photography wish. The Work Receipt confirms the saved shortlist, not organizer eligibility.</p>
