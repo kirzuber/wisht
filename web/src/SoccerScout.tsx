@@ -123,7 +123,7 @@ export default function SoccerScout({wishId,aspiration,answer,onBack,onRequireAu
     <Bookmark size={15}/> {saving?'Saving…':savedWish?'Saved under my soccer wish':'Save all '+result.clubs.length+' club entries'} <ArrowRight size={15}/>
    </button>}
    {savedWish&&<><p className="career-success">Saved! Your receipt confirms saved research, not a club registration or booked tryout.</p>
-    <WorkReceipts wishId={savedWish}/>
+    <details className="result-evidence-details"><summary>View Work Receipt</summary><WorkReceipts wishId={savedWish}/></details>
     <button type="button" className="back" onClick={onSaved}>Open My wishes <ArrowRight size={15}/></button>
    </>}
   </div>}
