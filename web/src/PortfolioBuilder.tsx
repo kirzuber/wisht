@@ -4,6 +4,8 @@ import { getSupabase, getAuthenticatedUser } from './supabaseClient';
 import { preparePhoto, type PortfolioPhoto, type PreparedPhoto, MAX_PHOTOS } from './photoProcessing';
 import { pickInitialSelection } from './photoQuality';
 import WorkReceipts from './WorkReceipts';
+import NextDeed from './NextDeed';
+import {nextDeedFor} from './nextDeedPolicy';
 import { checkPhotographyWishAvailable, ensurePhotographyWish, rollbackUnusedWish, type PortfolioWishContext, type WishLink } from './wishOwnership';
 import { MAX_PUBLISHED_PHOTOS } from './portfolioPublicationModel';
 import { findPublication, publishPortfolio, unpublishPortfolio, publicGalleryPath, type PortfolioPublication } from './publishPortfolio';
@@ -13,6 +15,7 @@ const BUCKET = 'portfolio-previews';
 
 type Portfolio = {
   id: string;
+  wish_id: string|null;
   title: string;
   introduction: string;
   status: 'PRIVATE';
@@ -24,6 +27,7 @@ type Props = {
   wishContext: PortfolioWishContext;
   onBack: () => void;
   onCreated: (id: string) => void;
+  onFindOpportunities: (wishId: string) => void;
 };
 
 function friendlyError(error: unknown): string {
@@ -43,7 +47,8 @@ async function signedPhotoUrls(photos: PortfolioPhoto[]): Promise<Record<string,
   return Object.fromEntries(entries);
 }
 
-export default function PortfolioBuilder({ initialId, wishContext, onBack, onCreated }: Props) {
+const nextStep=nextDeedFor('PORTFOLIO_PUBLISHED');
+export default function PortfolioBuilder({ initialId, wishContext, onBack, onCreated, onFindOpportunities }: Props) {
   const [files, setFiles] = useState<File[]>([]);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
   const [photos, setPhotos] = useState<PortfolioPhoto[]>([]);
@@ -72,7 +77,7 @@ export default function PortfolioBuilder({ initialId, wishContext, onBack, onCre
       try {
         await getAuthenticatedUser();
         const { data, error: readError } = await getSupabase()
-          .from('portfolios').select('id,title,introduction,photos,status')
+          .from('portfolios').select('id,wish_id,title,introduction,photos,status')
           .eq('id', initialId).single();
         if (readError || !data) throw new Error('Private portfolio not found for this session.');
         const loaded = data as Portfolio;
@@ -137,7 +142,7 @@ export default function PortfolioBuilder({ initialId, wishContext, onBack, onCre
       const supabase = getSupabase();
       const { data, error: createError } = await supabase.from('portfolios')
         .insert({ id, wish_id:linkedWish.wishId, user_id: user.id, title, introduction, photos: finalPhotos, status: 'PRIVATE' })
-        .select('id,title,introduction,photos,status').single();
+        .select('id,wish_id,title,introduction,photos,status').single();
       if (createError || !data) throw createError || new Error('Could not verify the portfolio.');
       committed = true;
       const saved = data as Portfolio;
@@ -318,6 +323,13 @@ export default function PortfolioBuilder({ initialId, wishContext, onBack, onCre
         </>}
         {publishedMessage && <p className="portfolio-publish-success">{publishedMessage}</p>}
       </div>
+      {publication && portfolio.wish_id && <NextDeed
+        title={nextStep.title}
+        detail="I can look for public photography opportunities and deadlines for your gallery. You'll decide which ones are worth pursuing."
+        label={nextStep.label}
+        note={nextStep.note}
+        onAction={()=>onFindOpportunities(portfolio.wish_id!)}
+      />}
       <WorkReceipts portfolioId={portfolio.id} refreshKey={receiptVersion}/>
       <div className="portfolio-secondary-actions">
         <button type="button" onClick={() => void deletePortfolio()} disabled={busy}><Trash2 size={15}/> Delete portfolio</button>

@@ -5,6 +5,8 @@ import { ensurePhotographyWish, rollbackUnusedWish, type PortfolioWishContext, t
 import type { ScoutResult, PhotoGenre } from './opportunityTypes';
 import WorkReceipts from './WorkReceipts';
 import ResultNavigator from './ResultNavigator';
+import NextDeed from './NextDeed';
+import {nextDeedFor} from './nextDeedPolicy';
 import './opportunityScout.css';
 
 type Props={
@@ -15,6 +17,7 @@ type Props={
  onBack:()=>void;
  onRequireAuth:()=>void;
  onSaved:()=>void;
+ onPrepareSubmission:(wishId:string,shortlistId:string,opportunityId:string)=>void;
 };
 const OPTIONS:{value:PhotoGenre;label:string}[]=[
  {value:'any',label:'Anything'}, {value:'nature',label:'Nature & wildlife'},
@@ -22,19 +25,21 @@ const OPTIONS:{value:PhotoGenre;label:string}[]=[
 ];
 const API=import.meta.env.VITE_API_BASE_URL||'';
 
-export default function OpportunityScout({wishContext,initialGenre='any',preview,onPreview,onBack,onRequireAuth,onSaved}:Props){
+const nextStep=nextDeedFor('PHOTO_SHORTLIST_SAVED');
+export default function OpportunityScout({wishContext,initialGenre='any',preview,onPreview,onBack,onRequireAuth,onSaved,onPrepareSubmission}:Props){
  const [genre,setGenre]=useState<PhotoGenre>(initialGenre);
  const [freeOnly,setFreeOnly]=useState(true);
  const [loading,setLoading]=useState(false);
  const [saving,setSaving]=useState(false);
  const [error,setError]=useState('');
  const [savedWishId,setSavedWishId]=useState<string|null>(null);
+ const [savedShortlistId,setSavedShortlistId]=useState<string|null>(null);
  const [editing,setEditing]=useState(true);
  const [activeIndex,setActiveIndex]=useState(0);
 
  const run=async()=>{
   if(loading)return;
-  setLoading(true);setError('');setSavedWishId(null);onPreview(null);
+  setLoading(true);setError('');setSavedWishId(null);setSavedShortlistId(null);onPreview(null);
   try{
    const query=new URLSearchParams({genre,free:String(freeOnly)});
    const res=await fetch(API+'/api/scout?'+query.toString());
@@ -69,6 +74,7 @@ export default function OpportunityScout({wishContext,initialGenre='any',preview
    }
    if(!data)throw new Error('The saved shortlist could not be confirmed.');
    setSavedWishId(link.wishId);
+   setSavedShortlistId(data.id as string);
   }catch(cause){
    if(link)await rollbackUnusedWish(link);
    setError(cause instanceof Error?cause.message:'Could not save your scouting results.');
@@ -133,7 +139,14 @@ export default function OpportunityScout({wishContext,initialGenre='any',preview
     <Bookmark size={17}/> {saving?'Saving your shortlist…':savedWishId?'Shortlist saved':'Save all '+preview.opportunities.length+' findings'} <ArrowRight size={16}/>
    </button>}
    {savedWishId && <>
-    <p className="scout-success">Saved under your photography wish. The Work Receipt confirms the saved shortlist, not organizer eligibility.</p>
+    <p className="scout-success">Saved under your photography wish. Jinn hasn't submitted anything.</p>
+    {savedShortlistId&&selectedOpportunity&&<NextDeed
+      title={nextStep.title}
+      detail={`I can help you prepare a private submission draft for “${selectedOpportunity.title}”. You'll review the organizer's rules first.`}
+      label={nextStep.label}
+      note={nextStep.note}
+      onAction={()=>onPrepareSubmission(savedWishId,savedShortlistId,selectedOpportunity.id)}
+    />}
     <details className="result-evidence-details"><summary>View Work Receipt</summary><WorkReceipts wishId={savedWishId}/></details>
     <button className="back" type="button" onClick={onSaved}>Open My wishes <ArrowRight size={15}/></button>
    </>}

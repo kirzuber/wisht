@@ -6,10 +6,13 @@ import {rollbackUnusedWish,type WishLink} from './wishOwnership';
 import type {SoccerAge,SoccerLevel,SoccerResult} from './soccerTypes';
 import WorkReceipts from './WorkReceipts';
 import ResultNavigator from './ResultNavigator';
+import NextDeed from './NextDeed';
+import {nextDeedFor} from './nextDeedPolicy';
 import './careerScout.css';
 import './soccerScout.css';
 type Props={wishId?:string;aspiration?:string;answer?:string;onBack:()=>void;onRequireAuth:()=>void;onSaved:()=>void};
 const API=import.meta.env.VITE_API_BASE_URL||'';
+const nextStep=nextDeedFor('SOCCER_SHORTLIST_SAVED');
 export default function SoccerScout({wishId,aspiration,answer,onBack,onRequireAuth,onSaved}:Props){
  const initial:SoccerLevel=answer==='competitive'?'competitive':answer==='recreational'?'recreational':'beginner';
  const [city,setCity]=useState('');
@@ -122,7 +125,12 @@ export default function SoccerScout({wishId,aspiration,answer,onBack,onRequireAu
    {result.clubs.length>0&&<button className="primary" type="button" disabled={saving||!!savedWish} onClick={()=>void save()}>
     <Bookmark size={15}/> {saving?'Saving…':savedWish?'Saved under my soccer wish':'Save all '+result.clubs.length+' club entries'} <ArrowRight size={15}/>
    </button>}
-   {savedWish&&<><p className="career-success">Saved! Your receipt confirms saved research, not a club registration or booked tryout.</p>
+   {savedWish&&<><p className="career-success">Clubs saved to your soccer wish. No registration or tryout was booked.</p>
+    {selectedClub&&<NextDeed title={nextStep.title}
+      detail={`Check ${selectedClub.name}'s own program information, then ask the club about eligibility and available places.`}
+      label={nextStep.label} href={selectedClub.programUrl}
+      note={nextStep.note}
+    />}
     <details className="result-evidence-details"><summary>View Work Receipt</summary><WorkReceipts wishId={savedWish}/></details>
     <button type="button" className="back" onClick={onSaved}>Open My wishes <ArrowRight size={15}/></button>
    </>}
