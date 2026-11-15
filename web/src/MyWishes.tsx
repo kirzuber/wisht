@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { ArrowRight, LockKeyhole, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import JinnAvatar from './JinnAvatar';
 import { deleteFirstWish, listFirstWishes, type WishSummary } from './firstWishStore';
@@ -57,7 +57,7 @@ export default function MyWishes({ email, onNewWish, onOpenFirstWish }: Props) {
     setName(mode === 'rename' ? selected?.name ?? '' : '');
     setPurpose(mode === 'rename' ? selected?.purpose ?? '' : '');
   };
-  const saveEditor = async (event: React.FormEvent) => {
+  const saveEditor = async (event: FormEvent) => {
     event.preventDefault();
     setBusy(true);
     setError('');
