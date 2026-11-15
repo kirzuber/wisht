@@ -7,10 +7,12 @@ import type {SoccerAge,SoccerLevel,SoccerResult} from './soccerTypes';
 import WorkReceipts from './WorkReceipts';
 import ResultNavigator from './ResultNavigator';
 import NextDeed from './NextDeed';
+import {nextDeedFor} from './nextDeedPolicy';
 import './careerScout.css';
 import './soccerScout.css';
 type Props={wishId?:string;aspiration?:string;answer?:string;onBack:()=>void;onRequireAuth:()=>void;onSaved:()=>void};
 const API=import.meta.env.VITE_API_BASE_URL||'';
+const nextStep=nextDeedFor('SOCCER_SHORTLIST_SAVED');
 export default function SoccerScout({wishId,aspiration,answer,onBack,onRequireAuth,onSaved}:Props){
  const initial:SoccerLevel=answer==='competitive'?'competitive':answer==='recreational'?'recreational':'beginner';
  const [city,setCity]=useState('');
@@ -124,10 +126,10 @@ export default function SoccerScout({wishId,aspiration,answer,onBack,onRequireAu
     <Bookmark size={15}/> {saving?'Saving…':savedWish?'Saved under my soccer wish':'Save all '+result.clubs.length+' club entries'} <ArrowRight size={15}/>
    </button>}
    {savedWish&&<><p className="career-success">Clubs saved to your soccer wish. No registration or tryout was booked.</p>
-    {selectedClub&&<NextDeed title="Want to see how to join?"
+    {selectedClub&&<NextDeed title={nextStep.title}
       detail={`Check ${selectedClub.name}'s own program information, then ask the club about eligibility and available places.`}
-      label="Open club program" href={selectedClub.programUrl}
-      note="Club information only. Current registration status has not been verified."
+      label={nextStep.label} href={selectedClub.programUrl}
+      note={nextStep.note}
     />}
     <details className="result-evidence-details"><summary>View Work Receipt</summary><WorkReceipts wishId={savedWish}/></details>
     <button type="button" className="back" onClick={onSaved}>Open My wishes <ArrowRight size={15}/></button>
