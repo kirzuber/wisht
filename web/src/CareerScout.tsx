@@ -162,7 +162,7 @@ export default function CareerScout({wishId,aspiration,answer,onBack,onRequireAu
     <Bookmark size={16}/> {saving?'Saving career shortlist…':savedWish?'Saved under my wish':'Save all '+result.jobs.length+' openings'} <ArrowRight size={15}/>
    </button>}
    {savedWish&&<><p className="career-success">Saved under your existing career wish. The receipt confirms a saved shortlist, not a job application.</p>
-    <WorkReceipts wishId={savedWish}/>
+    <details className="result-evidence-details"><summary>View Work Receipt</summary><WorkReceipts wishId={savedWish}/></details>
     <button type="button" className="back" onClick={onSaved}>Open My wishes <ArrowRight size={15}/></button>
    </>}
   </div>}
