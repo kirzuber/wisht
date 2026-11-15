@@ -16,6 +16,7 @@ const dir=process.env.F03_SCREENSHOT_DIR||new URL('../docs/evidence/f03/',import
 const rest='http://127.0.0.1:54321/rest/v1';
 const schemaFailure=code=>({status:400,json:{code,message:'fixture private row text'}});
 const schemaNotice=page.getByRole('alert').filter({hasText:'missing the Wish workspace schema'});
+let clarificationAvailable=false;
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const artifact=(sourceNote='',title='Family story starter kit')=>({title,sourceNote,sections:[
  {type:'document',title:'Story seed',body:'Start with the memory you supplied. Add what happened in your own words.'},
@@ -25,7 +26,9 @@ const artifact=(sourceNote='',title='Family story starter kit')=>({title,sourceN
 const receipt=(operation='AI generated and checked an editable draft against supplied facts')=>({status:'PREPARED',operation,recordedAt:new Date().toISOString(),scope:'Private draft only. No external action, source verification or cross-wish memory.'});
 await page.route('**/api/first-deed',async route=>{
  const req=route.request().postDataJSON();
- if(req.mode==='clarify')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({question:'What is one memory you want to keep?'})});
+ if(req.mode==='clarify')return clarificationAvailable
+  ? route.fulfill({status:200,json:{question:'What is one memory you want to keep?'}})
+  : route.fulfill({status:503,json:{error:'AI drafting is unavailable because the server is missing its AI provider key.',code:'ai_not_configured'}});
  const source=req.mode==='continue'?'Sunday pancakes with Aunt':req.answer||'';
  return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({artifact:artifact(source,req.mode==='continue'?'Family story follow-up kit':'Family story starter kit'),receipt:receipt(req.mode==='continue'?'AI prepared a follow-up draft from the saved, corrected artifact':undefined)})});
 });
@@ -49,7 +52,13 @@ try{
  await snap('welcome-desktop',1440,900);await snap('welcome-mobile',390,844);
  await page.setViewportSize({width:1440,height:900});
  await page.locator('#wish').fill('I want to make a family story book');
+ const clarifyFailure=page.waitForEvent('console',{predicate:message=>message.type()==='error'&&message.text().includes('[Wisht] deed.clarify.failed')});
  await page.getByRole('button',{name:/Continue with Jinn/}).click();
+ await page.getByRole('alert').filter({hasText:'missing its AI provider key'}).waitFor();
+ assert.equal((await (await clarifyFailure).args()[1].jsonValue()).code,'ai_not_configured');
+ assert.equal(await page.getByRole('button',{name:/Prepare my first deed/}).count(),0);
+ clarificationAvailable=true;
+ await page.getByRole('button',{name:'Retry starting wish'}).click();
  await page.getByText('What is one memory you want to keep?').waitFor();
  await snap('clarification-desktop',1440,900);await snap('clarification-mobile',390,844);
  await page.locator('#first-answer').fill('Sunday pancakes with Grandma');
@@ -60,6 +69,15 @@ try{
  await page.locator('#auth-email').fill(email);
  await markMail();
  await page.getByRole('button',{name:/Send a sign-in code/}).click();
+ await page.getByRole('link',{name:'local inbox (Mailpit)'}).waitFor();
+ const verifyFailure=page.waitForEvent('console',{predicate:message=>message.type()==='error'&&message.text().includes('[Wisht] auth.otp.verify.failed')});
+ await page.route('http://127.0.0.1:54321/auth/v1/verify',route=>route.fulfill({
+  status:403,json:{error_code:'otp_expired',msg:'Code rejected'},
+ }),{times:1});
+ await page.locator('#auth-code').fill('000000');
+ await page.getByRole('button',{name:/Verify and continue/}).click();
+ assert.equal((await (await verifyFailure).args()[1].jsonValue()).status,403);
+ await page.getByRole('alert').filter({hasText:'Code rejected'}).waitFor();
  await page.locator('#auth-code').fill(await code());
  await page.getByRole('button',{name:/Verify and continue/}).click();
  const saveFailure=page.waitForEvent('console',{predicate:message=>message.type()==='error'&&message.text().includes('[Wisht] wish.save.failed')});
@@ -123,6 +141,6 @@ try{
  page.once('dialog',dialog=>dialog.accept());
  await page.getByRole('button',{name:/Delete wish and artifact/}).click();
  await page.getByText('No saved wishes yet').waitFor();
- console.log('PASS: local OTP, persistence error logs, save/open/list retries, edit, second Deed, return and delete');
+ console.log('PASS: drafting and OTP diagnostics, real local OTP, save/open/list retries, edit, second Deed, return and delete');
 }catch(error){console.error(error);console.log((await page.locator('body').innerText()).slice(0,3000));throw error;}
 finally{await context.close();await browser.close();}

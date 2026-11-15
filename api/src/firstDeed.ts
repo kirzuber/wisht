@@ -51,10 +51,16 @@ export function validateArtifact(value: unknown, sourceNote: string): Artifact {
     boundary: value.boundary };
 }
 
+class DraftingError extends Error {
+  constructor(message: string, readonly code: string, readonly upstreamStatus?: number) {
+    super(message);
+  }
+}
+
 function provider(env: NodeJS.ProcessEnv) {
   const deepseek = env.LLM_PROVIDER === 'deepseek' || (!env.LLM_PROVIDER && !!env.DEEPSEEK_API_KEY);
-  const key = deepseek ? env.DEEPSEEK_API_KEY : env.OPENAI_API_KEY;
-  if (!key) throw new Error('AI drafting is unavailable. No draft was prepared.');
+  const key = (deepseek ? env.DEEPSEEK_API_KEY : env.OPENAI_API_KEY)?.trim();
+  if (!key) throw new DraftingError('AI drafting is unavailable because the server is missing its AI provider key.', 'ai_not_configured');
   return { key, model: env.LLM_MODEL || (deepseek ? 'deepseek-flash' : env.OPENAI_MODEL || 'gpt-4o-mini'),
     endpoint: deepseek ? 'https://api.deepseek.com/chat/completions' : 'https://api.openai.com/v1/chat/completions', deepseek };
 }
@@ -69,16 +75,16 @@ export async function callFirstDeedModel(messages: Array<{role:'system'|'user';c
       headers: { Authorization: `Bearer ${p.key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: p.model, max_tokens: maxTokens, response_format: {type:'json_object'},
         ...(p.deepseek ? {reasoning_effort:'none'} : {temperature:0.3}), messages }) });
-    if (!response.ok) throw new Error('AI drafting is temporarily unavailable. No draft was prepared.');
+    if (!response.ok) throw new DraftingError('AI drafting is temporarily unavailable. No draft was prepared.', 'ai_provider_rejected', response.status);
     const payload = await response.json() as {choices?:Array<{message?:{content?:string}}>};
     const content = payload.choices?.[0]?.message?.content;
-    if (!content || content.length > 16000) throw new Error('The AI did not return a usable draft.');
+    if (!content || content.length > 16000) throw new DraftingError('The AI did not return a usable response.', 'ai_invalid_response');
     return JSON.parse(content) as unknown;
   } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') throw new Error('AI drafting timed out. No draft was prepared.');
-    if (error instanceof SyntaxError) throw new Error('The AI returned an invalid draft. Please try again.');
-    if (error instanceof Error && /AI drafting|AI did not/.test(error.message)) throw error;
-    throw new Error('AI drafting is temporarily unavailable. No draft was prepared.');
+    if (error instanceof DraftingError) throw error;
+    if (error instanceof Error && error.name === 'AbortError') throw new DraftingError('AI drafting timed out. Please try again.', 'ai_timeout');
+    if (error instanceof SyntaxError) throw new DraftingError('The AI returned an invalid response. Please try again.', 'ai_invalid_response');
+    throw new DraftingError('AI drafting is temporarily unavailable. Please try again.', 'ai_connection_failed');
   } finally { clearTimeout(timeout); }
 }
 
@@ -89,11 +95,10 @@ const language = (wish:string)=>russian(wish)?'Write all user-facing content in 
 export async function suggestClarification(wish: string, call = callFirstDeedModel): Promise<string | null> {
   // A specific wish can already yield a useful starter artifact; avoid a gratuitous extra turn.
   if (wish.trim().split(/\s+/u).length >= 10) return null;
-  let result: unknown;
-  try { result = await call([
+  const result = await call([
     {role:'system',content:`${baseInstruction} ${language(wish)} Return JSON {"question": string|null}. Ask at most one essential question only if its answer would materially improve the first useful draft. If the wish already gives enough to make a practical starter artifact, return null. Do not ask again about a fact the person explicitly says is unknown. For a story or memory wish, ask for one concrete detail. For vague goals, ask one gentle question. Do not ask for personal details or an account.`},
     {role:'user',content:wish}
-  ], 150); } catch { return null; }
+  ], 150);
   if (!object(result) || (result.question !== null && !string(result.question, 180))) return null;
   if (result.question && russian(result.question)!==russian(wish)) return null;
   return result.question;
@@ -146,19 +151,25 @@ export async function loadOwnedWish(token: string, wishId: string, env: NodeJS.P
 export async function serveFirstDeed(request: Request): Promise<Response> {
   if (request.method !== 'POST') return Response.json({error:'Method not allowed'},{status:405});
   if (Number(request.headers.get('content-length') || 0) > 12000) return Response.json({error:'Request too large'},{status:413});
+  let mode: 'clarify' | 'prepare' | 'continue' | 'invalid' = 'invalid';
   try {
     const raw = await request.text();
     if (raw.length > 12000) return Response.json({error:'Request too large'},{status:413});
     const body = JSON.parse(raw) as Record<string,unknown>;
     if (body.mode === 'clarify' || body.mode === 'prepare') {
+      mode = body.mode;
       if (!string(body.wish,280) || body.wish.length < 2 ||
           (body.answer !== undefined && typeof body.answer !== 'string') ||
           (typeof body.answer === 'string' && body.answer.length > 500))
         return Response.json({error:'Write a wish between 2 and 280 characters.'},{status:400});
-      if (body.mode === 'clarify') return Response.json({question:await suggestClarification(body.wish)});
+      if (body.mode === 'clarify') {
+        provider(process.env);
+        return Response.json({question:await suggestClarification(body.wish)});
+      }
       return Response.json(await prepareDeed(body.wish, String(body.answer || ''), null));
     }
     if (body.mode === 'continue' && string(body.wishId,36) && /^[a-f0-9-]{36}$/i.test(body.wishId)) {
+      mode = 'continue';
       const token = request.headers.get('authorization')?.match(/^Bearer (.+)$/i)?.[1];
       if (!token) return Response.json({error:'Sign in to continue this wish.'},{status:401});
       const saved = await loadOwnedWish(token, body.wishId);
@@ -167,7 +178,11 @@ export async function serveFirstDeed(request: Request): Promise<Response> {
     return Response.json({error:'Invalid request'},{status:400});
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Could not prepare this deed.';
-    const status = error instanceof SyntaxError ? 400 : /Sign in/.test(message) ? 401 : /not found/.test(message) ? 404 : /invalid|Unsupported/.test(message) ? 422 : 503;
-    return Response.json({error:message},{status});
+    const status = error instanceof DraftingError ? 503 : error instanceof SyntaxError ? 400 : /Sign in/.test(message) ? 401 : /not found/.test(message) ? 404 : /invalid|Unsupported/.test(message) ? 422 : 503;
+    const code = error instanceof DraftingError ? error.code : 'deed_request_failed';
+    console.error(`[Wisht] api deed.${mode}.failed`, {
+      code, status, ...(error instanceof DraftingError && error.upstreamStatus ? { upstreamStatus: error.upstreamStatus } : {}),
+    });
+    return Response.json({error:message,code},{status});
   }
 }

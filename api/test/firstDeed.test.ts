@@ -1,6 +1,30 @@
 import {describe,it} from 'node:test';
 import assert from 'node:assert/strict';
 import {loadOwnedWish,prepareDeed,reviewGrounding,serveFirstDeed,suggestClarification,validateArtifact} from '../src/firstDeed.ts';
+
+it('reports missing provider config at clarification, even when the wish needs no question', async context => {
+  const provider = process.env.LLM_PROVIDER;
+  const key = process.env.OPENAI_API_KEY;
+  process.env.LLM_PROVIDER = 'openai';
+  delete process.env.OPENAI_API_KEY;
+  const log = context.mock.method(console, 'error', () => undefined);
+  try {
+    const response = await serveFirstDeed(new Request('http://localhost/api/first-deed', {
+      method: 'POST',
+      body: JSON.stringify({ mode: 'clarify', wish: 'Create a reading log for the books I read this year' }),
+    }));
+    assert.equal(response.status, 503);
+    assert.equal((await response.json()).code, 'ai_not_configured');
+    assert.deepEqual(log.mock.calls[0].arguments, [
+      '[Wisht] api deed.clarify.failed', { code: 'ai_not_configured', status: 503 },
+    ]);
+  } finally {
+    if (provider === undefined) delete process.env.LLM_PROVIDER;
+    else process.env.LLM_PROVIDER = provider;
+    if (key === undefined) delete process.env.OPENAI_API_KEY;
+    else process.env.OPENAI_API_KEY = key;
+  }
+});
 import {correctSource,validateEditedArtifact} from '../../web/src/firstWishModel.ts';
 
 const book={title:'Story seed and interview kit',sections:[

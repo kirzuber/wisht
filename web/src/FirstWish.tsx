@@ -4,17 +4,32 @@ import type { Artifact, DeedReceipt, Section } from '../../api/src/firstDeed';
 import { getSupabase } from './supabaseClient';
 import { deleteFirstWish, loadFirstWish, saveFirstWish, updateFirstWish, type FirstWishRow } from './firstWishStore';
 import { correctSource, validateEditedArtifact } from './firstWishModel';
+import { browserDiagnostic, diagnosticCode } from './browserDiagnostics';
 import JinnAvatar from './JinnAvatar';
 
 type Props={wish:string;savedId?:string|null;onBack:()=>void;onRequireAuth:()=>void;onDeleted:()=>void;onSaved:(id:string)=>void};
-type Phase='clarify'|'answer'|'working'|'workspace';
+type Phase='clarify'|'answer'|'working'|'workspace'|'start-error';
 const API=import.meta.env.VITE_API_BASE_URL||'';
 const FOLLOW_UP_OPERATION='AI prepared a follow-up draft from the saved, corrected artifact';
 
-async function endpoint(body:Record<string,unknown>, token?:string){
-  const response=await fetch(`${API}/api/first-deed`,{method:'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},body:JSON.stringify(body)});
-  const result=await response.json();
-  if(!response.ok)throw new Error(result.error||'Could not prepare this deed.');
+async function endpoint(body:{mode:'clarify'|'prepare'|'continue'} & Record<string,unknown>, token?:string){
+  const event = `deed.${body.mode}`;
+  browserDiagnostic('info', `${event}.started`);
+  let response: Response;
+  try {
+    response=await fetch(`${API}/api/first-deed`,{method:'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},body:JSON.stringify(body)});
+  } catch {
+    browserDiagnostic('error', `${event}.failed`, {code:'api_unreachable'});
+    throw new Error('Could not reach the drafting service. Please try again.');
+  }
+  const result=await response.json().catch(()=>null);
+  if(!response.ok || !result){
+    browserDiagnostic('error', `${event}.failed`, {
+      status:response.status, code:diagnosticCode(result?.code) ?? (result ? 'api_request_failed' : 'api_invalid_response'),
+    });
+    throw new Error(typeof result?.error === 'string' ? result.error : 'Could not reach the drafting service. Please try again.');
+  }
+  browserDiagnostic('info', `${event}.succeeded`);
   return result;
 }
 
@@ -29,25 +44,24 @@ export default function FirstWish({wish,savedId,onBack,onRequireAuth,onDeleted,o
   const sourceBaseline=useRef('');
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
-  const [loadAttempt,setLoadAttempt]=useState(0);
+  const [retryAttempt,setRetryAttempt]=useState(0);
   const currentWish=row?.aspiration||wish;
   const ru=/[\u0400-\u04ff]/u.test(currentWish);
   const label=(english:string,russian:string)=>ru?russian:english;
 
   useEffect(()=>{
     let live=true;
+    setError('');
+    setPhase('working');
     if(savedId){
-      setError('');
-      setPhase('working');
       void loadFirstWish(savedId).then(saved=>{if(!live)return;setRow(saved);setArtifact(saved.first_artifact);sourceBaseline.current=saved.first_artifact.sourceNote;setReceipt(saved.first_deed);setPhase('workspace');})
         .catch(e=>{if(live){setError(e instanceof Error?e.message:'Could not load wish.');setPhase('workspace');}});
     }else{
-      setPhase('working');
       void endpoint({mode:'clarify',wish}).then(data=>{if(!live)return;setQuestion(data.question);setPhase(data.question?'answer':'clarify');})
-        .catch(e=>{if(live){setError(e instanceof Error?e.message:'Could not begin.');setPhase('clarify');}});
+        .catch(e=>{if(live){setError(e instanceof Error?e.message:'Could not begin.');setPhase('start-error');}});
     }
     return()=>{live=false;};
-  },[savedId,wish,loadAttempt]);
+  },[savedId,wish,retryAttempt]);
 
   const prepare=async(source:string)=>{
     setBusy(true);setError('');setPhase('working');
@@ -103,6 +117,12 @@ export default function FirstWish({wish,savedId,onBack,onRequireAuth,onDeleted,o
       <a href="#wish-current">{label('Current wish','Желание')}</a><a href="#wish-artifacts">{label('Artifacts','Документы')}</a><a href="#wish-next">{label('Next step','Следующий шаг')}</a><a href="#wish-history">{label('History','История')}</a>
     </nav>}
     <p className="eyebrow">{label('YOUR WISH','ВАШЕ ЖЕЛАНИЕ')}</p><h1>{currentWish}</h1>
+    {phase==='start-error'&&<div className="first-panel">
+      <p className="error" role="alert">{error}</p>
+      <button type="button" className="primary" onClick={()=>setRetryAttempt(attempt=>attempt+1)}>
+        <RotateCcw size={16}/> {label('Retry starting wish','Попробовать снова')}
+      </button>
+    </div>}
     {phase==='clarify'&&!artifact&&<div className="first-panel"><p className="first-panel-kicker">{label('JINN’S STARTING POINT','НАЧАЛЬНЫЙ ШАГ JINN')}</p><p>{question||label('We can start with what you shared. I’ll prepare one useful first step.','Можно начать с того, что вы рассказали. Подготовлю один полезный первый шаг.')}</p>
       <button className="primary" disabled={busy} onClick={()=>void prepare('')}>{label('Prepare my first deed','Подготовить первый шаг')} <ArrowRight size={16}/></button>
       {error&&<p className="error" role="alert">{error}</p>}</div>}
@@ -164,7 +184,7 @@ export default function FirstWish({wish,savedId,onBack,onRequireAuth,onDeleted,o
     </>}
     {phase==='workspace'&&!artifact&&error&&<div>
       <p className="error" role="alert">{error}</p>
-      <button type="button" className="first-secondary" onClick={()=>setLoadAttempt(attempt=>attempt+1)}>
+      <button type="button" className="first-secondary" onClick={()=>setRetryAttempt(attempt=>attempt+1)}>
         <RotateCcw size={16}/> {label('Retry opening wish','Попробовать снова')}
       </button>
     </div>}

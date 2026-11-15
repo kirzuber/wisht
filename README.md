@@ -4,15 +4,15 @@ Jinn helps a person turn any Wish into a private, editable first Deed. This bran
 
 ## Local development
 
-1. Install Node 22+ dependencies with `npm install`.
+1. Use Node 22.9 or later and install dependencies with `npm install`.
 2. Start Docker and the local Supabase stack: `npx supabase start`. The checked-in `supabase/config.toml` includes a local email OTP template; messages appear at `http://127.0.0.1:54324`.
-3. Put the **local** `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` from `npx supabase status -o env` in `web/.env.local`. Export `LLM_PROVIDER` and a server-only DeepSeek or OpenAI key in the shell before starting the API. `.env.example` lists the variable names. Never use a hosted key for local acceptance tests.
-4. From the repository root, run `node --env-file-if-exists=.env --env-file=web/.env.local --run dev` and open the Vite URL. This passes the local Supabase settings to both Vite and Express. Shell exports take precedence over the files, so clear any hosted `VITE_SUPABASE_*` exports first. Vite proxies `/api/first-deed` to Express.
+3. Put the local Supabase URL and publishable key from `npx supabase status -o env` in `web/.env.local`. Set `LLM_PROVIDER` and the matching server-only AI key in the root `.env`. Use `.env.example` for the variable names.
+4. From the repository root, run `npm run dev` and open the Vite URL. Express loads the AI settings from `.env` and reads the same Supabase URL and key as Vite from `web/.env.local`. Shell exports take precedence, so clear any hosted `VITE_SUPABASE_*` exports first.
 5. Run `npm run typecheck`, `npm test`, `npm run test:db`, `bash scripts/rehearse-cutover.sh`, and `npm run build`. With local Supabase and Vite running, `npm run test:local-browser` exercises OTP/save/return/delete and captures screenshots; set `CHROME_PATH` if Chrome is outside the standard macOS/Linux locations. The browser test refuses a Vite bundle pointed at hosted Supabase.
 
 The visitor can enter a wish and receive a private AI draft before sign-in. A verified email account can save, edit, reopen, continue, and delete the Wish. A structured allowlist renders document, checklist, and question sections. Every saved first or follow-up draft has an append-only Deed receipt marked `PREPARED`; no external action is implied.
 
-For save and load failures, filter the browser console by `[Wisht] wish.`. Events show the operation, its outcome, and the database step, code and HTTP status when available. A schema error points to the F03 migration requirement.
+Filter the browser console or dev terminal by `[Wisht]` for drafting, sign-in and Wish storage events. Errors include a code and HTTP status when available. Express also logs the provider status for rejected AI requests. Local sign-in codes appear in Mailpit, which is linked from the verification screen.
 
 ## Architecture
 
