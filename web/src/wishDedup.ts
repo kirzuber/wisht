@@ -8,7 +8,7 @@ export const GOAL_FAMILIES = ['photography', 'soccer', 'career', 'independence',
 
 export function normalizedWish(text: string): string {
   return text.toLocaleLowerCase('en').normalize('NFKC')
-    .replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' ');
+    .replace(/[^\p{L}\p{N}]+/gu, ' ').trim().replace(/\s+/g, ' ');
 }
 
 /** Exact text OR the same supported aspiration family, regardless of chosen mission.

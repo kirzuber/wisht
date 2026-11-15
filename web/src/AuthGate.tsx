@@ -72,7 +72,7 @@ export default function AuthGate({ purpose, onAuthenticated, onCancel }: Props) 
       </form>}
     </div>
     {error && <p className="error" role="alert">{error}</p>}
-    <p className="mini-note"><ShieldCheck size={15}/> No password needed. Nothing is uploaded before verification.</p>
+    <p className="mini-note"><ShieldCheck size={15}/> No password needed. Your work is saved only after verification.</p>
     <button type="button" className="back" onClick={onCancel}><ArrowLeft size={16}/> Not now — keep exploring</button>
     <p className="subtle"><LockKeyhole size={13}/> During development, Supabase must be configured to send an email verification code.</p>
   </section>;

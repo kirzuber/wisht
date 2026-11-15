@@ -20,6 +20,7 @@ type SavedWish = {
   answer: string;
   status: 'PLANNED';
   created_at: string;
+  first_artifact?: unknown;
 };
 type SavedPortfolio = {
   id: string;
@@ -40,13 +41,14 @@ type Props = {
   onPrepareSubmission: (wishId:string, shortlistId:string, opportunityId:string) => void;
   onOpenSubmission: (wishId:string, packageId:string) => void;
   onNewWish: () => void;
+  onOpenFirstWish: (id:string, aspiration:string) => void;
 };
 
 function readable(value: string): string {
   return value.replace(/[-_]+/g, ' ').replace(/^\w/, letter => letter.toUpperCase());
 }
 
-export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onOpenScout, onCareerScout, onSoccerScout, onPrepareSubmission, onOpenSubmission, onNewWish }: Props) {
+export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onOpenScout, onCareerScout, onSoccerScout, onPrepareSubmission, onOpenSubmission, onNewWish, onOpenFirstWish }: Props) {
   const [wishes, setWishes] = useState<SavedWish[]>([]);
   const [portfolios, setPortfolios] = useState<SavedPortfolio[]>([]);
   const [shortlists,setShortlists]=useState<SavedShortlist[]>([]);
@@ -68,7 +70,7 @@ export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onOpe
         const user = await getAuthenticatedUser();
         const db = getSupabase();
         const [wishResult, portfolioResult, shortlistResult, submissionResult, careerResult, soccerResult] = await Promise.all([
-          db.from('wishes').select('id,aspiration,kind,mission_id,answer,status,created_at')
+          db.from('wishes').select('id,aspiration,kind,mission_id,answer,status,created_at,first_artifact')
             .eq('user_id', user.id).order('created_at', { ascending: false }).limit(50),
           db.from('portfolios').select('id,wish_id,title,photos,status,created_at')
             .eq('user_id', user.id).order('created_at', { ascending: false }).limit(50),
@@ -214,17 +216,20 @@ export default function MyWishes({ email, onOpenPortfolio, onNewPortfolio, onOpe
               <button type="button" className="my-work-card-main" aria-expanded={opened}
                 onClick={()=>setExpanded(current=>current===wish.id?null:wish.id)}>
                 <span className="my-work-card-text">
-                  <span className="my-work-status-label">{hasDeeds
+                  <span className="my-work-status-label">{wish.first_artifact?'FIRST DEED PREPARED · WISH SAVED':hasDeeds
                     ? 'WORK SAVED · MULTIPLE DEEDS'
                     : 'WISH PLANNED · NO COMPLETED DEEDS'}</span>
                   <strong>{wish.aspiration}</strong>
-                  <small>{hasDeeds
+                  <small>{wish.first_artifact?'Editable artifact · Jinn continuity':hasDeeds
                     ? owned.length+' portfolio(s) · '+(savedScouts.length+savedCareers.length+savedSoccer.length)+' shortlist(s) · '+packs.length+' submission draft(s)'
                     : readable(wish.mission_id)}</small>
                 </span>
                 <ArrowRight size={17} className={opened?'turned':''}/>
               </button>
               {opened && <div className="my-work-details">
+                {!!wish.first_artifact&&<button type="button" className="my-work-add-portfolio" onClick={()=>onOpenFirstWish(wish.id,wish.aspiration)}>
+                  Open artifact and continue with Jinn <ArrowRight size={14}/>
+                </button>}
                 {owned.length>0 && <div className="my-work-nested">
                   <p className="my-work-nested-label">YOUR PORTFOLIOS</p>
                   {owned.map(portfolio=><button type="button"

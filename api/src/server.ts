@@ -6,6 +6,7 @@ import { scanPhotoOpportunities, type PhotoGenre } from './scout.js';
 import { inspectIndexedListing } from './contestEvidence.js';
 import { serveCareerScout } from './careerService.js';
 import { serveSoccerScout } from './soccerService.js';
+import { serveFirstDeed } from './firstDeed.js';
 
 const app=express();
 app.disable('x-powered-by');
@@ -49,6 +50,13 @@ app.post('/api/interpret', async (req,res)=>{
   }
   const { interpretation, route }=await interpretWishSmart(wish);
   res.json({interpretation, route, execution:{status:'NOT_STARTED',wishesUsed:0,reason:'JINN-001 supports mission selection only. No tools have been executed.'}});
+});
+app.post('/api/first-deed',async(req,res)=>{
+ const request=new Request('http://localhost/api/first-deed',{method:'POST',
+  headers:{'Content-Type':'application/json',...(req.headers.authorization?{Authorization:req.headers.authorization}:{})},
+  body:JSON.stringify(req.body)});
+ const response=await serveFirstDeed(request);
+ res.status(response.status).json(await response.json());
 });
 app.use((err:unknown,_req:express.Request,res:express.Response,_next:express.NextFunction)=>{
   res.status(400).json({error:err instanceof Error&&err.message.includes('entity')?'Request too large or malformed.':'Invalid request.'});
