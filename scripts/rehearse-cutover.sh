@@ -4,7 +4,7 @@ cd "$(dirname "$0")/.."
 container="wisht-f03-cutover-$$"
 docker run --rm -d --name "$container" -e POSTGRES_PASSWORD=localtest "${WISHT_TEST_PG_IMAGE:-postgres:17-alpine}" >/dev/null
 trap 'docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
-for attempt in {1..30}; do docker exec "$container" pg_isready -U postgres >/dev/null 2>&1 && break; sleep 1; done
+for attempt in {1..30}; do docker exec "$container" pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1 && break; sleep 1; done
 docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
 create role anon nologin;
 create role authenticated nologin;
