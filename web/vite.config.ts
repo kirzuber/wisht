@@ -4,6 +4,9 @@ import react from '@vitejs/plugin-react';
 const diagnosticEvents: Plugin = {
   name: 'wisht-terminal-diagnostics',
   configureServer(server) {
+    if (server.config.env.VITE_SUPABASE_URL !== 'http://127.0.0.1:54321') {
+      throw new Error('[Wisht] Vite dev requires local Supabase. Run npm run dev from the repository root.');
+    }
     server.ws.on('wisht:diagnostic', payload => {
       const { level, event, details } = payload ?? {};
       if (typeof event !== 'string' || !/^(?:wish|deed|auth)\.[a-z_.]{1,55}$/.test(event)) return;
@@ -22,5 +25,5 @@ const diagnosticEvents: Plugin = {
 
 export default defineConfig({
   plugins: [react(), diagnosticEvents],
-  server: { port: 5173, proxy: { '/api': 'http://localhost:3001' } },
+  server: { port: 5173, strictPort: true, proxy: { '/api': 'http://localhost:3001' } },
 });

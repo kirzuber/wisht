@@ -5,9 +5,9 @@ Jinn helps a person turn any Wish into a private, editable first Deed. This bran
 ## Local development
 
 1. Use Node 22.9 or later and install dependencies with `npm install`.
-2. Start Docker and the local Supabase stack: `npx supabase start`. The checked-in `supabase/config.toml` includes a local email OTP template; messages appear at `http://127.0.0.1:54324`.
-3. Put the local Supabase URL and publishable key from `npx supabase status -o env` in `web/.env.local`. Set `LLM_PROVIDER` and the matching server-only AI key in the root `.env`. Use `.env.example` for the variable names.
-4. From the repository root, run `npm run dev` and open the Vite URL. Express loads the AI settings from `.env` and reads the same Supabase URL and key as Vite from `web/.env.local`. Shell exports take precedence, so clear any hosted `VITE_SUPABASE_*` exports first.
+2. Start Docker and the local Supabase stack with `npx supabase@3.1.0 start`. A fresh local stack applies the F03 migration automatically. Sign-in codes show up in Mailpit at `http://127.0.0.1:54324/`.
+3. Set `LLM_PROVIDER` and the matching server-only AI key in the root `.env`. Use `.env.example` for the variable names.
+4. From the repository root, run `npm run dev` and open `http://localhost:5173/`. Startup checks the local F03 schema and passes the local Supabase URL and publishable key to both Express and Vite, overriding any hosted values in the shell or env files. If the schema check fails on an older local database, inspect its migration state and preserve any local data you need before upgrading or recreating it. Startup does not reset the database.
 5. Run `npm run typecheck`, `npm test`, `npm run test:db`, `bash scripts/rehearse-cutover.sh`, and `npm run build`. With local Supabase and Vite running, `npm run test:local-browser` exercises OTP/save/return/delete and captures screenshots; set `CHROME_PATH` if Chrome is outside the standard macOS/Linux locations. The browser test refuses a Vite bundle pointed at hosted Supabase.
 
 The visitor can enter a wish and receive a private AI draft before sign-in. A verified email account can save, edit, reopen, continue, and delete the Wish. A structured allowlist renders document, checklist, and question sections. Every saved first or follow-up draft has an append-only Deed receipt marked `PREPARED`; no external action is implied.
