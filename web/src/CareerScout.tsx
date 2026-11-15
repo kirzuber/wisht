@@ -159,7 +159,7 @@ export default function CareerScout({wishId,aspiration,answer,onBack,onRequireAu
     <a href="https://himalayas.app" target="_blank" rel="noopener noreferrer">Source: Himalayas <ExternalLink size={12}/></a>
    </details>
    {result.jobs.length>0&&<button className="primary" type="button" disabled={saving||!!savedWish} onClick={()=>void save()}>
-    <Bookmark size={16}/> {saving?'Saving career shortlist…':savedWish?'Saved under my wish':'Save these openings to my career wish'} <ArrowRight size={15}/>
+    <Bookmark size={16}/> {saving?'Saving career shortlist…':savedWish?'Saved under my wish':'Save all '+result.jobs.length+' openings'} <ArrowRight size={15}/>
    </button>}
    {savedWish&&<><p className="career-success">Saved under your existing career wish. The receipt confirms a saved shortlist, not a job application.</p>
     <WorkReceipts wishId={savedWish}/>
