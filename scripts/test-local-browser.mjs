@@ -1,4 +1,5 @@
 import { chromium } from 'playwright-core';
+import assert from 'node:assert/strict';
 import { existsSync, mkdirSync } from 'node:fs';
 const base=process.env.F03_WEB_URL||'http://127.0.0.1:5173/';
 const bundle=await (await fetch(new URL('/src/supabaseClient.ts',base))).text();
@@ -11,7 +12,10 @@ if(!chrome)throw new Error('Set CHROME_PATH to a local Chrome executable.');
 const browser=await chromium.launch({executablePath:chrome,headless:true,args:['--no-sandbox']});
 const context=await browser.newContext({viewport:{width:1440,height:900}});
 const page=await context.newPage();
-const dir=new URL('../docs/evidence/f03/',import.meta.url).pathname;mkdirSync(dir,{recursive:true});
+const dir=process.env.F03_SCREENSHOT_DIR||new URL('../docs/evidence/f03/',import.meta.url).pathname;mkdirSync(dir,{recursive:true});
+const rest='http://127.0.0.1:54321/rest/v1';
+const schemaFailure=code=>({status:400,json:{code,message:'fixture private row text'}});
+const schemaNotice=page.getByRole('alert').filter({hasText:'missing the Wish workspace schema'});
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const artifact=(sourceNote='',title='Family story starter kit')=>({title,sourceNote,sections:[
  {type:'document',title:'Story seed',body:'Start with the memory you supplied. Add what happened in your own words.'},
@@ -58,16 +62,50 @@ try{
  await page.getByRole('button',{name:/Send a sign-in code/}).click();
  await page.locator('#auth-code').fill(await code());
  await page.getByRole('button',{name:/Verify and continue/}).click();
+ const saveFailure=page.waitForEvent('console',{predicate:message=>message.type()==='error'&&message.text().includes('[Wisht] wish.save.failed')});
+ await page.route(`${rest}/rpc/create_wish_with_deed`, route=>route.fulfill(schemaFailure('PGRST202')), {times:1});
  await page.getByRole('button',{name:/Keep this wish/}).click();
- await page.getByText('Welcome back.',{exact:false}).first().waitFor();
+ await schemaNotice.waitFor();
+ const saveDetails=await (await saveFailure).args()[1].jsonValue();
+ assert.equal(saveDetails.step,'create_wish_with_deed');
+ assert.equal(saveDetails.code,'PGRST202');
+ assert.doesNotMatch(JSON.stringify(saveDetails),/fixture private row text/);
+ assert.equal(await page.locator('#first-source-note').inputValue(),'Sunday pancakes with Grandma');
+
+ // A committed save followed by a failed read should retry opening the saved ID.
+ const openRequest=url=>url.href.startsWith(`${rest}/wishes?`)&&url.searchParams.get('select')==='id,original_intent';
+ await page.route(openRequest,route=>route.fulfill(schemaFailure('42703')));
+ const savedLog=page.waitForEvent('console',{predicate:message=>message.text().includes('[Wisht] wish.save.succeeded')});
+ await page.getByRole('button',{name:/Keep this wish/}).click();
+ await savedLog;
+ await page.getByRole('button',{name:'Retry opening wish'}).waitFor();
+ assert.ok(new URL(page.url()).searchParams.get('wish'));
+ assert.equal(await page.getByRole('button',{name:/Keep this wish/}).count(),0);
+ await page.unroute(openRequest);
+ await page.getByRole('button',{name:'Retry opening wish'}).click();
+ await page.locator('#first-source-note').waitFor();
+
+ const listRequest=url=>url.href.startsWith(`${rest}/wishes?`)&&url.searchParams.get('select')?.includes('updated_at');
+ await page.route(listRequest,route=>route.fulfill(schemaFailure('42703')));
+ const listFailure=page.waitForEvent('console',{predicate:message=>message.type()==='error'&&message.text().includes('[Wisht] wish.list.failed')});
  await page.getByRole('banner').getByRole('button',{name:'My wishes'}).click();
- await page.getByText('I want to make a family story book').last().waitFor();
+ await schemaNotice.waitFor();
+ const listDetails=await (await listFailure).args()[1].jsonValue();
+ assert.equal(listDetails.step,'read wishes');
+ assert.equal(listDetails.code,'42703');
+ assert.equal(await page.getByText('No saved wishes yet.',{exact:false}).count(),0);
+ assert.equal(await page.locator('.my-work-section-header span').count(),0);
+ await page.unroute(listRequest);
+ await page.getByRole('button',{name:'Retry',exact:true}).click();
+ await page.getByRole('button',{name:/I want to make a family story book/}).waitFor();
+ assert.equal(await page.locator('.my-work-card').count(),1);
  await snap('return-desktop',1440,900);await snap('return-mobile',390,844);
  await page.setViewportSize({width:1440,height:900});
  await page.getByRole('button',{name:/I want to make a family story book/}).click();
  await page.locator('#first-source-note').fill('Sunday pancakes with Aunt');
  await page.locator('#first-source-note').blur();
  await page.getByRole('button',{name:/Save corrections/}).click();
+ await page.getByRole('button',{name:'Corrections saved'}).waitFor();
  await page.reload();
  await page.locator('#first-source-note').waitFor();
  if(await page.locator('#first-source-note').inputValue()!=='Sunday pancakes with Aunt')throw new Error('Correction did not persist on reload');
@@ -85,6 +123,6 @@ try{
  page.once('dialog',dialog=>dialog.accept());
  await page.getByRole('button',{name:/Delete wish and artifact/}).click();
  await page.getByText('No saved wishes yet').waitFor();
- console.log('PASS: local OTP sign-in, save, list, edit, reload, second Deed, sign-out, deep-link return and delete');
+ console.log('PASS: local OTP, persistence error logs, save/open/list retries, edit, second Deed, return and delete');
 }catch(error){console.error(error);console.log((await page.locator('body').innerText()).slice(0,3000));throw error;}
 finally{await context.close();await browser.close();}

@@ -29,6 +29,7 @@ export default function FirstWish({wish,savedId,onBack,onRequireAuth,onDeleted,o
   const sourceBaseline=useRef('');
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
+  const [loadAttempt,setLoadAttempt]=useState(0);
   const currentWish=row?.aspiration||wish;
   const ru=/[\u0400-\u04ff]/u.test(currentWish);
   const label=(english:string,russian:string)=>ru?russian:english;
@@ -36,6 +37,8 @@ export default function FirstWish({wish,savedId,onBack,onRequireAuth,onDeleted,o
   useEffect(()=>{
     let live=true;
     if(savedId){
+      setError('');
+      setPhase('working');
       void loadFirstWish(savedId).then(saved=>{if(!live)return;setRow(saved);setArtifact(saved.first_artifact);sourceBaseline.current=saved.first_artifact.sourceNote;setReceipt(saved.first_deed);setPhase('workspace');})
         .catch(e=>{if(live){setError(e instanceof Error?e.message:'Could not load wish.');setPhase('workspace');}});
     }else{
@@ -44,7 +47,7 @@ export default function FirstWish({wish,savedId,onBack,onRequireAuth,onDeleted,o
         .catch(e=>{if(live){setError(e instanceof Error?e.message:'Could not begin.');setPhase('clarify');}});
     }
     return()=>{live=false;};
-  },[savedId,wish]);
+  },[savedId,wish,loadAttempt]);
 
   const prepare=async(source:string)=>{
     setBusy(true);setError('');setPhase('working');
@@ -59,11 +62,15 @@ export default function FirstWish({wish,savedId,onBack,onRequireAuth,onDeleted,o
     setBusy(true);setError('');
     try{
       validateEditedArtifact(artifact);
-      const saved=row?await updateFirstWish(row,artifact):await saveFirstWish(wish,artifact,receipt);
-      setRow(saved);setArtifact(saved.first_artifact);sourceBaseline.current=saved.first_artifact.sourceNote;setReceipt(saved.first_deed);setDirty(false);onSaved(saved.id);
+      if (!row) {
+        onSaved(await saveFirstWish(wish,artifact,receipt));
+        return;
+      }
+      const saved=await updateFirstWish(row,artifact);
+      setRow(saved);setArtifact(saved.first_artifact);sourceBaseline.current=saved.first_artifact.sourceNote;setReceipt(saved.first_deed);setDirty(false);
     }catch(e){
       const message=e instanceof Error?e.message:'Could not save your wish.';
-      if(message.includes('Verify your email'))onRequireAuth();else setError(message);
+      if(e instanceof Error && e.name==='WishSignInRequired')onRequireAuth();else setError(message);
     }finally{setBusy(false);}
   };
   const continueWish=async()=>{
@@ -90,9 +97,9 @@ export default function FirstWish({wish,savedId,onBack,onRequireAuth,onDeleted,o
     edit({...artifact,sections:artifact.sections.map((s,i)=>i===index?section:s)});
   };
   return <section className={'first-wish entrance '+(phase==='workspace'?'is-workspace':'is-conversation')} aria-live="polite">
-    <div className="journey-top"><button type="button" className="first-back" onClick={onBack}><ArrowLeft size={16}/> {row?label('My wishes','Мои желания'):label('Back to wish','Назад')}</button><span>{label('WISH · FIRST DEED · WORKSPACE','ЖЕЛАНИЕ · ПЕРВЫЙ ШАГ · РАБОТА')}</span></div>
+    <div className="journey-top"><button type="button" className="first-back" onClick={onBack}><ArrowLeft size={16}/> {savedId?label('My wishes','Мои желания'):label('Back to wish','Назад')}</button><span>{label('WISH · FIRST DEED · WORKSPACE','ЖЕЛАНИЕ · ПЕРВЫЙ ШАГ · РАБОТА')}</span></div>
     <div className="first-jinn"><JinnAvatar size={phase==='workspace'?'small':'large'}/><span><strong>Jinn</strong><small>{row?label('Here with your saved wish','Здесь с вашим сохранённым желанием'):label('Here to help with this wish','Помогу с этим желанием')}</small></span></div>
-    {phase==='workspace'&&<nav className="workspace-nav" aria-label={label('Wish workspace','Работа с желанием')}>
+    {phase==='workspace'&&artifact&&<nav className="workspace-nav" aria-label={label('Wish workspace','Работа с желанием')}>
       <a href="#wish-current">{label('Current wish','Желание')}</a><a href="#wish-artifacts">{label('Artifacts','Документы')}</a><a href="#wish-next">{label('Next step','Следующий шаг')}</a><a href="#wish-history">{label('History','История')}</a>
     </nav>}
     <p className="eyebrow">{label('YOUR WISH','ВАШЕ ЖЕЛАНИЕ')}</p><h1>{currentWish}</h1>
@@ -155,6 +162,11 @@ export default function FirstWish({wish,savedId,onBack,onRequireAuth,onDeleted,o
       {row&&<button className="first-delete" disabled={busy} onClick={()=>void remove()}><Trash2 size={15}/> {label('Delete wish and artifact','Удалить желание и документ')}</button>}
       {error&&<p className="error" role="alert">{error}</p>}
     </>}
-    {phase==='workspace'&&!artifact&&error&&<p className="error" role="alert">{error}</p>}
+    {phase==='workspace'&&!artifact&&error&&<div>
+      <p className="error" role="alert">{error}</p>
+      <button type="button" className="first-secondary" onClick={()=>setLoadAttempt(attempt=>attempt+1)}>
+        <RotateCcw size={16}/> {label('Retry opening wish','Попробовать снова')}
+      </button>
+    </div>}
   </section>;
 }

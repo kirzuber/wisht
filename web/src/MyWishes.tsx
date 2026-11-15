@@ -6,16 +6,21 @@ import './myWishes.css';
 
 type Props={email:string;onNewWish:()=>void;onOpenFirstWish:(id:string,aspiration:string)=>void};
 export default function MyWishes({email,onNewWish,onOpenFirstWish}:Props){
- const [wishes,setWishes]=useState<WishSummary[]>([]);
+ const [wishes,setWishes]=useState<WishSummary[]|null>(null);
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState('');
  const [deleting,setDeleting]=useState<string|null>(null);
- const refresh=async()=>{setLoading(true);setError('');try{setWishes(await listFirstWishes());}catch(cause){setError(cause instanceof Error?cause.message:'Could not load saved wishes.');}finally{setLoading(false);}};
+ const refresh=async()=>{
+  setLoading(true);setError('');
+  try{setWishes(await listFirstWishes());}
+  catch(cause){setWishes(null);setError(cause instanceof Error?cause.message:'Could not load saved wishes.');}
+  finally{setLoading(false);}
+ };
  useEffect(()=>{void refresh();},[]);
  const remove=async(id:string)=>{
   if(!window.confirm('Delete this wish, its Deeds and artifacts? This cannot be undone.'))return;
   setDeleting(id);setError('');
-  try{await deleteFirstWish(id);setWishes(items=>items.filter(item=>item.id!==id));}
+  try{await deleteFirstWish(id);setWishes(items=>items?.filter(item=>item.id!==id)??null);}
   catch(cause){setError(cause instanceof Error?cause.message:'Could not delete this wish.');}
   finally{setDeleting(null);}
  };
@@ -23,9 +28,9 @@ export default function MyWishes({email,onNewWish,onOpenFirstWish}:Props){
   <p className="eyebrow">YOUR WISH WORKSPACE</p><h2>Welcome <em>back.</em></h2>
   <p className="my-work-subtitle">Your wishes, drafts, and next steps are here whenever you return.</p>
   <p className="my-work-email"><LockKeyhole size={13}/> Signed in as {email}</p></div>
-  <div className="my-work-section-header"><h3>Saved wishes</h3><span>{wishes.length}</span></div>
+  <div className="my-work-section-header"><h3>Saved wishes</h3>{!loading&&wishes&&<span>{wishes.length}</span>}</div>
   {error&&<div className="my-work-cap-warning" role="alert">{error} <button type="button" onClick={()=>void refresh()}><RotateCcw size={14}/> Retry</button></div>}
-  {loading?<p className="my-work-status">Opening your saved work…</p>:wishes.length===0?<p className="my-work-empty">No saved wishes yet. Your next one starts with a single sentence.</p>:
+  {loading?<p className="my-work-status">Opening your saved work…</p>:wishes?.length===0?<p className="my-work-empty">No saved wishes yet. Your next one starts with a single sentence.</p>:wishes&&
    <div className="my-work-list">{wishes.map(item=><article className="my-work-card" key={item.id}>
     <button type="button" className="my-work-card-main" onClick={()=>onOpenFirstWish(item.id,item.aspiration)}>
      <span className="my-work-card-text"><span className="my-work-status-label">{item.state.toUpperCase()} · PRIVATE WISH</span><strong>{item.aspiration}</strong><small>Updated {new Date(item.updated_at).toLocaleDateString()}</small></span><ArrowRight size={18}/></button>
