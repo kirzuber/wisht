@@ -96,7 +96,7 @@ describe('F03-004 bounded Experience Plan v1',()=>{
    assert.ok(EXPERIENCE_PLANNER_PROMPT.includes('Before proposing the First Deed'));
    assert.ok(EXPERIENCE_PLANNER_PROMPT.includes('Ask ZERO questions'));
    assert.match(EXPERIENCE_PLANNER_PROMPT,/fixed output budget/);
-   assert.match(EXPERIENCE_PLANNER_PROMPT,/not choose a fill-in form/);
+   assert.match(EXPERIENCE_PLANNER_PROMPT,/not choose a fill-in form/i);
    assert.match(EXPERIENCE_PLANNER_PROMPT,/Do not promise large multi-part packages/);
  });
  it('evaluates delivered work against the binding plan promise in the existing grounding review',async()=>{
