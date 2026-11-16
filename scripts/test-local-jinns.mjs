@@ -64,7 +64,7 @@ await page.route('**/api/first-deed',route=>{
   }});
 });
 const choose = async name => {
-  await page.getByRole('button',{name:'My Jinns',exact:true}).click().catch(()=>{});
+  await page.getByRole('banner').getByRole('button',{name:'My Jinns',exact:true}).click().catch(()=>{});
   await page.locator('.jinn-choice').filter({hasText:name}).click();
   await page.getByRole('heading',{name:name,exact:true}).last().waitFor();
 };
@@ -92,7 +92,7 @@ const startWish = async (jinnName,aspiration) => {
   await page.getByRole('button',{name:/Keep this wish/}).click();
   await page.getByText('Continue your wish.',{exact:true}).waitFor();
   assert.equal(await page.locator('.first-jinn strong').innerText(),jinnName);
-  await page.getByRole('button',{name:'My Jinns',exact:true}).click();
+  await page.getByRole('banner').getByRole('button',{name:'My Jinns',exact:true}).click();
 };
 try{
   const email='f03-003-local-'+Date.now()+'@example.test';
@@ -113,7 +113,7 @@ try{
   await page.setViewportSize({width:390,height:844});
   await page.screenshot({path:dir+'/home-fresh-mobile.png',fullPage:true});
   await page.setViewportSize({width:1440,height:900});
-  await page.getByRole('button',{name:'My Jinns'}).click();
+  await page.getByRole('banner').getByRole('button',{name:'My Jinns',exact:true}).click();
   // Default Jinn is materialized for an existing/new signed-in account.
   await page.locator('.jinn-choice').filter({hasText:'Default Jinn · 0 Wishes'}).waitFor();
   await page.getByRole('button',{name:'Edit Jinn'}).click();
@@ -128,7 +128,7 @@ try{
   await page.setViewportSize({width:390,height:844});
   await page.screenshot({path:dir+'/home-named-mobile.png',fullPage:true});
   await page.setViewportSize({width:1440,height:900});
-  await page.getByRole('button',{name:'My Jinns'}).click();
+  await page.getByRole('banner').getByRole('button',{name:'My Jinns',exact:true}).click();
 
   await create('Writing Jinn','Family book and stories');
   await create('Exploring Jinn','Curiosity projects');
@@ -148,7 +148,7 @@ try{
   await page.locator('#home-jinn-choice').waitFor();
   assert.match(await page.locator('#home-jinn-choice option:checked').innerText(),/Writing Jinn/);
   await page.locator('#home-jinn-choice').selectOption({label:'Temporary Jinn'});
-  await page.getByRole('button',{name:'My Jinns'}).click();
+  await page.getByRole('banner').getByRole('button',{name:'My Jinns',exact:true}).click();
   await choose('Temporary Jinn');
   page.once('dialog',dialog=>dialog.accept());
   await page.getByRole('button',{name:'Delete empty Jinn'}).click();
@@ -160,7 +160,7 @@ try{
   await page.getByRole('button',{name:'Choose my default Jinn'}).click();
   await page.locator('#home-jinn-choice').waitFor();
   assert.match(await page.locator('#home-jinn-choice option:checked').innerText(),/Everyday Jinn/);
-  await page.getByRole('button',{name:'My Jinns'}).click();
+  await page.getByRole('banner').getByRole('button',{name:'My Jinns',exact:true}).click();
 
   const goals=[
     'Compose a family story book',
@@ -182,7 +182,7 @@ try{
   await page.getByRole('button',{name:/Keep this wish/}).click();
   await page.getByText('Continue your wish.',{exact:true}).waitFor();
   assert.equal(await page.locator('.first-jinn strong').innerText(),'Everyday Jinn');
-  await page.getByRole('button',{name:'My Jinns'}).click();
+  await page.getByRole('banner').getByRole('button',{name:'My Jinns',exact:true}).click();
   await choose('Everyday Jinn');
   assert.equal(await page.locator('.my-work-card').filter({hasText:'Observe birds near the lake'}).count(),1);
   await choose('Writing Jinn');
@@ -200,7 +200,7 @@ try{
   await page.getByRole('button',{name:'Corrections saved'}).waitFor();
   await page.getByRole('button',{name:'Prepare next Deed'}).click();
   await page.getByText('Earlier Deeds',{exact:false}).waitFor();
-  await page.getByRole('button',{name:'My Jinns',exact:true}).click();
+  await page.getByRole('banner').getByRole('button',{name:'My Jinns',exact:true}).click();
   await choose('Writing Jinn');
 
   const moveCard=page.locator('.my-work-card').filter({hasText:goals[0]});
