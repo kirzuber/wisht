@@ -54,10 +54,10 @@ export function conciseModelCopy(candidate:unknown,max:number):unknown {
   const lastSpace=Math.max(window.lastIndexOf(' '),window.lastIndexOf('\n'),window.lastIndexOf('\t'));
   const cut=clauses.length?clauses[clauses.length-1]:
     lastSpace>=Math.floor(max*0.40)?lastSpace:max-1;
-  let candidate=window.slice(0,cut).trim().replace(/[,;:–—\s-]+$/u,'');
+  let clipped=window.slice(0,cut).trim().replace(/[,;:–—\s-]+$/u,'');
   // Avoid dangling connective words, which make a clipped promise misleading.
-  candidate=candidate.replace(/(?:\s+(?:and|or|with|for|to|of|the|a|an|but|и|или|с|для|а|и|y|o|con|de|et|ou|avec|pour))+$/iu,'').trim();
-  return candidate.length?candidate.replace(/[.!?。！？]+$/u,'')+'.':window.slice(0,max-1).trimEnd()+'.';
+  clipped=clipped.replace(/(?:\s+(?:and|or|with|for|to|of|the|a|an|but|и|или|с|для|а|и|y|o|con|de|et|ou|avec|pour))+$/iu,'').trim();
+  return clipped.length?clipped.replace(/[.!?。！？]+$/u,'')+'.':window.slice(0,max-1).trimEnd()+'.';
 }
 
 /** Model planning can choose one consequential question for the initial result;
