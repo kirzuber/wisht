@@ -11,7 +11,8 @@ app.get('/api/health',(_req,res)=>res.json({
   // Only local Supabase development exposes setup readiness; no secret values.
   ...(process.env.VITE_SUPABASE_URL==='http://127.0.0.1:54321'?
     {localFirstValueSigningReady:Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY &&
-      process.env.SUPABASE_SERVICE_ROLE_KEY.length>=32)}:{}),
+      process.env.SUPABASE_SERVICE_ROLE_KEY.length>=32),
+      localModelFixtureEnabled:process.env.JINN_TEST_MODE==='1' && Boolean(process.env.JINN_LOCAL_MODEL_ENDPOINT)}:{}),
 }));
 app.post('/api/first-deed',async(req,res)=>{
  const request=new Request('http://localhost/api/first-deed',{method:'POST',
