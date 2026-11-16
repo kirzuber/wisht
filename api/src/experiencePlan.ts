@@ -73,6 +73,62 @@ export function validateExperiencePlan(value:unknown, expectedLocale?:Locale):Ex
     questions,components:[...value.components],
   };
 }
+/**
+ * Tolerant MODEL-OUTPUT boundary, not the inbound API validator.
+ * Keep executable capabilities immutable. Repair only presentation/schema
+ * irregularities (IDs, optional choice chips, missing mandatory UI shells).
+ * Unexpected model component IDs or external deed scopes are NEVER normalized.
+ */
+export function normalizeModelExperiencePlan(value:unknown,expectedLocale:Locale):ExperiencePlanV1{
+  if(!record(value))throw new Error('Missing Experience Plan object.');
+  if(value.locale!==undefined && value.locale!==expectedLocale &&
+    value.locale!==intlLocaleCode(expectedLocale))
+    throw new Error('Model generated content in an unexpected locale.');
+  if(value.deed!==undefined && (!record(value.deed) ||
+     (value.deed.scope!==undefined&&value.deed.scope!=='PRIVATE_DRAFT')))
+    throw new Error('Unsupported model-declared Deed scope.');
+  if(!Array.isArray(value.components)||
+    value.components.some(component=>typeof component!=='string'||!componentSet.has(component)))
+    throw new Error('Model attempted to use an unregistered component.');
+  const short=(candidate:unknown,max:number)=>
+    typeof candidate==='string'?candidate.trim().slice(0,max):candidate;
+  const rawQuestions=Array.isArray(value.questions)?value.questions:[];
+  const questions:PlanQuestion[]=[];
+  for(const raw of rawQuestions.slice(0,3)){
+    if(!record(raw)||!bounded(raw.prompt,250)||!bounded(raw.why,250)||
+       !Array.isArray(raw.choices))continue;
+    const choices=[...new Set(raw.choices.filter(x=>typeof x==='string')
+      .map(x=>(x as string).trim().slice(0,70))
+      .filter(x=>x.length>0&&!['other','skip','not sure','другое','пропустить','не знаю'].includes(x.toLowerCase())))].slice(0,4);
+    if(choices.length<2)continue;
+    questions.push({id:`q${questions.length+1}`,prompt:raw.prompt.trim().slice(0,180),
+      why:raw.why.trim().slice(0,180),choices});
+  }
+  const suggested=[...new Set(value.components as ExperienceComponent[])];
+  const trailing=suggested.filter(component=>
+    ['source_status','supporting_section','work_receipt','next_deed'].includes(component));
+  for(const required of ['source_status','work_receipt','next_deed'] as const)
+    if(!trailing.includes(required))trailing.push(required);
+  // A visible Artifact always leads; the LLM still chooses the first outcome,
+  // consequential questions, supporting sections and valid trailing order.
+  const components:ExperienceComponent[]=[
+    'jinn_identity',...(questions.length?['choice_chips' as const]:[]),
+    'deed_proposal','artifact_reader',...trailing,
+  ];
+  return validateExperiencePlan({
+    version:1,locale:expectedLocale,
+    intent:short(value.intent,240),firstOutcome:short(value.firstOutcome,200),
+    deed:record(value.deed)?{
+      title:short(value.deed.title,110),scope:'PRIVATE_DRAFT',
+      result:short(value.deed.result,220),
+    }:null,
+    questions,components,
+  },expectedLocale);
+}
+function intlLocaleCode(locale:Locale):string{
+  return ({en:'en-CA',ru:'ru-RU',fr:'fr-CA',es:'es-ES'} as const)[locale];
+}
+
 export type PlanAnswers=Record<string,string>;
 /** Unknown or coerced answers are never treated as authoritative user facts. */
 export function validatePlanAnswers(plan:ExperiencePlanV1,value:unknown):PlanAnswers{
