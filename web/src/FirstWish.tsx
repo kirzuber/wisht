@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, LockKeyhole, RotateCcw, Sparkles, Trash2 } from 'lucide-react';
 import type { Artifact, DeedReceipt, Section } from '../../api/src/firstDeed';
-import { getSupabase } from './supabaseClient';
+import { getAuthenticatedUser, getSupabase } from './supabaseClient';
 import { listJinns, type JinnIdentity } from './jinnStore';
 import { deleteFirstWish, loadFirstWish, saveFirstWish, updateFirstWish, type FirstWishRow } from './firstWishStore';
 import { correctSource, validateEditedArtifact } from './firstWishModel';
 import { browserDiagnostic, diagnosticCode } from './browserDiagnostics';
 import JinnAvatar from './JinnAvatar';
 
-type Props={wish:string;savedId?:string|null;preferredJinnId?:string|null;onBack:()=>void;onRequireAuth:()=>void;onDeleted:()=>void;onSaved:(id:string)=>void};
+type Props={wish:string;savedId?:string|null;preferredJinnId?:string|null;preferredJinnOwnerId?:string|null;preferredJinnName?:string|null;onBack:()=>void;onRequireAuth:()=>void;onDeleted:()=>void;onSaved:(id:string)=>void};
 type Phase='clarify'|'answer'|'working'|'workspace'|'start-error';
 const API=import.meta.env.VITE_API_BASE_URL||'';
 const FOLLOW_UP_OPERATION='AI prepared a follow-up draft from the saved, corrected artifact';
@@ -34,7 +34,7 @@ async function endpoint(body:{mode:'clarify'|'prepare'|'continue'} & Record<stri
   return result;
 }
 
-export default function FirstWish({wish,savedId,preferredJinnId,onBack,onRequireAuth,onDeleted,onSaved}:Props){
+export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwnerId,preferredJinnName,onBack,onRequireAuth,onDeleted,onSaved}:Props){
   const [phase,setPhase]=useState<Phase>('working');
   const [question,setQuestion]=useState<string|null>(null);
   const [answer,setAnswer]=useState('');
@@ -44,13 +44,14 @@ export default function FirstWish({wish,savedId,preferredJinnId,onBack,onRequire
   const [jinnChoices,setJinnChoices]=useState<JinnIdentity[]>([]);
   const [saveJinnId,setSaveJinnId]=useState<string>(preferredJinnId||'');
   const [jinnUnavailable,setJinnUnavailable]=useState(false);
+  const [jinnValidated,setJinnValidated]=useState(!preferredJinnId);
   const [dirty,setDirty]=useState(false);
   const sourceBaseline=useRef('');
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const [retryAttempt,setRetryAttempt]=useState(0);
   const currentWish=row?.aspiration||wish;
-  const companionName=row?.jinn_name||jinnChoices.find(jinn=>jinn.id===saveJinnId)?.name||'Jinn';
+  const companionName=row?.jinn_name||jinnChoices.find(jinn=>jinn.id===saveJinnId)?.name||preferredJinnName||'Jinn';
   const ru=/[\u0400-\u04ff]/u.test(currentWish);
   const label=(english:string,russian:string)=>ru?russian:english;
   const receiptDescription=(item:DeedReceipt)=>{
@@ -75,12 +76,21 @@ export default function FirstWish({wish,savedId,preferredJinnId,onBack,onRequire
     // Selecting a Jinn changes assignment only, never the Wish's source context.
     const load=()=>{
       const current=++sequence;
-      void listJinns().then(items=>{
+      setJinnValidated(!preferredJinnId);
+      void Promise.all([listJinns(),getAuthenticatedUser()]).then(([items,owner])=>{
         if(!live||current!==sequence)return;
         setJinnChoices(items);
-        setJinnUnavailable(!!preferredJinnId && !items.some(item=>item.id===preferredJinnId));
+        const wrongOwner=!!preferredJinnOwnerId&&preferredJinnOwnerId!==owner.id;
+        const missingChoice=!!saveJinnId&&!items.some(item=>item.id===saveJinnId);
+        setJinnUnavailable(wrongOwner||missingChoice);
+        setJinnValidated(true);
       }).catch(()=>{
-        if(live&&current===sequence)setJinnChoices([]);
+        if(live&&current===sequence){
+          setJinnChoices([]);
+          // An explicitly selected Jinn must never degrade silently into default.
+          setJinnUnavailable(!!saveJinnId);
+          setJinnValidated(!saveJinnId);
+        }
       });
     };
     // Defer auth API calls outside Supabase's auth-state callback/lock.
@@ -90,7 +100,7 @@ export default function FirstWish({wish,savedId,preferredJinnId,onBack,onRequire
     });
     load();
     return()=>{live=false;sequence++;if(scheduled)clearTimeout(scheduled);subscription.unsubscribe();};
-  },[preferredJinnId]);
+  },[preferredJinnId,preferredJinnOwnerId,saveJinnId]);
 
   useEffect(()=>{
     let live=true;
@@ -120,6 +130,18 @@ export default function FirstWish({wish,savedId,preferredJinnId,onBack,onRequire
     try{
       validateEditedArtifact(artifact);
       if (!row) {
+        const owner=await getAuthenticatedUser();
+        // A different signed-in user must actively choose recovery; no implicit
+        // reassignment of the initial draft to that user's default companion.
+        if(preferredJinnOwnerId&&preferredJinnOwnerId!==owner.id&&saveJinnId===preferredJinnId)
+          throw new Error('This Jinn belongs to a different account. Choose your default Jinn or return to My Jinns.');
+        if(saveJinnId){
+          const owned=await listJinns();
+          if(!owned.some(jinn=>jinn.id===saveJinnId)){
+            setJinnUnavailable(true);
+            throw new Error('Your selected Jinn is unavailable. Choose a Jinn from this account before saving.');
+          }
+        }
         onSaved(await saveFirstWish(wish,artifact,receipt,saveJinnId||undefined));
         return;
       }
@@ -155,7 +177,7 @@ export default function FirstWish({wish,savedId,preferredJinnId,onBack,onRequire
   };
   return <section className={'first-wish entrance '+(phase==='workspace'?'is-workspace':'is-conversation')} aria-live="polite">
     <div className="journey-top"><button type="button" className="first-back" onClick={onBack}><ArrowLeft size={16}/> {savedId?label('My Jinns','Мои Jinn'):label('Back to wish','Назад')}</button><span>{label('WISH · FIRST DEED · WORKSPACE','ЖЕЛАНИЕ · ПЕРВЫЙ ШАГ · РАБОТА')}</span></div>
-    <div className="first-jinn"><JinnAvatar size={phase==='workspace'?'small':'large'}/><span><strong>{companionName}</strong><small>{row?label('Currently assigned to this Wish · Wish-local context','Сейчас помогает с этим желанием · отдельный контекст'):label('Here to help with this wish','Помогу с этим желанием')}</small></span>
+    <div className="first-jinn"><JinnAvatar size={phase==='workspace'?'small':'large'}/><span><strong>{companionName}</strong><small>{row?label('Currently assigned to this Wish · Wish-local context','Сейчас помогает с этим желанием · отдельный контекст'):label('Making this Wish with you · Wish-local context','Помогу с этим желанием · отдельный контекст')}</small></span>
       {row&&<button type="button" className="first-jinn-switch" onClick={onBack}>{label('Switch Jinn / My Jinns','Сменить Jinn / Мои Jinn')}</button>}</div>
     {phase==='workspace'&&artifact&&<nav className="workspace-nav" aria-label={label('Wish workspace','Работа с желанием')}>
       <a href="#wish-current">{label('Current wish','Желание')}</a><a href="#wish-artifacts">{label('Artifacts','Документы')}</a><a href="#wish-next">{label('Next step','Следующий шаг')}</a><a href="#wish-history">{label('History','История')}</a>
@@ -167,17 +189,17 @@ export default function FirstWish({wish,savedId,preferredJinnId,onBack,onRequire
         <RotateCcw size={16}/> {label('Retry starting wish','Попробовать снова')}
       </button>
     </div>}
-    {phase==='clarify'&&!artifact&&<div className="first-panel"><p className="first-panel-kicker">{label('JINN’S STARTING POINT','НАЧАЛЬНЫЙ ШАГ JINN')}</p><p>{question||label('We can start with what you shared. I’ll prepare one useful first step.','Можно начать с того, что вы рассказали. Подготовлю один полезный первый шаг.')}</p>
+    {phase==='clarify'&&!artifact&&<div className="first-panel"><p className="first-panel-kicker">{label(companionName+'’s starting point','НАЧАЛЬНЫЙ ШАГ '+companionName)}</p><p>{question||label('We can start with what you shared. I’ll prepare one useful first step.','Можно начать с того, что вы рассказали. Подготовлю один полезный первый шаг.')}</p>
       <button className="primary" disabled={busy} onClick={()=>void prepare('')}>{label('Prepare my first deed','Подготовить первый шаг')} <ArrowRight size={16}/></button>
       {error&&<p className="error" role="alert">{error}</p>}</div>}
-    {phase==='answer'&&<div className="first-panel"><p className="first-panel-kicker">{label('A QUESTION FROM JINN','ВОПРОС ОТ JINN')}</p>
+    {phase==='answer'&&<div className="first-panel"><p className="first-panel-kicker">{label('A question from '+companionName,'ВОПРОС ОТ '+companionName)}</p>
       <label htmlFor="first-answer">{question}</label>
       <textarea id="first-answer" rows={3} maxLength={500} value={answer} onChange={e=>setAnswer(e.target.value)} placeholder={label('A few words are enough','Достаточно нескольких слов')}/>
       <div className="first-actions"><button className="primary" disabled={busy} onClick={()=>void prepare(answer.trim())}>{label('Prepare my first deed','Подготовить первый шаг')} <ArrowRight size={16}/></button>
       <button type="button" className="first-secondary" disabled={busy} onClick={()=>void prepare('')}>{label('I’m not sure','Не знаю')}</button></div>
       {error&&<p className="error" role="alert">{error}</p>}
     </div>}
-    {phase==='working'&&<div className="first-panel" role="status"><p className="first-panel-kicker"><Sparkles size={16}/> {label('JINN IS WITH YOU','JINN РЯДОМ')}</p>{savedId?label('Welcome back. Opening your saved work…','С возвращением. Открываю сохранённую работу…'):busy?label('Preparing your first Deed…','Готовлю ваш первый шаг…'):label('Finding one good place to start…','Ищу хороший первый шаг…')}</div>}
+    {phase==='working'&&<div className="first-panel" role="status"><p className="first-panel-kicker"><Sparkles size={16}/> {label(companionName+' is with you',companionName+' РЯДОМ')}</p>{savedId?label('Welcome back. Opening your saved work…','С возвращением. Открываю сохранённую работу…'):busy?label('Preparing your first Deed…','Готовлю ваш первый шаг…'):label('Finding one good place to start…','Ищу хороший первый шаг…')}</div>}
     {phase==='workspace'&&artifact&&receipt&&<>
       <div className="workspace-intro"><div><p className="eyebrow">{row?label('WELCOME BACK','С ВОЗВРАЩЕНИЕМ'):label('YOUR FIRST DEED','ВАШ ПЕРВЫЙ ШАГ')}</p><h2>{row?label('Continue your wish.','Продолжим ваше желание.'):label('Your first Deed.','Ваш первый шаг.')}</h2></div><JinnAvatar size="medium"/></div>
       <div className="first-state"><span className="first-pill">{row?label('SAVED WISH','ЖЕЛАНИЕ СОХРАНЕНО'):label('UNSAVED DRAFT','ЧЕРНОВИК НЕ СОХРАНЁН')}</span><span className="first-pill first-prepared">{label('DEED PREPARED','ПЕРВЫЙ ШАГ ПОДГОТОВЛЕН')}</span></div>
@@ -221,19 +243,19 @@ export default function FirstWish({wish,savedId,preferredJinnId,onBack,onRequire
       {!row&&<div className="first-jinn-assignment">
         <p>{label('Jinn will help you continue this Wish. You can name it later.','Jinn поможет Вам продолжить это желание. Имя можно выбрать позже.')}</p>
         {(jinnChoices.length>1||jinnUnavailable)&&<><label htmlFor="first-jinn-choice">{label('Keep this Wish with','Сохранить желание с')}</label>
-          <select id="first-jinn-choice" value={saveJinnId} onChange={event=>{setSaveJinnId(event.target.value);setJinnUnavailable(false);}}>
+          <select id="first-jinn-choice" value={saveJinnId} onChange={event=>{setSaveJinnId(event.target.value);setJinnUnavailable(false);setJinnValidated(true);}}>
             <option value="">{label('My default Jinn','Мой Jinn по умолчанию')}</option>
             {jinnChoices.map(jinn=><option key={jinn.id} value={jinn.id}>{jinn.name}</option>)}
           </select></>}
         {jinnUnavailable&&<div className="first-jinn-recovery" role="alert">
           <p className="error">{label('The previously selected Jinn is unavailable for this account. Your draft is safe.','Выбранный Jinn недоступен для этого аккаунта. Ваш черновик сохранён в текущей сессии.')}</p>
-          <button type="button" className="first-secondary" onClick={()=>{setSaveJinnId('');setJinnUnavailable(false);}}>
+          <button type="button" className="first-secondary" onClick={()=>{setSaveJinnId('');setJinnUnavailable(false);setJinnValidated(true);}}>
             {label('Use my default Jinn','Использовать Jinn по умолчанию')}
           </button>
         </div>}
       </div>}
       <div className="first-footer-actions">
-        <button className="primary" disabled={busy||jinnUnavailable||(!dirty&&!!row)} onClick={()=>void save()}>{busy?label('Working…','Подождите…'):row?(dirty?label('Save corrections','Сохранить исправления'):label('Corrections saved','Исправления сохранены')):label('Keep this wish','Сохранить желание')} {row&&!dirty?<Check size={16}/>:<ArrowRight size={16}/>}</button>
+        <button className="primary" disabled={busy||jinnUnavailable||!jinnValidated||(!dirty&&!!row)} onClick={()=>void save()}>{busy?label('Working…','Подождите…'):row?(dirty?label('Save corrections','Сохранить исправления'):label('Corrections saved','Исправления сохранены')):label('Keep this wish','Сохранить желание')} {row&&!dirty?<Check size={16}/>:<ArrowRight size={16}/>}</button>
         {row&&<button className="first-secondary" disabled={busy||dirty} onClick={()=>void continueWish()}><RotateCcw size={16}/> {label('Prepare next Deed','Подготовить следующий шаг')}</button>}
       </div>
       {dirty&&row&&<p className="first-hint">{label('Save your corrections before preparing the next Deed.','Сохраните исправления перед следующим шагом.')}</p>}
