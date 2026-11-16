@@ -152,7 +152,7 @@ select set_config('request.jwt.claims','{"is_anonymous":false}',false);
 update public.jinns set name='Everyday Jinn',updated_at=now() where is_primary;
 insert into public.jinns(user_id,name,settings) values
  ('00000000-0000-0000-0000-000000000001','Writing Jinn','{"purpose":"Descriptive only"}'::jsonb);
-do $ declare a jsonb; r jsonb; primary_id uuid; second_id uuid; other_id uuid; moved_wish uuid; before_content jsonb; before_deeds integer;
+do $$ declare a jsonb; r jsonb; primary_id uuid; second_id uuid; other_id uuid; moved_wish uuid; before_content jsonb; before_deeds integer;
 begin
  select id into primary_id from public.jinns where is_primary and user_id='00000000-0000-0000-0000-000000000001';
  select id into second_id from public.jinns where name='Writing Jinn' and user_id='00000000-0000-0000-0000-000000000001';
@@ -190,13 +190,13 @@ begin
  perform public.create_wish_with_deed(second_id,'Inspect a book',a,r);
  delete from public.jinns where id=second_id;
  if not exists (select 1 from public.jinns where id=second_id) then raise exception 'nonempty Jinn was deleted'; end if;
-end $;
+end $$;
 SQL
 docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
 set role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000002',false);
 select set_config('request.jwt.claims','{"is_anonymous":false}',false);
-do $ declare n integer; begin
+do $$ declare n integer; begin
  if (select count(*) from public.wish_records) <> 0 then raise exception 'second owner can list another owner Wishes'; end if;
  update public.jinns set name='Cross-owner change' where name='Everyday Jinn';
  get diagnostics n=row_count;
@@ -204,7 +204,7 @@ do $ declare n integer; begin
  update public.wish_records set primary_jinn_id=(select id from public.jinns where name='Other owner Jinn');
  get diagnostics n=row_count;
  if n <> 0 then raise exception 'second owner moved first owner Wish'; end if;
-end $;
+end $$;
 SQL
 docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
 set role anon;
