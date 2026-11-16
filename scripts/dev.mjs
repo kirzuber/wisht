@@ -68,9 +68,9 @@ function checkSchema() {
         and policyname='owner deletes empty non-primary jinns') as jinn_deletion,
       to_regprocedure('public.create_verified_first_value(uuid,uuid,text,jsonb,jsonb)') is not null as trusted_first_value,
       case when to_regprocedure('public.create_wish_with_deed(uuid,text,jsonb,jsonb)') is not null
-        then not has_function_privilege('authenticated',
+        then has_function_privilege('authenticated',
           'public.create_wish_with_deed(uuid,text,jsonb,jsonb)','EXECUTE')
-        else false end as client_first_save_revoked
+        else false end as legacy_first_save_compatible
   `);
 }
 
@@ -85,7 +85,7 @@ function missingSchema(schema) {
     'F03-003 Wish assignment grant': schema.jinn_assignment,
     'F03-003 safe Jinn deletion policy': schema.jinn_deletion,
     'F03-004 server-only first save': schema.trusted_first_value,
-    'F03-004 old client receipt path revoked': schema.client_first_save_revoked,
+    'F03-004 mixed-version legacy save available': schema.legacy_first_save_compatible,
   }).filter(([, present]) => present !== true).map(([name]) => name);
 }
 
