@@ -173,7 +173,7 @@ try{
   await startWish('Exploring Jinn','Restore an old clock safely');
   // Changing the homepage selector must also persist real assignment.
   await page.getByRole('button',{name:'Jinn home'}).click();
-  await page.locator('#home-jinn-choice').selectOption({label:'Everyday Jinn'});
+  await page.locator('#home-jinn-choice').selectOption({label:'Everyday Jinn · Default'});
   await page.locator('#wish').fill('Observe birds near the lake');
   await page.getByRole('button',{name:'Continue with Everyday Jinn'}).click();
   await page.getByRole('button',{name:/Prepare my first deed/}).waitFor();
@@ -230,6 +230,7 @@ try{
   const secondEmail='f03-003-isolated-'+Date.now()+'@example.test';
   await page.getByRole('button',{name:'Cancel'}).click();
   await signIn(secondEmail);
+  await page.locator('.jinn-choice').first().waitFor();
   assert.equal(await page.locator('.jinn-choice').count(),1);
   assert.equal(await page.getByText(goals[0]).count(),0);
   console.log('PASS: local Auth/DB multi-Jinn creation, four Wishes, correction+history preservation on move, reload, mobile and owner isolation');
