@@ -47,6 +47,7 @@ grant execute on function public.create_verified_first_value(uuid,uuid,text,json
 -- Earlier migrations intentionally revoked table rights from browser roles.
 -- Service-only writes still need explicit DML grants in local/hosted projects;
 -- BYPASSRLS alone does not grant INSERT or SELECT.
+grant usage on schema public to service_role;
 grant select on public.jinns to service_role;
 grant insert on public.wish_records, public.deeds, public.artifacts to service_role;
 
