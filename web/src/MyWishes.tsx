@@ -81,10 +81,10 @@ export default function MyWishes({ email, onNewWish, onOpenFirstWish }: Props) {
   };
   const moveWish = async (wishId: string) => {
     const target = moveTarget[wishId];
-    if (!target || !jinns?.some(jinn => jinn.id === target)) return;
+    if (!target || !selected || !jinns?.some(jinn => jinn.id === target)) return;
     setBusy(true); setError('');
     try {
-      await moveWishToJinn(wishId, target);
+      await moveWishToJinn(wishId, target, selected.id);
       setMoveTarget(previous => ({ ...previous, [wishId]: '' }));
       await refresh();
       setSelectedId(target);
