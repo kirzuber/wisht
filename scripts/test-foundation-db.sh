@@ -142,8 +142,8 @@ docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
 set role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000002',false);
 select set_config('request.jwt.claims','{"is_anonymous":false}',false);
-insert into public.jinns(user_id,is_primary,name) values
- ('00000000-0000-0000-0000-000000000002',true,'Other owner Jinn');
+insert into public.jinns(id,user_id,is_primary,name) values
+ ('40000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000002',true,'Other owner Jinn');
 SQL
 docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
 set role authenticated;
@@ -156,7 +156,9 @@ do $$ declare a jsonb; r jsonb; primary_id uuid; second_id uuid; other_id uuid; 
 begin
  select id into primary_id from public.jinns where is_primary and user_id='00000000-0000-0000-0000-000000000001';
  select id into second_id from public.jinns where name='Writing Jinn' and user_id='00000000-0000-0000-0000-000000000001';
- select id into other_id from public.jinns where user_id='00000000-0000-0000-0000-000000000002';
+ -- A correct RLS policy makes the other owner's Jinn unqueryable.
+ -- Use a known fixture UUID to exercise the composite owner FK directly.
+ other_id := '40000000-0000-0000-0000-000000000002';
  a := '{"title":"Fresh kit","sourceNote":"Source remains local","sections":[{"type":"document","title":"Notes","body":"No shared memories"}],"unknowns":["Unconfirmed"],"nextDeed":{"title":"Continue","why":"A bounded step","prompt":"Write"},"boundary":"Draft"}'::jsonb;
  r := '{"status":"PREPARED","operation":"Prepared only","recordedAt":"2026-11-15T00:00:00Z","scope":"Private"}'::jsonb;
  perform public.create_wish_with_deed(primary_id,'Research a local language',a,r);
