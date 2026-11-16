@@ -1,258 +1,178 @@
-import CareerScout from './CareerScout';
-import {autoStartMission,executableMissions,firstUseRoute} from './firstUse';
-import SoccerScout from './SoccerScout';
-import SubmissionPrep from './SubmissionPrep';
-import OpportunityScout from './OpportunityScout';
-import type { ScoutResult } from './opportunityTypes';
-import PublicPortfolio from './PublicPortfolio';
 import AuthGate from './AuthGate';
 import MyWishes from './MyWishes';
-import { getAuthenticatedUser, getSupabase, isVerifiedAccount } from './supabaseClient';
+import FirstWish from './FirstWish';
+import JinnAvatar from './JinnAvatar';
+import { getSupabase, isVerifiedAccount } from './supabaseClient';
+import { listJinns, type JinnIdentity } from './jinnStore';
+import { listFirstWishes } from './firstWishStore';
+import {
+  clearChosenJinn, lastChosenJinn, rememberChosenJinn,
+  resolveAdaptiveHome, type HomeSelection,
+} from './adaptiveHome';
 import type { User } from '@supabase/supabase-js';
-import PortfolioBuilder from './PortfolioBuilder';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, ArrowRight, ChevronRight, LockKeyhole, Sparkles } from 'lucide-react';
+import { ArrowRight, LockKeyhole, RotateCcw } from 'lucide-react';
 
-type Mission={id:string;title:string;promise:string;question:string;choices:{id:string;label:string}[];deliverables:string[];nextInput:string;permission:string};
-type Interpretation={kind:string;tone:'warm'|'playful'|'discreet';reflection:string;message:string;missions:Mission[];supported:boolean};
-type Stage='wish'|'choose'|'portfolio'|'library'|'scout'|'submission'|'career-scout'|'soccer-scout';
-const examples=['I want to be a photographer','I want a new career','I want to play soccer'];
-const API=import.meta.env.VITE_API_BASE_URL || '';
+type Stage='wish'|'first'|'library';
+type HomeAccount = {
+  ownerId: string;
+  status: 'ready'|'error';
+  jinns: JinnIdentity[];
+  wishCount: number;
+  error?: string;
+};
+const examples=['I want to make a family story book','I want to start a garden','I want to learn a new skill'];
 
-function WishApp(){
- const [stage,setStage]=useState<Stage>(()=>new URLSearchParams(window.location.search).has('portfolio')?'portfolio':'wish');
- const [openedPortfolioId,setOpenedPortfolioId]=useState<string|null>(()=>new URLSearchParams(window.location.search).get('portfolio'));
- const [portfolioWishId,setPortfolioWishId]=useState<string|null>(null);
- const [scoutWishId,setScoutWishId]=useState<string|null>(null);
- const [careerWishId,setCareerWishId]=useState<string|null>(null);
- const [soccerWishId,setSoccerWishId]=useState<string|null>(null);
- const [scoutPreview,setScoutPreview]=useState<ScoutResult|null>(null);
- const [submissionContext,setSubmissionContext]=useState<{
-   wishId:string;shortlistId?:string;opportunityId?:string;existingId?:string
- }|null>(null);
+export default function App(){
+ if(window.location.pathname.startsWith('/p/'))return <div className="app jinn-experience"><header className="topbar"><a className="brand" href="/"><span className="brand-mark"><JinnAvatar size="tiny"/></span><span>Jinn<span className="brand-dot">.</span></span></a></header><main className="main"><section className="content entrance"><JinnAvatar size="medium"/><h2>This shared page has been retired.</h2><p className="lead">Jinn now works with private Wishes and editable Deeds.</p><a className="primary" href="/">Start a wish <ArrowRight size={16}/></a></section></main></div>;
+ const initialId=new URLSearchParams(window.location.search).get('wish');
+ const [stage,setStage]=useState<Stage>(initialId?'first':'wish');
  const [wish,setWish]=useState('');
- const [understood,setUnderstood]=useState<Interpretation|null>(null);
- const [selected,setSelected]=useState<Mission|null>(null);
- const [busy,setBusy]=useState(false);
+ const [firstWishId,setFirstWishId]=useState<string|null>(initialId);
+ const [draftSelection,setDraftSelection]=useState<HomeSelection>(null);
+ const [draftJinnName,setDraftJinnName]=useState<string|null>(null);
+ const [homeSelection,setHomeSelection]=useState<HomeSelection>(null);
+ const [rememberedId,setRememberedId]=useState<string|null>(null);
+ const [home,setHome]=useState<HomeAccount|null>(null);
+ const [homeRefresh,setHomeRefresh]=useState(0);
  const [account,setAccount]=useState<User|null>(null);
  const [sessionReady,setSessionReady]=useState(false);
+ const [authIntent,setAuthIntent]=useState<'first'|'account'|null>(initialId?'first':null);
+ const [error,setError]=useState('');
 
- // Supabase persists and refreshes sessions automatically; subscribe to changes for the UI.
  useEffect(()=>{
   let active=true;
-  try {
+  try{
    const client=getSupabase();
-   const { data: { subscription } } = client.auth.onAuthStateChange((_event,session)=>{
+   const {data:{subscription}}=client.auth.onAuthStateChange((_event,session)=>{
     if(!active)return;
-    const user=session?.user??null;
-    setAccount(isVerifiedAccount(user)?user:null);
-    setSessionReady(true);
+    setAccount(isVerifiedAccount(session?.user??null)?session!.user:null);setSessionReady(true);
    });
    void client.auth.getUser().then(({data:{user}})=>{
     if(active){setAccount(isVerifiedAccount(user)?user:null);setSessionReady(true);}
    }).catch(()=>{if(active)setSessionReady(true);});
-   return ()=>{active=false;subscription.unsubscribe();};
-  } catch {
-   // Free wish discovery must still work without configured persistence.
-   setSessionReady(true);
-   return ()=>{active=false;};
-  }
+   return()=>{active=false;subscription.unsubscribe();};
+  }catch{setSessionReady(true);return()=>{active=false;};}
  },[]);
- const [authIntent,setAuthIntent]=useState<'portfolio'|'account'|'scout'|'career-scout'|'soccer-scout'|null>(
-   ()=>new URLSearchParams(window.location.search).has('portfolio')?'portfolio':null
- );
- const [error,setError]=useState('');
- const reset=()=>{window.history.replaceState(null,'',window.location.pathname);setOpenedPortfolioId(null);setPortfolioWishId(null);setScoutWishId(null);setCareerWishId(null);setSoccerWishId(null);setScoutPreview(null);setSubmissionContext(null);setStage('wish');setWish('');setUnderstood(null);setSelected(null);setError('');setAuthIntent(null);};
- const interpret=async()=>{
-  if(wish.trim().length<2)return;
-  setBusy(true);setError('');
-  try{
-   const resp=await fetch(`${API}/api/interpret`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({wish:wish.trim()})});
-   const data=await resp.json();
-   if(!resp.ok)throw new Error(data.error||'Something went wrong.');
-   const interpretation=data.interpretation as Interpretation;
-   setUnderstood(interpretation);
-   const first=autoStartMission(interpretation.missions||[]);
-   setSelected(first);
-   if(first){
-    const route=firstUseRoute(first.id);
-    if(route==='career-scout')setCareerWishId(null);
-    if(route==='soccer-scout')setSoccerWishId(null);
-    setStage(route??'choose');
-   }else setStage('choose');
-  }catch(e){setError(e instanceof Error?e.message:'Could not reach the local API. Run npm run dev.');}
-  finally{setBusy(false);}
- };
- const choose=(mission:Mission)=>{
-  const route=firstUseRoute(mission.id);
-  if(!route)return;
-  setSelected(mission);
-  if(route==='portfolio'){void requireAccount();return;}
-  if(route==='scout'){startScout();return;}
-  if(route==='career-scout')setCareerWishId(null);
-  if(route==='soccer-scout')setSoccerWishId(null);
-  setStage(route);
- };
- const requireAccount=async()=>{
-  setError('');
-  try{await getAuthenticatedUser();startPortfolio();}
-  catch{setAuthIntent('portfolio');}
- };
- const afterAuth = () => {
-  const intent = authIntent;
-  setAuthIntent(null);
-  if (intent === 'portfolio') startPortfolio();
-  if (intent === 'account') setStage('library');
-  if (intent === 'scout') setStage('scout');
-  if (intent === 'career-scout') setStage('career-scout');
-  if (intent === 'soccer-scout') setStage('soccer-scout');
- };
- const startScout=()=>{
-   setScoutWishId(null);setScoutPreview(null);setStage('scout');
- };
- const startScoutForWish=(wishId:string)=>{
-   setScoutWishId(wishId);setScoutPreview(null);setStage('scout');
- };
- const backFromScout=()=>setStage(scoutWishId?'library':'choose');
- const startCareerScoutForWish=(wishId:string)=>{setCareerWishId(wishId);setStage('career-scout');};
- const startSoccerScoutForWish=(wishId:string)=>{setSoccerWishId(wishId);setStage('soccer-scout');};
- const prepareSubmission=(wishId:string,shortlistId:string,opportunityId:string)=>{
-   setSubmissionContext({wishId,shortlistId,opportunityId});
-   setStage('submission');
- };
- const openSubmission=(wishId:string,existingId:string)=>{
-   setSubmissionContext({wishId,existingId});
-   setStage('submission');
- };
- const startPortfolio=()=>{
-  setOpenedPortfolioId(null);setPortfolioWishId(null);
+
+ // Read ownership without materializing a default Jinn. A system-only default
+ // must not turn a new user's guest-like experience into completed onboarding.
+ useEffect(()=>{
+  if(stage!=='wish'||!account){setHome(null);setRememberedId(null);return;}
+  let active=true;
+  const ownerId=account.id;
+  setHome(null);
+  setRememberedId(lastChosenJinn(ownerId));
+  void Promise.all([listJinns(),listFirstWishes()]).then(([jinns,wishes])=>{
+    if(active)setHome({ownerId,status:'ready',jinns,wishCount:wishes.length});
+  }).catch(cause=>{
+    if(active)setHome({ownerId,status:'error',jinns:[],wishCount:0,
+      error:cause instanceof Error?cause.message:'Could not load your Jinns.'});
+  });
+  return()=>{active=false;};
+ },[stage,account?.id,homeRefresh]);
+
+ const ownerId=account?.id??null;
+ const homeReady=!account||(home?.ownerId===ownerId&&home.status==='ready');
+ const homeDecision=resolveAdaptiveHome(ownerId,homeReady&&home?.status==='ready'?home.jinns:[],
+   homeReady&&home?.status==='ready'?home.wishCount:0,homeSelection,rememberedId);
+ const activeJinn=homeDecision.selected;
+ const namedHome=homeDecision.mode==='named'||homeDecision.mode==='multiple';
+ const homeUnavailable=!!account&&home?.ownerId===ownerId&&home.status==='error';
+ const homeBusy=!sessionReady||!!account&&!homeReady&&!homeUnavailable;
+
+ const reset=()=>{
   window.history.replaceState(null,'',window.location.pathname);
-  setStage('portfolio');
+  setStage('wish');setWish('');setFirstWishId(null);setDraftSelection(null);setDraftJinnName(null);
+  setHomeSelection(null);setAuthIntent(null);setError('');
  };
- const startAnotherPortfolio=(wishId:string)=>{
-  setOpenedPortfolioId(null);setPortfolioWishId(wishId);
-  window.history.replaceState(null,'',window.location.pathname);
-  setStage('portfolio');
+ const selectHomeJinn=(jinnId:string)=>{
+  if(!account||!home?.jinns.some(jinn=>jinn.id===jinnId))return;
+  const choice={id:jinnId,ownerId:account.id};
+  setHomeSelection(choice);setRememberedId(jinnId);
+  rememberChosenJinn(account.id,jinnId);
  };
- const openPortfolio=(id:string)=>{
-  setOpenedPortfolioId(id);setPortfolioWishId(null);setAuthIntent(null);setStage('portfolio');
-  const url=new URL(window.location.href);
-  url.searchParams.set('portfolio',id);
-  window.history.replaceState(null,'',url.pathname+url.search);
+ const recoverHome=()=>{
+  if(!account)return;
+  clearChosenJinn(account.id);setHomeSelection(null);setRememberedId(null);
  };
- const backFromPortfolio=()=>{
-  window.history.replaceState(null,'',window.location.pathname);
-  setOpenedPortfolioId(null);
-  setStage(understood?.kind==='photography'?'choose':account?'library':'wish');
+ const startWishForJinn=(jinnId?:string)=>{
+  reset();
+  if(jinnId&&account){
+    // My Jinns owns this selection. Home reload will independently validate it.
+    const choice={id:jinnId,ownerId:account.id};
+    setHomeSelection(choice);setRememberedId(jinnId);
+    rememberChosenJinn(account.id,jinnId);
+  }
  };
  const showMyWishes=()=>{
-  // Navigating inside the app should not leave an old portfolio bookmark in the URL.
   window.history.replaceState(null,'',window.location.pathname);
-  setOpenedPortfolioId(null);
-  setAuthIntent(null);
-  setStage('library');
+  setStage('library');setAuthIntent(null);setError('');
+ };
+ const openWish=(id:string,aspiration:string)=>{
+  setWish(aspiration);setFirstWishId(id);setDraftSelection(null);setDraftJinnName(null);setStage('first');
+  const url=new URL(window.location.href);url.searchParams.set('wish',id);
+  window.history.replaceState(null,'',url.pathname+url.search);
  };
  const signOut=async()=>{
-  try {
-   const {error:signOutError}=await getSupabase().auth.signOut({scope:'local'});
-   if(signOutError)throw signOutError;
-   setAccount(null);reset();
-  } catch(cause) {setError(cause instanceof Error?cause.message:'Could not sign out.');}
+  try{const {error:signOutError}=await getSupabase().auth.signOut({scope:'local'});
+   if(signOutError)throw signOutError;setAccount(null);reset();}
+  catch(cause){setError(cause instanceof Error?cause.message:'Could not sign out.');}
  };
- return <div className="app">
-   <header className="topbar">
-     <button className="brand" onClick={reset} aria-label="Jinn home"><span className="brand-mark"><Sparkles size={18} strokeWidth={1.7}/></span><span>jinn<span className="brand-dot">.</span></span></button>
-     <div className="top-right">
-       {sessionReady && (account ? <>
-         <button type="button" className="account-link" onClick={showMyWishes}>My wishes</button>
-         <button type="button" className="account-link account-quiet" onClick={()=>void signOut()}>Sign out</button>
-       </> : <button type="button" className="account-link" onClick={()=>setAuthIntent('account')}>Sign in</button>)}
-     </div>
-   </header>
-   <main className="main" aria-live="polite">
-    <div className="hero-glow" aria-hidden="true"/>
-    {(stage==='wish'||stage==='choose') && !authIntent && <div className="hero-icon" aria-hidden="true"><Sparkles size={30} strokeWidth={1.25}/></div>}
-    {authIntent && <AuthGate purpose={authIntent==='portfolio'?'Your portfolio is ready to begin.':authIntent==='scout'?'Your findings are ready to keep.':authIntent==='career-scout'?'Sign in for AI matching or saving.':authIntent==='soccer-scout'?'Sign in to save your soccer research.':'Sign in to see your saved work.'}
-       onAuthenticated={afterAuth} onCancel={()=>setAuthIntent(null)}/>}
-    {!authIntent && stage==='wish' && <section className="content entrance">
-       <h1>Make a <em>wish.</em></h1>
-       <p className="lead">What would you like to make happen?</p>
-       <form onSubmit={e=>{e.preventDefault();void interpret();}} className="wish-form">
-         <label htmlFor="wish" className="field-label">YOUR WISH</label>
-         <textarea id="wish" maxLength={280} value={wish} onChange={e=>setWish(e.target.value)}
-           placeholder="I want to…" rows={2}/>
-         <button type="submit" className="primary" disabled={wish.trim().length<2||busy}>
-           {busy?'Finding a way to help…':'Make my wish'} <ArrowRight size={18}/>
-         </button>
-       </form>
-       <p className="try-label">Or try an idea</p>
-       <div className="chips">{examples.map(x=><button key={x} type="button" className="chip"
-         onClick={()=>setWish(x)}>{x}<ChevronRight size={13}/></button>)}</div>
-       {error&&<p className="error" role="alert">{error}</p>}
-       <p className="mini-note"><LockKeyhole size={14}/> Explore without signing in. Unfamiliar wishes may use AI classification.</p>
-     </section>}
-     {!authIntent && stage==='choose' && understood && <section className="content entrance">
-      {executableMissions(understood.missions).length>0 ? <>
-        <p className="eyebrow">A PLACE TO START</p>
-        <h2>Here's what I can do.</h2>
-        <p className="lead narrower">What would help you most right now?</p>
-        <div className="mission-grid">{executableMissions(understood.missions).map(m=>
-          <button type="button" className="mission-card" key={m.id} onClick={()=>choose(m)}>
-            <span className="mission-body"><strong>{m.title}</strong><span>{m.promise}</span></span>
-            <ArrowRight size={19}/>
-          </button>
-        )}</div>
-      </> : <>
-        <p className="eyebrow">I HEAR YOUR WISH</p>
-        <h2>{understood.reflection}</h2>
-        <p className="lead narrower">I can't take a reliable step toward that yet. You can try a photography, career or soccer wish instead.</p>
-      </>}
-      <button type="button" className="back" onClick={reset}><ArrowLeft size={16}/> Try another wish</button>
-    </section>}
-    {!authIntent && stage==='library' && account && <MyWishes email={account.email||''} onOpenPortfolio={openPortfolio} onNewPortfolio={startAnotherPortfolio} onOpenScout={startScoutForWish} onCareerScout={startCareerScoutForWish} onSoccerScout={startSoccerScoutForWish} onPrepareSubmission={prepareSubmission} onOpenSubmission={openSubmission} onNewWish={reset}/>}
-    {!authIntent && stage==='submission' && submissionContext && <SubmissionPrep
-      wishId={submissionContext.wishId}
-      shortlistId={submissionContext.shortlistId}
-      opportunityId={submissionContext.opportunityId}
-      existingId={submissionContext.existingId}
-      onBack={showMyWishes}
-      onBuildPortfolio={startAnotherPortfolio}
-      onSaved={showMyWishes}/>}
-    {stage==='soccer-scout' && <div style={{display:authIntent?'none':'contents',width:'100%'}}>
-      <SoccerScout wishId={soccerWishId||undefined} aspiration={wish.trim()||undefined}
-       onBack={()=>setStage(soccerWishId?'library':'wish')}
-       onRequireAuth={()=>setAuthIntent('soccer-scout')} onSaved={showMyWishes}/>
+ const afterAuth=()=>{const intent=authIntent;setAuthIntent(null);if(intent==='account')setStage('library');};
+ const beginWish=()=>{
+  if(wish.trim().length<2||homeBusy||homeUnavailable||homeDecision.requiresRecovery)return;
+  setDraftSelection(namedHome&&activeJinn&&ownerId?{id:activeJinn.id,ownerId}:null);
+  setDraftJinnName(namedHome&&activeJinn?activeJinn.name:null);
+  setFirstWishId(null);setStage('first');
+ };
+ return <div className="app jinn-experience">
+  <header className="topbar"><button className="brand" onClick={()=>reset()} aria-label="Jinn home"><span className="brand-mark"><JinnAvatar size="tiny"/></span><span>Jinn<span className="brand-dot">.</span></span></button>
+   <div className="top-right">{sessionReady&&(account?<><button type="button" className="account-link" onClick={showMyWishes}>My Jinns</button><button type="button" className="account-link account-quiet" onClick={()=>void signOut()}>Sign out</button></>:<button type="button" className="account-link" onClick={()=>setAuthIntent('account')}>Sign in</button>)}</div></header>
+  <main className="main" aria-live="polite"><div className="hero-glow" aria-hidden="true"/>
+   {authIntent&&<AuthGate showCompanion purpose={authIntent==='first'?'Your draft is ready to keep.':'Your Jinns and saved wishes are here.'} onAuthenticated={afterAuth} onCancel={()=>setAuthIntent(null)}/>}
+   {!authIntent&&stage==='wish'&&<section className="welcome entrance">
+    <div className="welcome-copy"><p className="welcome-kicker"><span className="welcome-kicker-line"/> YOUR WISH STARTS HERE</p>
+     <h1>What would you <em>like to do?</em></h1><p className="welcome-lead">Tell {namedHome&&activeJinn?activeJinn.name:'Jinn'} what matters to you. We’ll find one useful first step together.</p>
+     {homeBusy&&<p className="home-jinn-loading" role="status">Opening your companions…</p>}
+     {homeUnavailable&&<div className="home-jinn-recovery" role="alert"><p>{home?.error||'Could not load your companions.'} Your Wish has not been assigned.</p><button type="button" className="first-secondary" onClick={()=>setHomeRefresh(value=>value+1)}><RotateCcw size={16}/> Retry loading Jinns</button></div>}
+     {!homeBusy&&!homeUnavailable&&namedHome&&<div className="home-jinn-context" aria-label="Current Wish companion">
+      <JinnAvatar size="small"/>
+      <div className="home-jinn-details">
+       {homeDecision.mode==='multiple'?<>
+        <label htmlFor="home-jinn-choice">MAKE THIS WISH WITH</label>
+        <select id="home-jinn-choice" value={activeJinn?.id||''} onChange={event=>selectHomeJinn(event.target.value)} disabled={homeDecision.requiresRecovery}>
+         {!activeJinn&&<option value="">Choose your Jinn</option>}
+         {(home?.jinns||[]).map(jinn=><option key={jinn.id} value={jinn.id}>{jinn.name}{jinn.is_primary?' · Default':''}</option>)}
+        </select>
+        <small>The selected Jinn will own this Wish. Each Wish keeps its own private context.</small>
+       </>:<>
+        <span className="home-jinn-name">Wish with {activeJinn?.name}</span>
+        <small>{activeJinn?.name} is helping with this Wish.</small>
+       </>}
+      </div>
+      {account&&<button type="button" className="home-jinn-manage" onClick={showMyWishes} aria-label="Manage Jinns">Manage</button>}
      </div>}
-    {stage==='career-scout' && <div style={{display:authIntent?'none':'contents',width:'100%'}}>
-      <CareerScout wishId={careerWishId||undefined} aspiration={wish.trim()||undefined}
-       onBack={()=>setStage(careerWishId?'library':'wish')}
-       onRequireAuth={()=>setAuthIntent('career-scout')} onSaved={showMyWishes}/>
+     {!homeBusy&&!homeUnavailable&&homeDecision.requiresRecovery&&<div className="home-jinn-recovery" role="alert">
+       <p>Your previously selected Jinn is no longer available for this account. No Wish has been reassigned.</p>
+       <button type="button" className="first-secondary" onClick={recoverHome}>Choose my default Jinn</button>
+       <button type="button" className="first-secondary" onClick={showMyWishes}>Open My Jinns</button>
      </div>}
-     {stage==='scout' && <div style={{display:authIntent?'none':'contents',width:'100%'}}>
-      <OpportunityScout wishContext={scoutWishId
-         ? {wishId:scoutWishId}
-         : {aspiration:wish.trim()||undefined,missionId:'find-photo-opportunities'}}
-       initialGenre="any"
-       preview={scoutPreview} onPreview={setScoutPreview}
-       onBack={backFromScout} onRequireAuth={()=>setAuthIntent('scout')} onSaved={showMyWishes}
-       onPrepareSubmission={prepareSubmission}/>
-    </div>}
-    {!authIntent && stage==='portfolio' && <PortfolioBuilder initialId={openedPortfolioId}
-      wishContext={portfolioWishId
-        ? {wishId:portfolioWishId}
-        : {aspiration:wish.trim() || undefined,missionId:selected?.id}}
-      onBack={backFromPortfolio} onFindOpportunities={startScoutForWish} onCreated={id=>{
-      setOpenedPortfolioId(id);
-      const url=new URL(window.location.href);
-      url.searchParams.set('portfolio',id);
-      window.history.replaceState(null,'',url.pathname+url.search);
-    }}/>}
-    </main>
-   <footer className="footer"><span>Three wishes. Real work.</span><span>WISHT / BETA</span></footer>
+     {!homeBusy&&!homeUnavailable&&<form className="wish-form" onSubmit={event=>{event.preventDefault();beginWish();}}>
+      <label htmlFor="wish" className="field-label">YOUR WISH</label><textarea id="wish" maxLength={280} rows={3} value={wish} onChange={event=>setWish(event.target.value)} placeholder="I want to…"/>
+      <button type="submit" className="primary" disabled={wish.trim().length<2||homeDecision.requiresRecovery||namedHome&&!activeJinn}>Continue with {namedHome&&activeJinn?activeJinn.name:'Jinn'} <ArrowRight size={18}/></button></form>}
+     <p className="try-label">A few places to begin</p><div className="chips">{examples.map(example=><button key={example} type="button" className="chip" onClick={()=>setWish(example)}>{example}</button>)}</div>
+     {error&&<p className="error" role="alert">{error}</p>}
+     <p className="mini-note"><LockKeyhole size={14}/> {account?'Your Wish stays private to the companion you choose. AI prepares the first draft.':'Start without signing in. Your wish is sent to AI to prepare a private draft.'}</p></div>
+    <aside className="welcome-companion" aria-label={namedHome&&activeJinn?activeJinn.name+', your Wish companion':'Jinn, your Wish companion'}><div className="welcome-orbit"><JinnAvatar size="large"/></div>
+     <p className="welcome-companion-title">One wish.<br/><em>One meaningful start.</em></p><p>{namedHome&&activeJinn?activeJinn.name:'Jinn'} helps you shape a first Deed you can inspect, edit, and keep.</p>
+     <div className="welcome-progress" aria-label="Wish journey"><span className="active">01 <small>Your wish</small></span><span>02 <small>One question</small></span><span>03 <small>First Deed</small></span></div></aside>
+   </section>}
+   {stage==='first'&&(!authIntent||!firstWishId)&&<div style={{display:authIntent?'none':'contents',width:'100%'}}><FirstWish key={firstWishId||wish} wish={wish.trim()} savedId={firstWishId}
+    preferredJinnId={draftSelection?.id??null} preferredJinnOwnerId={draftSelection?.ownerId??null} preferredJinnName={draftJinnName}
+    onBack={()=>firstWishId?showMyWishes():reset()} onRequireAuth={()=>setAuthIntent('first')} onDeleted={showMyWishes}
+    onSaved={id=>openWish(id,wish)}/></div>}
+   {!authIntent&&stage==='library'&&account&&<MyWishes email={account.email||''} onNewWish={startWishForJinn} onOpenFirstWish={openWish}/>}
+  </main><footer className="footer"><span>Your wishes. Real work.</span><span>WISHT / BETA</span></footer>
  </div>;
 }
-function App(){
- const match=window.location.pathname.match(/^\/p\/([a-f0-9]{16})\/?$/);
- return match?<PublicPortfolio slug={match[1]}/>:<WishApp/>;
-}
-export default App;

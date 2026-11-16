@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
+import { WishPersistenceError } from './wishDiagnostics';
 
 let instance: SupabaseClient | undefined;
 export function getSupabase(): SupabaseClient {
@@ -18,6 +19,13 @@ export function isVerifiedAccount(user: Pick<User, 'is_anonymous' | 'email' | 'e
 /** No implicit account creation. Anonymous Supabase identities are rejected. */
 export async function getAuthenticatedUser(): Promise<User> {
   const { data: { user }, error } = await getSupabase().auth.getUser();
-  if (error || !isVerifiedAccount(user)) throw new Error('Verify your email to save your work.');
+  if (error && error.name !== 'AuthSessionMissingError' && error.status !== 401 && error.status !== 403) {
+    throw new WishPersistenceError('verify account', error, error.status);
+  }
+  if (error || !isVerifiedAccount(user)) {
+    const signInRequired = new Error('Verify your email to save or open your wishes.');
+    signInRequired.name = 'WishSignInRequired';
+    throw signInRequired;
+  }
   return user!;
 }
