@@ -53,6 +53,9 @@ jobs:
         run: npm run dev -- --check
       - name: Start local Wisht API and Vite
         run: |
+          # Node's --env-file-if-exists still watches the named path in dev mode.
+          # Clean CI has no personal env files. Provide empty local-only placeholders.
+          touch .env web/.env.local
           npm run dev > /tmp/wisht-dev.log 2>&1 &
           echo $! > /tmp/wisht-dev.pid
           for i in $(seq 1 75); do
