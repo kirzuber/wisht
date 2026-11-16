@@ -70,18 +70,26 @@ export default function FirstWish({wish,savedId,preferredJinnId,onBack,onRequire
 
   useEffect(()=>{
     let live=true;
-    // Selecting a Jinn for a NEW Wish changes only its assignment, never its draft context.
+    let sequence=0;
+    let scheduled: ReturnType<typeof setTimeout>|undefined;
+    // Selecting a Jinn changes assignment only, never the Wish's source context.
     const load=()=>{
+      const current=++sequence;
       void listJinns().then(items=>{
-        if(!live)return;
+        if(!live||current!==sequence)return;
         setJinnChoices(items);
-        if(preferredJinnId && !items.some(item=>item.id===preferredJinnId)) setJinnUnavailable(true);
-        else setJinnUnavailable(false);
-      }).catch(()=>{if(live)setJinnChoices([]);});
+        setJinnUnavailable(!!preferredJinnId && !items.some(item=>item.id===preferredJinnId));
+      }).catch(()=>{
+        if(live&&current===sequence)setJinnChoices([]);
+      });
     };
-    const {data:{subscription}}=getSupabase().auth.onAuthStateChange(()=>load());
+    // Defer auth API calls outside Supabase's auth-state callback/lock.
+    const {data:{subscription}}=getSupabase().auth.onAuthStateChange(()=>{
+      if(scheduled)clearTimeout(scheduled);
+      scheduled=setTimeout(load,0);
+    });
     load();
-    return()=>{live=false;subscription.unsubscribe();};
+    return()=>{live=false;sequence++;if(scheduled)clearTimeout(scheduled);subscription.unsubscribe();};
   },[preferredJinnId]);
 
   useEffect(()=>{
