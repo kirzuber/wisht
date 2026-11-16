@@ -77,9 +77,18 @@ export async function createJinn(name: string, purpose: string): Promise<JinnIde
 export async function renameJinn(jinn: JinnIdentity, name: string, purpose: string): Promise<JinnIdentity> {
   const valid = validateJinnIdentity(name, purpose);
   const user = await getAuthenticatedUser();
-  // Only the bounded descriptive purpose is managed in this story; it is not a model instruction.
-  const { data, error, status } = await getSupabase().from('jinns').update({
-    name: valid.name, settings: valid.purpose ? { purpose: valid.purpose } : {}, updated_at: new Date().toISOString(),
+  const db = getSupabase();
+  const before = await db.from('jinns').select('settings').eq('id', jinn.id)
+    .eq('user_id', user.id).maybeSingle();
+  if (before.error) throw new WishPersistenceError('read Jinn settings', before.error, before.status);
+  if (!before.data) throw new Error('That Jinn is no longer available. Reload My Jinns.');
+
+  // Preserve settings outside this story's descriptive purpose field.
+  const settings: Record<string, unknown> = { ...(before.data.settings ?? {}) };
+  delete settings.purpose;
+  if (valid.purpose) settings.purpose = valid.purpose;
+  const { data, error, status } = await db.from('jinns').update({
+    name: valid.name, settings, updated_at: new Date().toISOString(),
   }).eq('id', jinn.id).eq('user_id', user.id)
     .select('id,name,is_primary,settings').maybeSingle();
   if (error) throw new WishPersistenceError('rename Jinn', error, status);
