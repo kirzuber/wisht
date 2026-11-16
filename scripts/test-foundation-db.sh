@@ -248,7 +248,7 @@ do $$ begin
    then raise exception 'Server-only first-value atomic save failed'; end if;
  if (select count(*) from public.artifacts where content->'experience'->>'version'='1')<>1
    then raise exception 'Experience Plan persistence failed'; end if;
- if (select count(*) from public.wishes)<>3 then
+ if (select count(*) from public.wishes)<>5 then
    raise exception 'Legacy Wishes unexpectedly altered'; end if;
 end $$;
 SQL
