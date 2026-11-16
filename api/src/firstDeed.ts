@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { isLocale, languageInstruction, type Locale } from './locale.js';
 import { starterWorksheet } from './starterWorksheet.js';
 import {
@@ -251,6 +252,61 @@ export async function prepareDeed(wish: string, sourceNote: string, previous: Ar
   return prepared(worksheet, 'worksheet');
 }
 
+/** Signed preparation proof: client may edit draft text but cannot forge model work or receipts. */
+export function signPreparedFirstValue(wish:string,artifact:Artifact,receipt:DeedReceipt,
+  env:NodeJS.ProcessEnv=process.env, expires=Date.now()+2*60*60*1000):string{
+  const key=env.SUPABASE_SERVICE_ROLE_KEY;
+  if(!key || key.length<32) throw new DraftingError('Verified saving is unavailable. Your draft remains in this session.','save_not_configured');
+  if(!artifact.experience||receipt.status!=='PREPARED')
+    throw new DraftingError('Only a verified First Artifact can be saved.','invalid_preparation',422);
+  const payload=JSON.stringify({v:1,wish,artifact,receipt,expires});
+  const mac=createHmac('sha256',key).update('jinn-first-value-v1\n').update(payload).digest('base64url');
+  return `${expires}.${mac}`;
+}
+export function verifyPreparedFirstValue(wish:string,artifact:Artifact,receipt:DeedReceipt,
+  proof:string,env:NodeJS.ProcessEnv=process.env,now=Date.now()):void{
+  if(typeof proof!=='string'||!/^\d{13}\.[a-zA-Z0-9_-]{43}$/.test(proof))
+    throw new DraftingError('The saved draft proof is invalid. Please prepare the Deed again.','invalid_preparation',422);
+  const expires=Number(proof.split('.')[0]);
+  if(!Number.isSafeInteger(expires)||expires<now||expires>now+2*60*60*1000+60000)
+    throw new DraftingError('The draft proof expired. Please prepare a new Deed.','expired_preparation',422);
+  const expected=signPreparedFirstValue(wish,artifact,receipt,env,expires).split('.')[1];
+  const received=proof.split('.')[1];
+  if(!timingSafeEqual(Buffer.from(expected),Buffer.from(received)))
+    throw new DraftingError('The draft proof does not match server-prepared work.','invalid_preparation',422);
+}
+
+async function saveVerifiedFirstValue(body:Record<string,unknown>,token:string,env:NodeJS.ProcessEnv=process.env):Promise<string>{
+  const url=env.VITE_SUPABASE_URL,anonKey=env.VITE_SUPABASE_PUBLISHABLE_KEY,serviceKey=env.SUPABASE_SERVICE_ROLE_KEY;
+  if(!url||!anonKey||!serviceKey)throw new DraftingError('Verified saving is temporarily unavailable. Your draft remains here.','save_not_configured');
+  if(!string(body.wish,280)||!string(body.jinnId,36)||!string(body.proof,200)||
+    !object(body.preparedArtifact)||!object(body.artifact)||!object(body.receipt))
+    throw new DraftingError('The prepared Deed is missing save information.','invalid_preparation',422);
+  const prepared=validateArtifact(body.preparedArtifact,String(body.preparedArtifact.sourceNote||''));
+  const editable=validateArtifact(body.artifact,String(body.artifact.sourceNote||''));
+  const receipt=body.receipt as DeedReceipt;
+  if(!prepared.experience||!editable.experience||
+     JSON.stringify(prepared.experience)!==JSON.stringify(editable.experience)||
+     prepared.boundary!==editable.boundary||
+     receipt.status!=='PREPARED'||receipt.draftSource==='worksheet')
+    throw new DraftingError('The verified First Artifact changed unexpectedly.','invalid_preparation',422);
+  verifyPreparedFirstValue(body.wish,prepared,receipt,body.proof,env);
+  const authDb=createClient(url,anonKey,{auth:{persistSession:false,autoRefreshToken:false}});
+  const {data:{user},error:authError}=await authDb.auth.getUser(token);
+  if(authError||!user||user.is_anonymous||!user.email_confirmed_at)
+    throw new DraftingError('Sign in to keep your First Artifact.','save_auth_required',401);
+  const admin=createClient(url,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
+  const {data,error}=await admin.rpc('create_verified_first_value',{
+    p_user_id:user.id,p_jinn_id:body.jinnId,p_intent:body.wish,
+    p_artifact:editable,p_receipt:receipt,
+  });
+  if(error||typeof data!=='string'){
+    console.error('[Wisht] api first_value.save.failed',{code:error?.code||'db_save_failed'});
+    throw new DraftingError('Your First Artifact was not saved. Your draft is still here. Please retry.','save_failed',503);
+  }
+  return data;
+}
+
 export async function loadOwnedWish(token: string, wishId: string, env: NodeJS.ProcessEnv = process.env,
   clientFactory: typeof createClient = createClient) {
   const url = env.VITE_SUPABASE_URL;
@@ -272,11 +328,11 @@ export async function loadOwnedWish(token: string, wishId: string, env: NodeJS.P
 
 export async function serveFirstDeed(request: Request): Promise<Response> {
   if (request.method !== 'POST') return Response.json({error:'Method not allowed'},{status:405});
-  if (Number(request.headers.get('content-length') || 0) > 12000) return Response.json({error:'Request too large'},{status:413});
-  let mode: 'plan' | 'clarify' | 'prepare' | 'continue' | 'invalid' = 'invalid';
+  if (Number(request.headers.get('content-length') || 0) > 40000) return Response.json({error:'Request too large'},{status:413});
+  let mode: 'plan' | 'clarify' | 'prepare' | 'continue' | 'save_first_value' | 'invalid' = 'invalid';
   try {
     const raw = await request.text();
-    if (raw.length > 12000) return Response.json({error:'Request too large'},{status:413});
+    if (raw.length > 40000) return Response.json({error:'Request too large'},{status:413});
     const body = JSON.parse(raw) as Record<string,unknown>;
     if (body.locale !== undefined && !isLocale(body.locale))
       return Response.json({error:'Unsupported language.',code:'invalid_locale'},{status:400});
@@ -302,7 +358,14 @@ export async function serveFirstDeed(request: Request): Promise<Response> {
       }
       const plan=body.plan===undefined?undefined:validateExperiencePlan(body.plan,locale);
       const answers=plan?validatePlanAnswers(plan,body.answers??{}):{};
-      return Response.json(await prepareDeed(body.wish, String(body.answer || ''), null, undefined, undefined, locale,plan,answers));
+      const prepared=await prepareDeed(body.wish, String(body.answer || ''), null, undefined, undefined, locale,plan,answers);
+      return Response.json(plan?{...prepared,proof:signPreparedFirstValue(body.wish,prepared.artifact,prepared.receipt)}:prepared);
+    }
+    if(body.mode==='save_first_value'){
+      mode='save_first_value';
+      const token=request.headers.get('authorization')?.match(/^Bearer (.+)$/i)?.[1];
+      if(!token)return Response.json({error:'Sign in to save your Wish.'},{status:401});
+      return Response.json({wishId:await saveVerifiedFirstValue(body,token)});
     }
     if (body.mode === 'continue' && string(body.wishId,36) && /^[a-f0-9-]{36}$/i.test(body.wishId)) {
       mode = 'continue';
