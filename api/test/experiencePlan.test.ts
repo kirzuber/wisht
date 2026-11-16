@@ -2,9 +2,9 @@ import { describe,it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
  FIRST_VALUE_COMPONENTS,FIRST_VALUE_CAPABILITIES,EXPERIENCE_PLANNER_PROMPT,
- validateExperiencePlan,normalizeModelExperiencePlan,validatePlanAnswers,summarizePlanFacts,type ExperiencePlanV1,
+ validateExperiencePlan,normalizeModelExperiencePlan,conciseModelCopy,focusFirstValueQuestions,validatePlanAnswers,summarizePlanFacts,type ExperiencePlanV1,
 } from '../src/experiencePlan.ts';
-import {callFirstDeedModel,planFirstValue,prepareDeed,signPreparedFirstValue,verifyPreparedFirstValue,validateArtifact,serveFirstDeed} from '../src/firstDeed.ts';
+import {callFirstDeedModel,planFirstValue,prepareDeed,reviewGrounding,signPreparedFirstValue,verifyPreparedFirstValue,validateArtifact,serveFirstDeed} from '../src/firstDeed.ts';
 
 const base={
  version:1,locale:'en',intent:'Find a useful first result',
@@ -66,6 +66,83 @@ describe('F03-004 bounded Experience Plan v1',()=>{
   assert.throws(()=>normalizeModelExperiencePlan({...response,
     deed:{...response.deed,scope:'SEND_EMAIL'}},'ru'),/scope/);
   assert.throws(()=>normalizeModelExperiencePlan({...response,locale:'en'},'ru'),/locale/);
+ });
+ it('keeps model-generated UI copy at whole-word or sentence boundaries',()=>{
+   const intro='A useful and complete thought. A follow-up clause that should not be severed midword.';
+   const clipped=conciseModelCopy(intro,53);
+   assert.equal(clipped,'A useful and complete thought.');
+   const noSentence=conciseModelCopy('The generated content includes a long additional statement explaining the full intended work',65);
+   assert.equal(typeof noSentence,'string');
+   assert.ok((noSentence as string).endsWith('…'));
+   assert.ok(noSentence==='The generated content includes a long additional statement…' ||
+     /[\\s…]$/.test(noSentence as string));
+   const russian=conciseModelCopy('Подготовленная полезная концепция включает следующие практические направления и варианты',65);
+   assert.equal(typeof russian,'string');
+   assert.ok(!(russian as string).endsWith('направ…'));
+   assert.ok((russian as string).length<=65);
+ });
+ it('preserves old V1 plans, but selects one most consequential optional question for first use',async()=>{
+   const questions=[choice,{...choice,id:'secondary',prompt:'Which optional aesthetic do you like?'}];
+   const components=['jinn_identity','choice_chips',...base.components.slice(1)];
+   const old=valid({questions,components});
+   assert.equal(old.questions.length,2);
+   assert.deepEqual(focusFirstValueQuestions(old).questions.map(q=>q.id),['priority']);
+   const proposed=await planFirstValue('Create a useful private object','en','Jinn','',async()=>({
+     ...base,questions,components,
+   }));
+   assert.equal(proposed.questions.length,1);
+   assert.equal(proposed.questions[0].id,'priority');
+   assert.ok(EXPERIENCE_PLANNER_PROMPT.includes('Before proposing the First Deed'));
+   assert.ok(EXPERIENCE_PLANNER_PROMPT.includes('Ask ZERO questions'));
+ });
+ it('evaluates delivered work against the binding plan promise in the existing grounding review',async()=>{
+   const plan=valid({firstOutcome:'A complete fully authored introductory paragraph for immediate use'});
+   const artifact=validateArtifact({
+     title:'A draft',sections:[{type:'document',title:'Introduction',body:
+       'Fill in your name, choose a topic and then write the introductory paragraph. '.repeat(6)}],
+     unknowns:[],nextDeed:{title:'Finish writing',why:'The introduction remains unwritten',
+       prompt:'Fill in the form'},boundary:'Private only',experience:plan,
+   },'');
+   let system='';
+   const result=await reviewGrounding('I want an introduction','',artifact,async messages=>{
+     system=messages[0].content;
+     return {safe:false,reason:'promise_unfulfilled'};
+   });
+   assert.deepEqual(result,{safe:false,reason:'promise_unfulfilled'});
+   assert.match(system,/compare artifact.experience.firstOutcome/);
+   assert.match(system,/actual substantive text/);
+ });
+ it('revises an unfulfilled First Deed only once and never claims a failed promise is prepared',async()=>{
+   const plan=valid({firstOutcome:'A full substantive letter ready for editing'});
+   const hollow={
+     title:'Letter starter',sections:[{type:'document',title:'Letter',body:
+       'First pick a recipient and then write the full message yourself. '.repeat(8)}],
+     unknowns:[],nextDeed:{title:'Finish it',why:'Message is missing',prompt:'Write the letter'},
+     boundary:'Private only',
+   };
+   const full={...hollow,title:'A usable first letter',sections:[{type:'document',title:'Letter',
+     body:'Hello, I am reaching out to open a thoughtful conversation. '.repeat(8)}]};
+   let modelCalls=0,reviewCalls=0;
+   const result=await prepareDeed('Help me write a first message','',null,async messages=>{
+     modelCalls++;
+     if(modelCalls===2)assert.match(messages[0].content,/ONE quality repair/);
+     return modelCalls===1?hollow:full;
+   },async(_wish,_note,artifact)=>{
+     reviewCalls++;
+     return artifact.title==='Letter starter'?
+       {safe:false,reason:'promise_unfulfilled'}:{safe:true};
+   },'en',plan);
+   assert.equal(modelCalls,2);
+   assert.equal(reviewCalls,2);
+   assert.equal(result.receipt.draftSource,'repaired_model');
+   assert.equal(result.artifact.sections[0].type,'document');
+   let rejectedCalls=0;
+   await assert.rejects(prepareDeed('Help me write a first message','',null,async()=>{
+     rejectedCalls++;
+     return hollow;
+   },async()=>({safe:false,reason:'promise_unfulfilled'}),'en',plan),
+   {code:'grounding_rejected',status:422});
+   assert.equal(rejectedCalls,2);
  });
  it('retries one truncated real-provider JSON response without weakening the schema',async()=>{
   let calls=0;
