@@ -179,7 +179,7 @@ export default function App(){
     preferredJinnId={draftSelection?.id??null} preferredJinnOwnerId={draftSelection?.ownerId??null} preferredJinnName={draftJinnName}
     onBack={()=>firstWishId?showMyWishes():reset()} onRequireAuth={()=>setAuthIntent('first')} onDeleted={showMyWishes}
     onSaved={id=>openWish(id,wish)}/></div>}
-   {!authIntent&&stage==='library'&&account&&<MyWishes email={account.email||''} onNewWish={startWishForJinn} onOpenFirstWish={openWish}/>}
+   {!authIntent&&stage==='library'&&account&&<MyWishes email={account.email||''} ownerId={account.id} onNewWish={startWishForJinn} onOpenFirstWish={openWish}/>}
   </main><footer className="footer"><span>{t('Your wishes. Real work.')}</span><span>WISHT / BETA</span></footer>
  </div>;
 }
