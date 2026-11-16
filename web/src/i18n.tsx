@@ -243,6 +243,14 @@ export function useLocale():LocaleContextValue {
   if(!value)throw new Error('LocaleProvider is required for the product UI.');
   return value;
 }
+/** Count-sensitive nouns; Russian has three plural forms. */
+export function wishCountNoun(count:number,locale:Locale):string{
+  if(locale!=='ru') return translate(locale,count===1?'Wish':'Wishes');
+  const tens=count%100,unit=count%10;
+  if(unit===1&&tens!==11)return 'желание';
+  if(unit>=2&&unit<=4&&(tens<12||tens>14))return 'желания';
+  return 'желаний';
+}
 export function formatLocalDate(value:string,locale:Locale):string{
   return new Date(value).toLocaleDateString(intlLocales[locale]);
 }
