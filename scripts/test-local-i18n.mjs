@@ -90,5 +90,44 @@ try{
   assert.equal(await page.locator('html').getAttribute('lang'),scenario.locale);
   await context.close();
  }
+ // Cyrillic input is not a language setting. Ukrainian must not be treated as Russian.
+ for(const test of [
+   {browser:'uk-UA',expected:'en',wish:'Я хочу написати книгу про свою родину',
+    next:'Continue with Jinn',prepare:'Prepare my first deed',title:'A first step'},
+   {browser:'ru-RU',expected:'ru',wish:'Я хочу написать книгу о своей семье',
+    next:'Продолжить с Jinn',prepare:'Подготовить первый шаг',title:'Первый шаг'},
+   {browser:'uk-UA',select:'ru',expected:'ru',wish:'Я хочу написати книгу про свою родину',
+    next:'Продолжить с Jinn',prepare:'Подготовить первый шаг',title:'Первый шаг'},
+ ]){
+   const context=await browser.newContext({locale:test.browser,viewport:{width:1280,height:850}});
+   const page=await context.newPage();
+   const requests=[];
+   await page.route('**/api/first-deed',route=>{
+     const request=route.request().postDataJSON();
+     requests.push(request);
+     if(request.mode==='clarify')return route.fulfill({status:200,json:{question:null}});
+     return route.fulfill({status:200,json:{
+       artifact:{title:test.title,sourceNote:request.answer||'',
+         sections:[{type:'document',title:test.title,body:'Private draft'}],
+         unknowns:['Open question'],
+         nextDeed:{title:test.title,why:'One reason',prompt:'One step'},
+         boundary:'Private draft; no external action'},
+       receipt:{status:'PREPARED',draftSource:'model',operation:'AI generated and checked an editable draft against supplied facts',
+         recordedAt:'2026-11-15T23:00:00Z',scope:'Private draft'},
+     }});
+   });
+   await page.goto(base);
+   if(test.select)await page.locator('#ui-language').selectOption(test.select);
+   assert.equal(await page.locator('#ui-language').inputValue(),test.expected);
+   await page.locator('#wish').fill(test.wish);
+   await page.getByRole('button',{name:test.next}).click();
+   await page.getByRole('button',{name:test.prepare}).click();
+   await page.getByRole('heading',{name:test.title,exact:true}).first().waitFor();
+   assert.equal(await page.locator('.first-wish h1').innerText(),test.wish);
+   assert.ok(requests.some(r=>r.mode==='prepare'));
+   assert.ok(requests.every(r=>r.locale===test.expected),'Cyrillic input must not override chosen UI locale');
+   await context.close();
+ }
+ console.log('PASS: Ukrainian vs Russian input, language selection and unchanged Cyrillic source text');
  console.log('PASS: EN/RU/FR/ES interface, explicit API locale, preserved Wish/Artifact, OTP and persistence, desktop/mobile');
 }finally{await browser.close();}
