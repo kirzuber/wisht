@@ -29,3 +29,51 @@ jobs:
         run: npm run test:db
       - name: Build
         run: npm run build
+
+  # PR #21 only: real ephemeral local Auth/Postgres/browser, fixture AI. Never hosted.
+  local-browser:
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 21
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    env:
+      CHROME_PATH: /usr/bin/google-chrome
+      F03_WEB_URL: http://127.0.0.1:5173/
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Start disposable local Supabase
+        run: npx --yes supabase@3.1.0 start
+      - name: Verify local migration and project guard
+        run: npm run dev -- --check
+      - name: Start local Wisht API and Vite
+        run: |
+          npm run dev > /tmp/wisht-dev.log 2>&1 &
+          echo $! > /tmp/wisht-dev.pid
+          for i in $(seq 1 75); do
+            if curl -fsS http://127.0.0.1:5173/ > /dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/wisht-dev.log
+          exit 1
+      - name: Real local Auth/DB + browser multi-Jinn acceptance
+        run: npm run test:local-jinns
+      - name: Capture local browser screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f03-003-home-browser-evidence
+          path: docs/evidence/f03-003/*.png
+          if-no-files-found: ignore
+      - name: Print local startup diagnostics on failure
+        if: failure()
+        run: |
+          test -f /tmp/wisht-dev.log && tail -n 90 /tmp/wisht-dev.log || true
+      - name: Stop ephemeral local Supabase
+        if: always()
+        run: npx --yes supabase@3.1.0 stop || true
