@@ -212,12 +212,17 @@ export default function FirstWish({wish,savedId,preferredJinnId,onBack,onRequire
       </div>
       {!row&&<div className="first-jinn-assignment">
         <p>{label('Jinn will help you continue this Wish. You can name it later.','Jinn поможет Вам продолжить это желание. Имя можно выбрать позже.')}</p>
-        {jinnChoices.length>1&&<><label htmlFor="first-jinn-choice">{label('Keep this Wish with','Сохранить желание с')}</label>
+        {(jinnChoices.length>1||jinnUnavailable)&&<><label htmlFor="first-jinn-choice">{label('Keep this Wish with','Сохранить желание с')}</label>
           <select id="first-jinn-choice" value={saveJinnId} onChange={event=>{setSaveJinnId(event.target.value);setJinnUnavailable(false);}}>
             <option value="">{label('My default Jinn','Мой Jinn по умолчанию')}</option>
             {jinnChoices.map(jinn=><option key={jinn.id} value={jinn.id}>{jinn.name}</option>)}
           </select></>}
-        {jinnUnavailable&&<p className="error" role="alert">{label('The previously selected Jinn is unavailable for this account. Choose your default Jinn or return to My Jinns.','Выбранный Jinn недоступен в этом аккаунте. Выберите Jinn по умолчанию или вернитесь к списку.')}</p>}
+        {jinnUnavailable&&<div className="first-jinn-recovery" role="alert">
+          <p className="error">{label('The previously selected Jinn is unavailable for this account. Your draft is safe.','Выбранный Jinn недоступен для этого аккаунта. Ваш черновик сохранён в текущей сессии.')}</p>
+          <button type="button" className="first-secondary" onClick={()=>{setSaveJinnId('');setJinnUnavailable(false);}}>
+            {label('Use my default Jinn','Использовать Jinn по умолчанию')}
+          </button>
+        </div>}
       </div>}
       <div className="first-footer-actions">
         <button className="primary" disabled={busy||jinnUnavailable||(!dirty&&!!row)} onClick={()=>void save()}>{busy?label('Working…','Подождите…'):row?(dirty?label('Save corrections','Сохранить исправления'):label('Corrections saved','Исправления сохранены')):label('Keep this wish','Сохранить желание')} {row&&!dirty?<Check size={16}/>:<ArrowRight size={16}/>}</button>
