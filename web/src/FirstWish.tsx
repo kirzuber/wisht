@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, LockKeyhole, RotateCcw, Sparkles, Trash2 } from 'lucide-react';
 import type { Artifact, DeedReceipt, Section } from '../../api/src/firstDeed';
+import { validateExperiencePlan, type ExperiencePlanV1, type PlanAnswers } from '../../api/src/experiencePlan';
 import { getAuthenticatedUser, getSupabase } from './supabaseClient';
 import { listJinns, type JinnIdentity } from './jinnStore';
 import { deleteFirstWish, loadFirstWish, saveFirstWish, updateFirstWish, type FirstWishRow } from './firstWishStore';
 import { correctSource, validateEditedArtifact } from './firstWishModel';
 import { browserDiagnostic, diagnosticCode } from './browserDiagnostics';
 import JinnAvatar from './JinnAvatar';
+import FirstValueExperience from './FirstValueExperience';
 import { formatLocalDateTime, localizeError, useLocale, type Locale } from './i18n';
 
 type Props={wish:string;savedId?:string|null;preferredJinnId?:string|null;preferredJinnOwnerId?:string|null;preferredJinnName?:string|null;onBack:()=>void;onRequireAuth:()=>void;onDeleted:()=>void;onSaved:(id:string)=>void};
@@ -14,7 +16,7 @@ type Phase='clarify'|'answer'|'working'|'workspace'|'start-error';
 const API=import.meta.env.VITE_API_BASE_URL||'';
 const FOLLOW_UP_OPERATION='AI prepared a follow-up draft from the saved, corrected artifact';
 
-async function endpoint(body:{mode:'clarify'|'prepare'|'continue'} & Record<string,unknown>, locale:Locale, token?:string){
+async function endpoint(body:{mode:'plan'|'clarify'|'prepare'|'continue'} & Record<string,unknown>, locale:Locale, token?:string){
   const event = `deed.${body.mode}`;
   browserDiagnostic('info', `${event}.started`);
   let response: Response;
@@ -39,6 +41,11 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
   const {locale,t}=useLocale();
   const [phase,setPhase]=useState<Phase>('working');
   const [question,setQuestion]=useState<string|null>(null);
+  const [plan,setPlan]=useState<ExperiencePlanV1|null>(null);
+  const [questionIndex,setQuestionIndex]=useState(0);
+  const [answers,setAnswers]=useState<PlanAnswers>({});
+  const [selectedChoice,setSelectedChoice]=useState('');
+  const [useOther,setUseOther]=useState(false);
   const [answer,setAnswer]=useState('');
   const [artifact,setArtifact]=useState<Artifact|null>(null);
   const [receipt,setReceipt]=useState<DeedReceipt|null>(null);
@@ -106,24 +113,45 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
   useEffect(()=>{
     let live=true;
     setError('');
+    // Wait for the verified chosen Jinn identity before requesting first-use planning.
+    if(!savedId&&preferredJinnId&&!jinnValidated)return()=>{live=false;};
     setPhase('working');
     if(savedId){
       void loadFirstWish(savedId).then(saved=>{if(!live)return;setRow(saved);setArtifact(saved.first_artifact);sourceBaseline.current=saved.first_artifact.sourceNote;setReceipt(saved.first_deed);setPhase('workspace');})
         .catch(e=>{if(live){setError(localizeError(e,locale,'Could not load wish.'));setPhase('workspace');}});
     }else{
-      void endpoint({mode:'clarify',wish},locale).then(data=>{if(!live)return;setQuestion(data.question);setPhase(data.question?'answer':'clarify');})
+      void endpoint({
+        mode:'plan',wish,jinnName:companionName,
+        jinnPurpose:jinnChoices.find(jinn=>jinn.id===saveJinnId)?.purpose||undefined,
+      },locale).then(data=>{
+        if(!live)return;
+        const validated=validateExperiencePlan(data.plan,locale);
+        setPlan(validated);setQuestionIndex(0);setAnswers({});setSelectedChoice('');setUseOther(false);
+        setQuestion(validated.questions[0]?.prompt||null);
+        setPhase(validated.questions.length?'answer':'clarify');
+      })
         .catch(e=>{if(live){setError(localizeError(e,locale,'Could not begin.'));setPhase('start-error');}});
     }
     return()=>{live=false;};
-  },[savedId,wish,retryAttempt]);
+  },[savedId,wish,retryAttempt,locale,preferredJinnId,jinnValidated]);
 
-  const prepare=async(source:string)=>{
+  const prepare=async(selected:PlanAnswers=answers)=>{
+    if(!plan)return;
     setBusy(true);setError('');setPhase('working');
     try{
-      const result=await endpoint({mode:'prepare',wish,answer:source},locale);
+      const result=await endpoint({mode:'prepare',wish,plan,answers:selected},locale);
       setArtifact(result.artifact);sourceBaseline.current=result.artifact.sourceNote;setReceipt(result.receipt);setPhase('workspace');
-    }catch(e){setError(localizeError(e,locale,'Could not prepare this deed.'));setPhase(question?'answer':'clarify');}
+    }catch(e){setError(localizeError(e,locale,'Could not prepare this deed.'));setPhase(plan.questions.length?'answer':'clarify');}
     finally{setBusy(false);}
+  };
+  const respond=(value:string)=>{
+    const current=plan?.questions[questionIndex];
+    if(!current)return;
+    const next={...answers,[current.id]:value};
+    setAnswers(next);setSelectedChoice('');setUseOther(false);
+    if(questionIndex+1<(plan?.questions.length||0)){
+      setQuestionIndex(index=>index+1);setQuestion(plan?.questions[questionIndex+1]?.prompt||null);
+    }else void prepare(next);
   };
   const save=async()=>{
     if(!artifact||!receipt)return;
@@ -189,14 +217,39 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
         <RotateCcw size={16}/> {label('Retry starting wish','Попробовать снова')}
       </button>
     </div>}
-    {phase==='clarify'&&!artifact&&<div className="first-panel"><p className="first-panel-kicker">{t('{name}’s starting point',{name:companionName})}</p><p>{question||label('We can start with what you shared. I’ll prepare one useful first step.','Можно начать с того, что вы рассказали. Подготовлю один полезный первый шаг.')}</p>
-      <button className="primary" disabled={busy} onClick={()=>void prepare('')}>{label('Prepare my first deed','Подготовить первый шаг')} <ArrowRight size={16}/></button>
-      {error&&<p className="error" role="alert">{error}</p>}</div>}
-    {phase==='answer'&&<div className="first-panel"><p className="first-panel-kicker">{t('A question from {name}',{name:companionName})}</p>
-      <label htmlFor="first-answer">{question}</label>
-      <textarea id="first-answer" rows={3} maxLength={500} value={answer} onChange={e=>setAnswer(e.target.value)} placeholder={label('A few words are enough','Достаточно нескольких слов')}/>
-      <div className="first-actions"><button className="primary" disabled={busy} onClick={()=>void prepare(answer.trim())}>{label('Prepare my first deed','Подготовить первый шаг')} <ArrowRight size={16}/></button>
-      <button type="button" className="first-secondary" disabled={busy} onClick={()=>void prepare('')}>{label('I’m not sure','Не знаю')}</button></div>
+    {phase==='clarify'&&!artifact&&plan&&<div className="first-panel first-value-entry">
+      <p className="first-panel-kicker">{t('{name}’s starting point',{name:companionName})}</p>
+      <h2>{plan.deed.title}</h2><p>{plan.firstOutcome}</p>
+      <small>{t('Private preparation only. No external action was performed.')}</small>
+      <div className="first-actions"><button type="button" className="primary" disabled={busy}
+        onClick={()=>void prepare({})}>{t('Prepare my first deed')} <ArrowRight size={16}/></button></div>
+      {error&&<p className="error" role="alert">{error}</p>}
+    </div>}
+    {phase==='answer'&&plan&&plan.questions[questionIndex]&&<div className="first-panel first-value-entry">
+      <p className="first-panel-kicker">{t('A question from {name}',{name:companionName})}
+        <span className="first-value-question-count"> {questionIndex+1}/{plan.questions.length}</span></p>
+      <h2>{plan.deed.title}</h2><p className="first-value-outcome">{plan.firstOutcome}</p>
+      <fieldset className="first-value-choices">
+        <legend>{plan.questions[questionIndex].prompt}</legend>
+        <small>{plan.questions[questionIndex].why}</small>
+        <div className="first-value-choice-list">{plan.questions[questionIndex].choices.map(choice=>
+          <button type="button" key={choice} aria-pressed={!useOther&&selectedChoice===choice}
+            className={!useOther&&selectedChoice===choice?'first-value-choice is-selected':'first-value-choice'}
+            onClick={()=>{setSelectedChoice(choice);setUseOther(false);}}>{choice}</button>)}
+          <button type="button" className={useOther?'first-value-choice is-selected':'first-value-choice'}
+            aria-pressed={useOther} onClick={()=>{setUseOther(true);setSelectedChoice('');}}>{t('Other')}</button>
+        </div>
+        {useOther&&<label className="first-value-other" htmlFor="first-other">{t('Your own answer')}
+          <input id="first-other" autoFocus maxLength={160} value={selectedChoice}
+            onChange={event=>setSelectedChoice(event.target.value)} placeholder={t('A few words are enough')}/></label>}
+      </fieldset>
+      <div className="first-actions">
+        <button type="button" className="primary" disabled={busy||!selectedChoice.trim()}
+          onClick={()=>respond(selectedChoice.trim())}>{questionIndex+1===plan.questions.length?t('Prepare my first deed'):t('Continue')}
+          <ArrowRight size={16}/></button>
+        <button type="button" className="first-secondary" disabled={busy} onClick={()=>respond('__unsure__')}>{t('I’m not sure')}</button>
+        <button type="button" className="first-secondary" disabled={busy} onClick={()=>respond('__skip__')}>{t('Skip')}</button>
+      </div>
       {error&&<p className="error" role="alert">{error}</p>}
     </div>}
     {phase==='working'&&<div className="first-panel" role="status"><p className="first-panel-kicker"><Sparkles size={16}/> {t('{name} is with you',{name:companionName})}</p>{savedId?label('Welcome back. Opening your saved work…','С возвращением. Открываю сохранённую работу…'):busy?label('Preparing your first Deed…','Готовлю ваш первый шаг…'):label('Finding one good place to start…','Ищу хороший первый шаг…')}</div>}
@@ -204,6 +257,9 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
       <div className="workspace-intro"><div><p className="eyebrow">{row?label('WELCOME BACK','С ВОЗВРАЩЕНИЕМ'):label('YOUR FIRST DEED','ВАШ ПЕРВЫЙ ШАГ')}</p><h2>{row?label('Continue your wish.','Продолжим ваше желание.'):label('Your first Deed.','Ваш первый шаг.')}</h2></div><JinnAvatar size="medium"/></div>
       <div className="first-state"><span className="first-pill">{row?label('SAVED WISH','ЖЕЛАНИЕ СОХРАНЕНО'):label('UNSAVED DRAFT','ЧЕРНОВИК НЕ СОХРАНЁН')}</span><span className="first-pill first-prepared">{label('DEED PREPARED','ПЕРВЫЙ ШАГ ПОДГОТОВЛЕН')}</span></div>
       <p className="first-intro">{row?label('Welcome back. Your saved Wish and latest corrections are ready for the next Deed.','С возвращением. Jinn видит это желание и ваши последние исправления.'):label('Your first Deed is ready to inspect and edit.','Первый шаг готов: его можно просмотреть и исправить.')}</p>
+      {artifact.experience?<FirstValueExperience artifact={artifact} receipt={receipt} saved={!!row}
+        wish={currentWish} companionName={companionName} dirty={dirty} busy={busy}
+        onChange={edit} onContinue={row?()=>void continueWish():undefined}/>:
       <div className="first-layout">
         <article className="first-canvas" id="wish-artifacts"><header><p className="eyebrow">{label('DRAFT · EDITABLE','ЧЕРНОВИК · МОЖНО ИЗМЕНИТЬ')}</p><h2>{artifact.title}</h2></header>
           <div className="first-source"><label htmlFor="first-source-note">{label('From you · source note','Ваши слова · исходная заметка')}</label>
@@ -239,7 +295,7 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
           </details>}
           <div className="first-privacy"><LockKeyhole size={17}/><p>{row?label('Saved privately under your account.','Сохранено только в вашем аккаунте.'):label('This draft is only in this open session until you keep it.','Черновик останется только в этой сессии, пока вы его не сохраните.')} {label('No cross-wish memory or external action.','Нет общей памяти между желаниями и внешних действий.')}</p></div>
         </aside>
-      </div>
+      </div>}
       {!row&&<div className="first-jinn-assignment">
         <p>{label('Jinn will help you continue this Wish. You can name it later.','Jinn поможет Вам продолжить это желание. Имя можно выбрать позже.')}</p>
         {(jinnChoices.length>1||jinnUnavailable)&&<><label htmlFor="first-jinn-choice">{label('Keep this Wish with','Сохранить желание с')}</label>
@@ -256,7 +312,7 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
       </div>}
       <div className="first-footer-actions">
         <button className="primary" disabled={busy||jinnUnavailable||!jinnValidated||(!dirty&&!!row)} onClick={()=>void save()}>{busy?label('Working…','Подождите…'):row?(dirty?label('Save corrections','Сохранить исправления'):label('Corrections saved','Исправления сохранены')):label('Keep this wish','Сохранить желание')} {row&&!dirty?<Check size={16}/>:<ArrowRight size={16}/>}</button>
-        {row&&<button className="first-secondary" disabled={busy||dirty} onClick={()=>void continueWish()}><RotateCcw size={16}/> {label('Prepare next Deed','Подготовить следующий шаг')}</button>}
+        {row&&!artifact.experience&&<button className="first-secondary" disabled={busy||dirty} onClick={()=>void continueWish()}><RotateCcw size={16}/> {label('Prepare next Deed','Подготовить следующий шаг')}</button>}
       </div>
       {dirty&&row&&<p className="first-hint">{label('Save your corrections before preparing the next Deed.','Сохраните исправления перед следующим шагом.')}</p>}
       {row&&<button className="first-delete" disabled={busy} onClick={()=>void remove()}><Trash2 size={15}/> {label('Delete wish and artifact','Удалить желание и документ')}</button>}
