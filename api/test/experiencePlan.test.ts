@@ -73,11 +73,12 @@ describe('F03-004 bounded Experience Plan v1',()=>{
    assert.equal(clipped,'A useful and complete thought.');
    const noSentence=conciseModelCopy('The generated content includes a long additional statement explaining the full intended work',65);
    assert.equal(typeof noSentence,'string');
-   assert.ok((noSentence as string).endsWith('…'));
-   assert.ok(noSentence==='The generated content includes a long additional statement…' ||
-     /[\\s…]$/.test(noSentence as string));
+   assert.ok((noSentence as string).endsWith('.'));
+   assert.ok(!(noSentence as string).includes('…'));
+   assert.ok((noSentence as string).length<=65);
    const russian=conciseModelCopy('Подготовленная полезная концепция включает следующие практические направления и варианты',65);
    assert.equal(typeof russian,'string');
+   assert.ok((russian as string).endsWith('.'));
    assert.ok(!(russian as string).endsWith('направ…'));
    assert.ok((russian as string).length<=65);
  });
@@ -94,6 +95,9 @@ describe('F03-004 bounded Experience Plan v1',()=>{
    assert.equal(proposed.questions[0].id,'priority');
    assert.ok(EXPERIENCE_PLANNER_PROMPT.includes('Before proposing the First Deed'));
    assert.ok(EXPERIENCE_PLANNER_PROMPT.includes('Ask ZERO questions'));
+   assert.match(EXPERIENCE_PLANNER_PROMPT,/fixed output budget/);
+   assert.match(EXPERIENCE_PLANNER_PROMPT,/not choose a fill-in form/);
+   assert.match(EXPERIENCE_PLANNER_PROMPT,/Do not promise large multi-part packages/);
  });
  it('evaluates delivered work against the binding plan promise in the existing grounding review',async()=>{
    const plan=valid({firstOutcome:'A complete fully authored introductory paragraph for immediate use'});
@@ -111,6 +115,8 @@ describe('F03-004 bounded Experience Plan v1',()=>{
    assert.deepEqual(result,{safe:false,reason:'promise_unfulfilled'});
    assert.match(system,/compare artifact.experience.firstOutcome/);
    assert.match(system,/actual substantive text/);
+   assert.match(system,/planner claiming that a fill-in kit/);
+   assert.match(system,/promise_unfulfilled/);
    const incomplete=await reviewGrounding('I want an introduction','',artifact,async()=>({safe:true}));
    assert.deepEqual(incomplete,{safe:false,reason:'promise_unfulfilled'});
    const attested=await reviewGrounding('I want an introduction','',artifact,async()=>({safe:true,promiseFulfilled:true}));
