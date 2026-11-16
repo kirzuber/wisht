@@ -8,6 +8,9 @@ const base=process.env.F03_WEB_URL||'http://127.0.0.1:5173/';
 const bundle=await (await fetch(new URL('/src/supabaseClient.ts',base))).text();
 if(!bundle.includes('http://127.0.0.1:54321'))
   throw new Error('Refusing First-Value browser run outside local Supabase.');
+const localHealth=await (await fetch('http://127.0.0.1:3001/api/health')).json();
+assert.equal(localHealth.localFirstValueSigningReady,true,
+  'The local API must receive a server-only signing key before using paid AI generation.');
 const chrome=process.env.CHROME_PATH||[
  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
  '/usr/bin/google-chrome','/usr/bin/chromium',
