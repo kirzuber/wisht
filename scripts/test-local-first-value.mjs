@@ -106,6 +106,36 @@ try{
  assert.match(await page.locator('.first-value-prose').innerText(),/This correction is authored by the user/);
  await page.screenshot({path:out+'/saved-return-desktop.png',fullPage:true});
 
+ // Mixed-version release: the old client fallback must still create and
+ // reopen an editable Wish after the new verified-save migration is installed.
+ const legacyId=await page.evaluate(async()=>{
+   const store=await import('/src/firstWishStore.ts');
+   return store.saveFirstWish('Legacy first-use fallback after expansion',{
+      title:'Previously prepared legacy document',
+      sourceNote:'Historical input from the user',
+      sections:[{type:'document',title:'Legacy draft',body:'An existing client must remain able to keep a useful draft.'}],
+      unknowns:['One unconfirmed detail'],
+      nextDeed:{title:'Correct existing text',why:'Preserve the useful work',prompt:'Edit a sentence'},
+      boundary:'Local private draft; nothing sent',
+   },{
+      status:'PREPARED',draftSource:'model',operation:'Legacy client prepared a private draft',
+      recordedAt:'2026-11-16T03:00:00Z',scope:'Private draft only; no external action',
+   });
+ });
+ assert.match(legacyId,/^[a-f0-9-]{36}$/i);
+ const oldWishUrl=new URL(savedUrl);
+ oldWishUrl.searchParams.set('wish',legacyId);
+ await page.goto(oldWishUrl.href);
+ await page.locator('.first-canvas h2').getByText('Previously prepared legacy document').waitFor();
+ await page.locator('#section-0').fill('Historical content corrected after the staged migration.');
+ await page.getByRole('button',{name:'Save corrections'}).click();
+ await page.getByRole('button',{name:'Corrections saved'}).waitFor();
+ await page.reload();
+ await page.locator('#section-0').waitFor();
+ assert.match(await page.locator('#section-0').inputValue(),/corrected after the staged migration/);
+ await page.goto(savedUrl);
+ await page.locator('.first-value-reader').waitFor();
+
  // Return with another session and account - owner-only RLS remains authoritative.
  await page.getByRole('button',{name:'Sign out'}).click();
  await page.goto(savedUrl);
@@ -124,7 +154,7 @@ try{
  await page.goto(savedUrl);
  await page.getByText(/saved wish is unavailable|Could not load wish/i).first().waitFor();
  assert.equal(await page.locator('.first-value-reader').count(),0);
- console.log('PASS: real local Auth/DB First Value plan -> Other -> substantive artifact -> signed save -> reload/edit/return -> owner isolation');
+ console.log('PASS: verified first save, legacy fallback save/reopen/correction, signed edit/reload, reauth and account isolation');
 }catch(error){
  console.error(error);
  console.error((await page.locator('body').innerText()).slice(0,2800));
