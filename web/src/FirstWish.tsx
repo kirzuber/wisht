@@ -4,7 +4,7 @@ import type { Artifact, DeedReceipt, Section } from '../../api/src/firstDeed';
 import { validateExperiencePlan, type ExperiencePlanV1, type PlanAnswers } from '../../api/src/experiencePlan';
 import { getAuthenticatedUser, getSupabase } from './supabaseClient';
 import { listJinns, type JinnIdentity } from './jinnStore';
-import { deleteFirstWish, loadFirstWish, saveFirstWish, updateFirstWish, type FirstWishRow } from './firstWishStore';
+import { deleteFirstWish, loadFirstWish, saveFirstWish, savePreparedFirstValue, updateFirstWish, type FirstWishRow } from './firstWishStore';
 import { correctSource, validateEditedArtifact } from './firstWishModel';
 import { browserDiagnostic, diagnosticCode } from './browserDiagnostics';
 import JinnAvatar from './JinnAvatar';
@@ -47,6 +47,8 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
   const [useOther,setUseOther]=useState(false);
   const [artifact,setArtifact]=useState<Artifact|null>(null);
   const [receipt,setReceipt]=useState<DeedReceipt|null>(null);
+  const [issuedArtifact,setIssuedArtifact]=useState<Artifact|null>(null);
+  const [preparationProof,setPreparationProof]=useState('');
   const [row,setRow]=useState<FirstWishRow|null>(null);
   const [jinnChoices,setJinnChoices]=useState<JinnIdentity[]>([]);
   const [saveJinnId,setSaveJinnId]=useState<string>(preferredJinnId||'');
@@ -137,7 +139,9 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
     setBusy(true);setError('');setPhase('working');
     try{
       const result=await endpoint({mode:'prepare',wish,plan,answers:selected},locale);
-      setArtifact(result.artifact);sourceBaseline.current=result.artifact.sourceNote;setReceipt(result.receipt);setPhase('workspace');
+      setArtifact(result.artifact);setIssuedArtifact(result.artifact);
+      setPreparationProof(typeof result.proof==='string'?result.proof:'');
+      sourceBaseline.current=result.artifact.sourceNote;setReceipt(result.receipt);setPhase('workspace');
     }catch(e){setError(localizeError(e,locale,'Could not prepare this deed.'));setPhase(plan.questions.length?'answer':'clarify');}
     finally{setBusy(false);}
   };
@@ -168,7 +172,12 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
             throw new Error('Your selected Jinn is unavailable. Choose a Jinn from this account before saving.');
           }
         }
-        onSaved(await saveFirstWish(wish,artifact,receipt,saveJinnId||undefined));
+        if(artifact.experience){
+          if(!issuedArtifact||!preparationProof)
+            throw new Error('Verified preparation is missing. Retry preparing this Deed.');
+          onSaved(await savePreparedFirstValue(wish,artifact,issuedArtifact,receipt,
+            preparationProof,saveJinnId||undefined));
+        }else onSaved(await saveFirstWish(wish,artifact,receipt,saveJinnId||undefined));
         return;
       }
       const saved=await updateFirstWish(row,artifact);
