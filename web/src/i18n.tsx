@@ -211,6 +211,7 @@ const translations: Record<string,readonly [string,string,string]> = {
   'Your own answer':['Ваш ответ','Votre réponse','Tu respuesta'],
   'Skip':['Пропустить','Passer','Saltar'],
   'Continue':['Продолжить','Continuer','Continuar'],
+  'Suggested next step — not performed yet.':['Предложенный следующий шаг — пока не выполнен.','Prochaine étape suggérée — pas encore effectuée.','Siguiente paso sugerido; aún no se ha realizado.'],
   'Preparing something useful for your Wish…':['Готовим полезный результат для вашего желания…','Préparation d’un résultat utile pour votre souhait…','Preparando algo útil para tu deseo…'],
   'The Experience Plan was invalid. Try again.':['План не удалось проверить. Повторите попытку.','Le plan n’a pas pu être validé. Réessayez.','No se ha podido validar el plan. Inténtalo de nuevo.'],
   // Recoverable errors: do not show untranslated provider internals to the user
