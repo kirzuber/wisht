@@ -2,9 +2,9 @@ import { describe,it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
  FIRST_VALUE_COMPONENTS,FIRST_VALUE_CAPABILITIES,EXPERIENCE_PLANNER_PROMPT,
- validateExperiencePlan,validatePlanAnswers,summarizePlanFacts,type ExperiencePlanV1,
+ validateExperiencePlan,normalizeModelExperiencePlan,validatePlanAnswers,summarizePlanFacts,type ExperiencePlanV1,
 } from '../src/experiencePlan.ts';
-import {planFirstValue,prepareDeed,signPreparedFirstValue,verifyPreparedFirstValue,validateArtifact} from '../src/firstDeed.ts';
+import {callFirstDeedModel,planFirstValue,prepareDeed,signPreparedFirstValue,verifyPreparedFirstValue,validateArtifact} from '../src/firstDeed.ts';
 
 const base={
  version:1,locale:'en',intent:'Find a useful first result',
@@ -43,6 +43,43 @@ describe('F03-004 bounded Experience Plan v1',()=>{
   const plan=validateExperiencePlan({...base,rogue:'<script>alert(1)</script>'},'en');
   assert.ok(!('rogue' in plan));
   assert.throws(()=>validateExperiencePlan(plan,'ru'),/invalid/);
+ });
+ it('normalizes typical model formatting without allowing unknown UI components',()=>{
+  const response={...base,locale:'ru-RU',version:'1',
+    intent:'Подготовить первый полезный результат',
+    firstOutcome:'Результат, который можно прочитать и изменить',
+    deed:{title:'Подготовить результат',result:'Личный текст'},
+    questions:[{id:'вопрос 1',prompt:'Что для Вас важнее?',why:'Это влияет на первый результат',
+      choices:['Простой план','Творческое начало']}],
+    components:['artifact_reader','source_status','choice_chips','work_receipt',
+      'deed_proposal','next_deed','artifact_reader']};
+  assert.throws(()=>validateExperiencePlan(response,'ru'));
+  const normalized=normalizeModelExperiencePlan(response,'ru');
+  assert.equal(normalized.locale,'ru');
+  assert.equal(normalized.deed.scope,'PRIVATE_DRAFT');
+  assert.equal(normalized.questions[0].id,'q1');
+  assert.equal(normalized.components[0],'jinn_identity');
+  assert.ok(normalized.components.indexOf('deed_proposal')<normalized.components.indexOf('artifact_reader'));
+  assert.deepEqual(normalized.components.filter(x=>x==='artifact_reader'),['artifact_reader']);
+  assert.throws(()=>normalizeModelExperiencePlan({...response,
+    components:['jinn_identity','execute_js','artifact_reader']},'ru'),/unregistered/);
+  assert.throws(()=>normalizeModelExperiencePlan({...response,
+    deed:{...response.deed,scope:'SEND_EMAIL'}},'ru'),/scope/);
+  assert.throws(()=>normalizeModelExperiencePlan({...response,locale:'en'},'ru'),/locale/);
+ });
+ it('retries one truncated real-provider JSON response without weakening the schema',async()=>{
+  let calls=0;
+  const output=await planFirstValue('A normal unseen Wish','en','Jinn','',
+    (messages,maxTokens)=>callFirstDeedModel(messages,maxTokens,
+      {OPENAI_API_KEY:'dummy-test-key',LLM_PROVIDER:'openai'} as NodeJS.ProcessEnv,
+      async()=>{
+        calls++;
+        return new Response(JSON.stringify({choices:[{finish_reason:calls===1?'length':'stop',
+          message:{content:calls===1?'{"version":1,"locale":"en"':JSON.stringify(base)}}]}),
+          {status:200,headers:{'Content-Type':'application/json'}});
+      },1000));
+  assert.equal(calls,2);
+  assert.equal(output.version,1);
  });
  it('offers at most three optional, consequential questions and safely validates answers',()=>{
   const plan=valid({questions:[choice],components:['jinn_identity','choice_chips',...base.components.slice(1)]});
