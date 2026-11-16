@@ -8,15 +8,17 @@ import {
 } from './jinnStore';
 import './myWishes.css';
 import { formatLocalDate, localizeError, useLocale, wishCountNoun } from './i18n';
+import { lastChosenJinn, rememberChosenJinn } from './adaptiveHome';
 
 type Props = {
   email: string;
+  ownerId: string;
   onNewWish: (jinnId?: string) => void;
   onOpenFirstWish: (id: string, aspiration: string) => void;
 };
 type EditorMode = 'create' | 'rename' | null;
 
-export default function MyWishes({ email, onNewWish, onOpenFirstWish }: Props) {
+export default function MyWishes({ email, ownerId, onNewWish, onOpenFirstWish }: Props) {
   const {locale,t}=useLocale();
   const [jinns, setJinns] = useState<JinnIdentity[] | null>(null);
   const [wishes, setWishes] = useState<WishSummary[] | null>(null);
@@ -29,6 +31,12 @@ export default function MyWishes({ email, onNewWish, onOpenFirstWish }: Props) {
   const [purpose, setPurpose] = useState('');
   const [moveTarget, setMoveTarget] = useState<Record<string, string>>({});
   const [deleting, setDeleting] = useState<string | null>(null);
+  // Home and My Jinns share one explicit per-account selection. The default
+  // is only a visual fallback; never overwrite a stale stored choice silently.
+  const selectJinn = (id: string) => {
+    setSelectedId(id);
+    rememberChosenJinn(ownerId, id);
+  };
 
   const refresh = async () => {
     setLoading(true);
@@ -38,8 +46,12 @@ export default function MyWishes({ email, onNewWish, onOpenFirstWish }: Props) {
       const [companions, saved] = await Promise.all([listJinns(), listFirstWishes()]);
       setJinns(companions);
       setWishes(saved);
-      setSelectedId(previous => companions.some(jinn => jinn.id === previous)
-        ? previous : (companions.find(jinn => jinn.is_primary)?.id ?? companions[0]?.id ?? null));
+      setSelectedId(previous => {
+        if (companions.some(jinn => jinn.id === previous)) return previous;
+        const remembered = lastChosenJinn(ownerId);
+        return companions.find(jinn => jinn.id === remembered)?.id
+          ?? companions.find(jinn => jinn.is_primary)?.id ?? companions[0]?.id ?? null;
+      });
     } catch (cause) {
       setJinns(null);
       setWishes(null);
@@ -69,7 +81,7 @@ export default function MyWishes({ email, onNewWish, onOpenFirstWish }: Props) {
       if (!updated) throw new Error('Choose a Jinn to edit.');
       setEditor(null);
       await refresh();
-      setSelectedId(updated.id);
+      selectJinn(updated.id);
     } catch (cause) { setError(localizeError(cause,locale,'Could not save Jinn.')); }
     finally { setBusy(false); }
   };
@@ -89,7 +101,7 @@ export default function MyWishes({ email, onNewWish, onOpenFirstWish }: Props) {
       await moveWishToJinn(wishId, target, selected.id);
       setMoveTarget(previous => ({ ...previous, [wishId]: '' }));
       await refresh();
-      setSelectedId(target);
+      selectJinn(target);
     } catch (cause) { setError(localizeError(cause,locale,'Could not move Wish.')); }
     finally { setBusy(false); }
   };
@@ -116,7 +128,7 @@ export default function MyWishes({ email, onNewWish, onOpenFirstWish }: Props) {
       <div className="my-work-section-header"><h3>{t('My Jinns')}</h3><button className="jinn-action" type="button" onClick={() => startEditor('create')} disabled={busy}><Plus size={16}/> {t('Create Jinn')}</button></div>
       <div className="jinn-collection" aria-label={t('Choose a Jinn')}>
         {jinns.map(jinn => <button key={jinn.id} type="button" className={`jinn-choice ${selectedId === jinn.id ? 'is-selected' : ''}`}
-          aria-pressed={selectedId === jinn.id} disabled={busy} onClick={() => { setSelectedId(jinn.id); setEditor(null); setMoveTarget({}); }}>
+          aria-pressed={selectedId === jinn.id} disabled={busy} onClick={() => { selectJinn(jinn.id); setEditor(null); setMoveTarget({}); }}>
           <JinnAvatar size="small"/>
           <span className="jinn-choice-content"><strong>{jinn.name}</strong><small>{jinn.is_primary ? t('Default Jinn ·')+' ' : ''}{counts(jinn.id)} {wishCountNoun(counts(jinn.id),locale)}</small>
             {jinn.purpose && <small className="jinn-purpose">{jinn.purpose}</small>}</span>
