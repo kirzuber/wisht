@@ -35,6 +35,34 @@ const componentSet=new Set<string>(FIRST_VALUE_COMPONENTS);
 const allowedLocale = new Set(['en','ru','fr','es']);
 const allowedScope='PRIVATE_DRAFT';
 
+/**
+ * Bound free-form model copy without producing broken user-visible words.
+ * The planner is instructed to stay under the limits; this is a safe fallback
+ * only. Strict client/saved-plan validation is intentionally unchanged.
+ */
+export function conciseModelCopy(candidate:unknown,max:number):unknown {
+  if(typeof candidate!=='string')return candidate;
+  const text=candidate.trim();
+  if(text.length<=max)return text;
+  const window=text.slice(0,max);
+  const sentenceStops=[...window.matchAll(/[.!?。！？](?=\\s|$)/gu)]
+    .map(m=>(m.index??0)+m[0].length).filter(index=>index>=Math.floor(max*0.50));
+  if(sentenceStops.length)return window.slice(0,sentenceStops[sentenceStops.length-1]).trim();
+  const prefix=text.slice(0,max-1);
+  const lastBreak=Math.max(prefix.lastIndexOf(' '),prefix.lastIndexOf('\\n'),
+    prefix.lastIndexOf('\\t'));
+  const safe=(lastBreak>=Math.floor(max*0.45)?prefix.slice(0,lastBreak):prefix)
+    .trim().replace(/[,;:–—-]+$/u,'').trim();
+  return (safe||prefix.trim())+'…';
+}
+
+/** Model planning can choose one consequential question for the initial result;
+ * older saved V1 plans with more questions remain valid and reopen safely. */
+export function focusFirstValueQuestions(plan:ExperiencePlanV1):ExperiencePlanV1 {
+  if(plan.questions.length<=1)return plan;
+  return validateExperiencePlan({...plan,questions:plan.questions.slice(0,1)},plan.locale);
+}
+
 /** Reject unknown components/actions and strip unexpected fields. Never execute plan payload. */
 export function validateExperiencePlan(value:unknown, expectedLocale?:Locale):ExperiencePlanV1{
   if(!record(value)||value.version!==1||!allowedLocale.has(String(value.locale))||
@@ -90,11 +118,12 @@ export function normalizeModelExperiencePlan(value:unknown,expectedLocale:Locale
   if(!Array.isArray(value.components)||
     value.components.some(component=>typeof component!=='string'||!componentSet.has(component)))
     throw new Error('Model attempted to use an unregistered component.');
-  const short=(candidate:unknown,max:number)=>
-    typeof candidate==='string'?candidate.trim().slice(0,max):candidate;
+  // Do not cut model-generated user-facing copy in the middle of a word.
+  // Prefer a complete sentence; otherwise end at a word boundary with an ellipsis.
+  const short=(candidate:unknown,max:number)=> conciseModelCopy(candidate,max);
   const rawQuestions=Array.isArray(value.questions)?value.questions:[];
   const questions:PlanQuestion[]=[];
-  for(const raw of rawQuestions.slice(0,3)){
+  for(const raw of rawQuestions.slice(0,1)){
     if(!record(raw)||!bounded(raw.prompt,250)||!bounded(raw.why,250)||
        !Array.isArray(raw.choices))continue;
     const choices=[...new Set(raw.choices.filter(x=>typeof x==='string')
@@ -149,7 +178,7 @@ export function summarizePlanFacts(plan:ExperiencePlanV1,answers:PlanAnswers):st
 }
 
 /** A model chooses the composition but does not gain new actions or storage permissions. */
-export const EXPERIENCE_PLANNER_PROMPT = `You are the private First-Value planner for Jinn, an assistant that helps with ANY human Wish. Do not use topic taxonomies or template paths. Reason from the person's literal Wish and selected private Jinn description. Understand the underlying intent; privately compare multiple feasible first outcomes and choose ONE that saves real effort or creates an immediately usable decision/creative object. No browsing, sending, scheduling, publishing, identity verification, physical action, or outside research is available. Only permitted operations: private AI composition, in-app edits, authenticated save after confirmation. Never invent facts about a real person, their access, history or permissions. Fictional creative content is permitted when clearly presented as fiction, not as user biography. The first output must be a meaningful result, never just homework or generic advice. Ask 0–3 OPTIONAL, consequential questions, strongly favor 0–1; if a useful provisional artifact can be made without any answer, do not delay. For each question, give 2–4 short useful choice labels and a one-line justification about how it changes the artifact. The app independently adds Other, Not sure and Skip; never include those in choices. Pick and ORDER components only from this allowlist:
+export const EXPERIENCE_PLANNER_PROMPT = `You are the private First-Value planner for Jinn, an assistant that helps with ANY human Wish. Do not use topic taxonomies or template paths. Reason from the person's literal Wish and selected private Jinn description. Understand the underlying intent; privately compare multiple feasible first outcomes and choose ONE that saves real effort or creates an immediately usable decision/creative object. No browsing, sending, scheduling, publishing, identity verification, physical action, or outside research is available. Only permitted operations: private AI composition, in-app edits, authenticated save after confirmation. Never invent facts about a real person, their access, history or permissions. Fictional creative content is permitted when clearly presented as fiction, not as user biography. Before proposing the First Deed, silently test feasibility: can you actually produce the promised core material using ONLY the Wish, supplied facts and private drafting tools? If personal experience, source material or third-party access is absent, NEVER promise a tailored or complete personal deliverable. Select a smaller but fully authored, immediately useful alternative (decision framework, comparison, suggested language, illustrated creative work or other goal-relevant object) that you can really finish NOW, with unknown facts clearly marked. A proposed outcome is a binding delivery promise, not an aspirational future task. Do not announce content that will merely be described, outlined, handed back as blank slots or assigned as homework. The first output must be meaningful work, never just instructions, placeholders or generic advice. Make the title, firstOutcome and deed.result concise complete sentences or phrases within their schema limits; never end mid-word. Ask ZERO questions if the model can already create a useful first result. Otherwise ask at most ONE optional, consequential question that changes the immediate result, not just its tone or format. Rank questions by impact; put the most useful first. If the user skips it, still complete the First Deed. For the one optional question (if truly necessary), give 2–4 short choices and a specific one-line explanation of how knowing its answer materially changes the first produced artifact. The app independently adds Other, Not sure and Skip; never include those in choices. Pick and ORDER components only from this allowlist:
 jinn_identity, choice_chips, deed_proposal, artifact_reader, source_status, supporting_section, work_receipt, next_deed.
 Must begin jinn_identity; include deed_proposal before exactly one artifact_reader, source_status, work_receipt, next_deed; include choice_chips iff questions exist. supporting_section is optional. A plan never executes code or external tools. Make PRIVATE_DRAFT the only deed scope. Return only JSON:
 {"version":1,"locale":"en","intent":"interpreted goal","firstOutcome":"precise tangible result to produce","deed":{"title":"specific action","scope":"PRIVATE_DRAFT","result":"what will actually be created, never sent or verified"},"questions":[{"id":"q1","prompt":"short question","why":"how its answer matters","choices":["option","option"]}],"components":["jinn_identity","choice_chips","deed_proposal","artifact_reader","source_status","work_receipt","next_deed"]}.
