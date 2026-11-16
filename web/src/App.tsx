@@ -12,6 +12,7 @@ import {
 import type { User } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
 import { ArrowRight, LockKeyhole, RotateCcw } from 'lucide-react';
+import { localeLabels, supportedLocales, useLocale } from './i18n';
 
 type Stage='wish'|'first'|'library';
 type HomeAccount = {
@@ -24,7 +25,13 @@ type HomeAccount = {
 const examples=['I want to make a family story book','I want to start a garden','I want to learn a new skill'];
 
 export default function App(){
- if(window.location.pathname.startsWith('/p/'))return <div className="app jinn-experience"><header className="topbar"><a className="brand" href="/"><span className="brand-mark"><JinnAvatar size="tiny"/></span><span>Jinn<span className="brand-dot">.</span></span></a></header><main className="main"><section className="content entrance"><JinnAvatar size="medium"/><h2>This shared page has been retired.</h2><p className="lead">Jinn now works with private Wishes and editable Deeds.</p><a className="primary" href="/">Start a wish <ArrowRight size={16}/></a></section></main></div>;
+ const {locale,setLocale,t}=useLocale();
+ const languageSelector=<div className="language-picker"><label htmlFor="ui-language">{t('Language')}</label>
+   <select id="ui-language" aria-label={t('Language')} value={locale}
+     onChange={event=>setLocale(event.target.value as typeof locale)}>
+     {supportedLocales.map(option=><option key={option} value={option}>{localeLabels[option]}</option>)}
+   </select></div>;
+ if(window.location.pathname.startsWith('/p/'))return <div className="app jinn-experience"><header className="topbar"><a className="brand" href="/"><span className="brand-mark"><JinnAvatar size="tiny"/></span><span>Jinn<span className="brand-dot">.</span></span></a>{languageSelector}</header><main className="main"><section className="content entrance"><JinnAvatar size="medium"/><h2>{t('This shared page has been retired.')}</h2><p className="lead">{t('Jinn now works with private Wishes and editable Deeds.')}</p><a className="primary" href="/">{t('Start a wish')} <ArrowRight size={16}/></a></section></main></div>;
  const initialId=new URLSearchParams(window.location.search).get('wish');
  const [stage,setStage]=useState<Stage>(initialId?'first':'wish');
  const [wish,setWish]=useState('');
@@ -127,52 +134,52 @@ export default function App(){
   setFirstWishId(null);setStage('first');
  };
  return <div className="app jinn-experience">
-  <header className="topbar"><button className="brand" onClick={()=>reset()} aria-label="Jinn home"><span className="brand-mark"><JinnAvatar size="tiny"/></span><span>Jinn<span className="brand-dot">.</span></span></button>
-   <div className="top-right">{sessionReady&&(account?<><button type="button" className="account-link" onClick={showMyWishes}>My Jinns</button><button type="button" className="account-link account-quiet" onClick={()=>void signOut()}>Sign out</button></>:<button type="button" className="account-link" onClick={()=>setAuthIntent('account')}>Sign in</button>)}</div></header>
+  <header className="topbar"><button className="brand" onClick={()=>reset()} aria-label={t("Jinn home")}><span className="brand-mark"><JinnAvatar size="tiny"/></span><span>Jinn<span className="brand-dot">.</span></span></button>
+   <div className="top-right">{languageSelector}{sessionReady&&(account?<><button type="button" className="account-link" onClick={showMyWishes}>{t('My Jinns')}</button><button type="button" className="account-link account-quiet" onClick={()=>void signOut()}>{t("Sign out")}</button></>:<button type="button" className="account-link" onClick={()=>setAuthIntent('account')}>{t("Sign in")}</button>)}</div></header>
   <main className="main" aria-live="polite"><div className="hero-glow" aria-hidden="true"/>
-   {authIntent&&<AuthGate showCompanion purpose={authIntent==='first'?'Your draft is ready to keep.':'Your Jinns and saved wishes are here.'} onAuthenticated={afterAuth} onCancel={()=>setAuthIntent(null)}/>}
+   {authIntent&&<AuthGate showCompanion purpose={t(authIntent==='first'?'Your draft is ready to keep.':'Your Jinns and saved wishes are here.')} onAuthenticated={afterAuth} onCancel={()=>setAuthIntent(null)}/>}
    {!authIntent&&stage==='wish'&&<section className="welcome entrance">
-    <div className="welcome-copy"><p className="welcome-kicker"><span className="welcome-kicker-line"/> YOUR WISH STARTS HERE</p>
-     <h1>What would you <em>like to do?</em></h1><p className="welcome-lead">Tell {namedHome&&activeJinn?activeJinn.name:'Jinn'} what matters to you. We’ll find one useful first step together.</p>
-     {homeBusy&&<p className="home-jinn-loading" role="status">Opening your companions…</p>}
-     {homeUnavailable&&<div className="home-jinn-recovery" role="alert"><p>{home?.error||'Could not load your companions.'} Your Wish has not been assigned.</p><button type="button" className="first-secondary" onClick={()=>setHomeRefresh(value=>value+1)}><RotateCcw size={16}/> Retry loading Jinns</button></div>}
-     {!homeBusy&&!homeUnavailable&&namedHome&&<div className="home-jinn-context" aria-label="Current Wish companion">
+    <div className="welcome-copy"><p className="welcome-kicker"><span className="welcome-kicker-line"/> {t("YOUR WISH STARTS HERE")}</p>
+     <h1>{t("What would you")} <em>{t("like to do?")}</em></h1><p className="welcome-lead">{t('Tell {name} what matters to you. We’ll find one useful first step together.',{name:namedHome&&activeJinn?activeJinn.name:'Jinn'})}</p>
+     {homeBusy&&<p className="home-jinn-loading" role="status">{t('Opening your companions…')}</p>}
+     {homeUnavailable&&<div className="home-jinn-recovery" role="alert"><p>{t('Could not load your companions.')} {t('Your Wish has not been assigned.')}</p><button type="button" className="first-secondary" onClick={()=>setHomeRefresh(value=>value+1)}><RotateCcw size={16}/> {t('Retry loading Jinns')}</button></div>}
+     {!homeBusy&&!homeUnavailable&&namedHome&&<div className="home-jinn-context" aria-label={t('Current Wish companion')}>
       <JinnAvatar size="small"/>
       <div className="home-jinn-details">
        {homeDecision.mode==='multiple'?<>
-        <label htmlFor="home-jinn-choice">MAKE THIS WISH WITH</label>
+        <label htmlFor="home-jinn-choice">{t('MAKE THIS WISH WITH')}</label>
         <select id="home-jinn-choice" value={activeJinn?.id||''} onChange={event=>selectHomeJinn(event.target.value)} disabled={homeDecision.requiresRecovery}>
-         {!activeJinn&&<option value="">Choose your Jinn</option>}
-         {(home?.jinns||[]).map(jinn=><option key={jinn.id} value={jinn.id}>{jinn.name}{jinn.is_primary?' · Default':''}</option>)}
+         {!activeJinn&&<option value="">{t('Choose your Jinn')}</option>}
+         {(home?.jinns||[]).map(jinn=><option key={jinn.id} value={jinn.id}>{jinn.name}{jinn.is_primary?' · '+t('Default'):''}</option>)}
         </select>
-        <small>The selected Jinn will own this Wish. Each Wish keeps its own private context.</small>
+        <small>{t('The selected Jinn will own this Wish. Each Wish keeps its own private context.')}</small>
        </>:<>
-        <span className="home-jinn-name">Wish with {activeJinn?.name}</span>
-        <small>{activeJinn?.name} is helping with this Wish.</small>
+        <span className="home-jinn-name">{t('Wish with {name}',{name:activeJinn?.name||'Jinn'})}</span>
+        <small>{t('{name} is helping with this Wish.',{name:activeJinn?.name||'Jinn'})}</small>
        </>}
       </div>
-      {account&&<button type="button" className="home-jinn-manage" onClick={showMyWishes} aria-label="Manage Jinns">Manage</button>}
+      {account&&<button type="button" className="home-jinn-manage" onClick={showMyWishes} aria-label={t('Manage Jinns')}>{t('Manage')}</button>}
      </div>}
      {!homeBusy&&!homeUnavailable&&homeDecision.requiresRecovery&&<div className="home-jinn-recovery" role="alert">
-       <p>Your previously selected Jinn is no longer available for this account. No Wish has been reassigned.</p>
-       <button type="button" className="first-secondary" onClick={recoverHome}>Choose my default Jinn</button>
-       <button type="button" className="first-secondary" onClick={showMyWishes}>Open My Jinns</button>
+       <p>{t('Your previously selected Jinn is no longer available for this account. No Wish has been reassigned.')}</p>
+       <button type="button" className="first-secondary" onClick={recoverHome}>{t('Choose my default Jinn')}</button>
+       <button type="button" className="first-secondary" onClick={showMyWishes}>{t('Open My Jinns')}</button>
      </div>}
      {!homeBusy&&!homeUnavailable&&<form className="wish-form" onSubmit={event=>{event.preventDefault();beginWish();}}>
-      <label htmlFor="wish" className="field-label">YOUR WISH</label><textarea id="wish" maxLength={280} rows={3} value={wish} onChange={event=>setWish(event.target.value)} placeholder="I want to…"/>
-      <button type="submit" className="primary" disabled={wish.trim().length<2||homeDecision.requiresRecovery||namedHome&&!activeJinn}>Continue with {namedHome&&activeJinn?activeJinn.name:'Jinn'} <ArrowRight size={18}/></button></form>}
-     <p className="try-label">A few places to begin</p><div className="chips">{examples.map(example=><button key={example} type="button" className="chip" onClick={()=>setWish(example)}>{example}</button>)}</div>
+      <label htmlFor="wish" className="field-label">{t('YOUR WISH')}</label><textarea id="wish" maxLength={280} rows={3} value={wish} onChange={event=>setWish(event.target.value)} placeholder={t('I want to…')}/>
+      <button type="submit" className="primary" disabled={wish.trim().length<2||homeDecision.requiresRecovery||namedHome&&!activeJinn}>{t('Continue with {name}',{name:namedHome&&activeJinn?activeJinn.name:'Jinn'})} <ArrowRight size={18}/></button></form>}
+     <p className="try-label">{t('A few places to begin')}</p><div className="chips">{examples.map(example=><button key={example} type="button" className="chip" onClick={()=>setWish(t(example))}>{t(example)}</button>)}</div>
      {error&&<p className="error" role="alert">{error}</p>}
-     <p className="mini-note"><LockKeyhole size={14}/> {account?'Your Wish stays private to the companion you choose. AI prepares the first draft.':'Start without signing in. Your wish is sent to AI to prepare a private draft.'}</p></div>
-    <aside className="welcome-companion" aria-label={namedHome&&activeJinn?activeJinn.name+', your Wish companion':'Jinn, your Wish companion'}><div className="welcome-orbit"><JinnAvatar size="large"/></div>
-     <p className="welcome-companion-title">One wish.<br/><em>One meaningful start.</em></p><p>{namedHome&&activeJinn?activeJinn.name:'Jinn'} helps you shape a first Deed you can inspect, edit, and keep.</p>
-     <div className="welcome-progress" aria-label="Wish journey"><span className="active">01 <small>Your wish</small></span><span>02 <small>One question</small></span><span>03 <small>First Deed</small></span></div></aside>
+     <p className="mini-note"><LockKeyhole size={14}/> {t(account?'Your Wish stays private to the companion you choose. AI prepares the first draft.':'Start without signing in. Your wish is sent to AI to prepare a private draft.')}</p></div>
+    <aside className="welcome-companion" aria-label={t('Current Wish companion')}><div className="welcome-orbit"><JinnAvatar size="large"/></div>
+     <p className="welcome-companion-title">{t('One wish.')}<br/><em>{t('One meaningful start.')}</em></p><p>{t('{name} helps you shape a first Deed you can inspect, edit, and keep.',{name:namedHome&&activeJinn?activeJinn.name:'Jinn'})}</p>
+     <div className="welcome-progress" aria-label="Wish journey"><span className="active">01 <small>{t('Your wish')}</small></span><span>02 <small>{t('One question')}</small></span><span>03 <small>{t('First Deed')}</small></span></div></aside>
    </section>}
    {stage==='first'&&(!authIntent||!firstWishId)&&<div style={{display:authIntent?'none':'contents',width:'100%'}}><FirstWish key={firstWishId||wish} wish={wish.trim()} savedId={firstWishId}
     preferredJinnId={draftSelection?.id??null} preferredJinnOwnerId={draftSelection?.ownerId??null} preferredJinnName={draftJinnName}
     onBack={()=>firstWishId?showMyWishes():reset()} onRequireAuth={()=>setAuthIntent('first')} onDeleted={showMyWishes}
     onSaved={id=>openWish(id,wish)}/></div>}
    {!authIntent&&stage==='library'&&account&&<MyWishes email={account.email||''} onNewWish={startWishForJinn} onOpenFirstWish={openWish}/>}
-  </main><footer className="footer"><span>Your wishes. Real work.</span><span>WISHT / BETA</span></footer>
+  </main><footer className="footer"><span>{t('Your wishes. Real work.')}</span><span>WISHT / BETA</span></footer>
  </div>;
 }
