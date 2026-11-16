@@ -80,7 +80,7 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
       void Promise.all([listJinns(),getAuthenticatedUser()]).then(([items,owner])=>{
         if(!live||current!==sequence)return;
         setJinnChoices(items);
-        const wrongOwner=!!preferredJinnOwnerId&&preferredJinnOwnerId!==owner.id;
+        const wrongOwner=!!preferredJinnOwnerId&&preferredJinnOwnerId!==owner.id&&saveJinnId===preferredJinnId;
         const missingChoice=!!saveJinnId&&!items.some(item=>item.id===saveJinnId);
         setJinnUnavailable(wrongOwner||missingChoice);
         setJinnValidated(true);
