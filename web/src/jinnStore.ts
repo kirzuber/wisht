@@ -108,12 +108,12 @@ export async function deleteEmptyJinn(jinn: JinnIdentity): Promise<void> {
 }
 
 /** The database owner FK and RLS jointly prevent assigning another user's Jinn. */
-export async function moveWishToJinn(wishId: string, targetJinnId: string): Promise<void> {
+export async function moveWishToJinn(wishId: string, targetJinnId: string, expectedJinnId: string): Promise<void> {
   const user = await getAuthenticatedUser();
   const { data, error, status } = await getSupabase().from('wish_records').update({
     primary_jinn_id: targetJinnId, updated_at: new Date().toISOString(),
-  }).eq('id', wishId).eq('user_id', user.id).select('id');
+  }).eq('id', wishId).eq('user_id', user.id).eq('primary_jinn_id', expectedJinnId).select('id');
   if (error?.code === '23503') throw new Error('That Jinn is unavailable for your account. Reload My Jinns.');
   if (error) throw new WishPersistenceError('assign Wish', error, status);
-  if (!data?.length) throw new Error('This Wish is unavailable or belongs to another account.');
+  if (!data?.length) throw new Error('This Wish was moved, removed, or is unavailable. Reload My Jinns before trying again.');
 }
