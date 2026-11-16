@@ -40,13 +40,11 @@ async function endpoint(body:{mode:'plan'|'clarify'|'prepare'|'continue'} & Reco
 export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwnerId,preferredJinnName,onBack,onRequireAuth,onDeleted,onSaved}:Props){
   const {locale,t}=useLocale();
   const [phase,setPhase]=useState<Phase>('working');
-  const [question,setQuestion]=useState<string|null>(null);
   const [plan,setPlan]=useState<ExperiencePlanV1|null>(null);
   const [questionIndex,setQuestionIndex]=useState(0);
   const [answers,setAnswers]=useState<PlanAnswers>({});
   const [selectedChoice,setSelectedChoice]=useState('');
   const [useOther,setUseOther]=useState(false);
-  const [answer,setAnswer]=useState('');
   const [artifact,setArtifact]=useState<Artifact|null>(null);
   const [receipt,setReceipt]=useState<DeedReceipt|null>(null);
   const [row,setRow]=useState<FirstWishRow|null>(null);
@@ -127,7 +125,6 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
         if(!live)return;
         const validated=validateExperiencePlan(data.plan,locale);
         setPlan(validated);setQuestionIndex(0);setAnswers({});setSelectedChoice('');setUseOther(false);
-        setQuestion(validated.questions[0]?.prompt||null);
         setPhase(validated.questions.length?'answer':'clarify');
       })
         .catch(e=>{if(live){setError(localizeError(e,locale,'Could not begin.'));setPhase('start-error');}});
@@ -150,7 +147,7 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
     const next={...answers,[current.id]:value};
     setAnswers(next);setSelectedChoice('');setUseOther(false);
     if(questionIndex+1<(plan?.questions.length||0)){
-      setQuestionIndex(index=>index+1);setQuestion(plan?.questions[questionIndex+1]?.prompt||null);
+      setQuestionIndex(index=>index+1);
     }else void prepare(next);
   };
   const save=async()=>{
