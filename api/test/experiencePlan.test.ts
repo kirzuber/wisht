@@ -173,8 +173,9 @@ describe('F03-004 bounded Experience Plan v1',()=>{
   const output=await planFirstValue('An unrelated Wish','en','Jinn','',
     (messages,maxTokens)=>callFirstDeedModel(messages,maxTokens,
       {DEEPSEEK_API_KEY:'dummy-test-key',LLM_PROVIDER:'deepseek'} as NodeJS.ProcessEnv,
-      async()=>{
-        calls++;
+      async(_url,init)=>{
+        const reviewing=JSON.parse(String(init?.body)).messages[0].content.includes('PLAN_FEASIBILITY_GATE');
+        if(!reviewing)calls++;
         return new Response(JSON.stringify({choices:[{finish_reason:'stop',
           message:{content:reviewing?JSON.stringify({feasible:true,reason:'none'}):calls===1?'    ':JSON.stringify(base)}}]}),
           {status:200,headers:{'Content-Type':'application/json'}});
