@@ -11,6 +11,7 @@ const localApi = 'http://127.0.0.1:54321';
 const baseline = '20261115224928_f03_additive_generic_wish_records.sql';
 const managementMigration = '20261115234000_f03_003_jinn_management.sql';
 const firstValueMigration = '20261116040000_f03_004_verified_first_value.sql';
+const legacyCompatibilityMigration = '20261116170000_f03_004_restore_legacy_first_save_grant.sql';
 const checkOnly = process.argv.includes('--check');
 
 function supabase(...args) {
@@ -100,12 +101,12 @@ function verifyLocalSchema() {
   const migrations = readdirSync(new URL('../supabase/migrations/', import.meta.url)).filter(file => file.endsWith('.sql'));
   const pristineHistory = schema.has_history === false || (schema.has_history === true &&
     readLocalRow('select count(*)::int as entries from supabase_migrations.schema_migrations').entries === 0);
-  if (!pristineHistory || migrations.length !== 3 || ![baseline, managementMigration, firstValueMigration].every(file => migrations.includes(file))) {
+  if (!pristineHistory || migrations.length !== 4 || ![baseline, managementMigration, firstValueMigration, legacyCompatibilityMigration].every(file => migrations.includes(file))) {
     throw new Error(`The local F03 schema is incomplete. Missing: ${missing.join(', ')}. Review the local migration history before applying any changes.`);
   }
   if (checkOnly) throw new Error('Local Supabase is empty. Run npm run dev to apply the F03 baseline.');
 
-  console.info('[Wisht] Applying the three additive F03 migrations only to a verified empty local database.');
+  console.info('[Wisht] Applying the four additive F03 migrations only to a verified empty local database.');
   try {
     supabase('migration', 'up');
   } catch {
