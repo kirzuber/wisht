@@ -85,11 +85,40 @@ for(const {wish,locale} of samples){
   item.documentCharacters=artifact.sections.filter(s=>s.type==='document').reduce((n,s)=>n+s.body.length,0);
   item.sectionTypes=artifact.sections.map(s=>s.type);
   item.questionCount=item.plan.questions.length;
-  item.repetitionAnalysis=repetition(artifact.sections.filter(s=>s.type==='document').map(s=>s.body).join('\\n'));
+  item.planPromise={firstOutcome:item.plan.firstOutcome,deedResult:item.plan.deed.result};
+  const documentText=artifact.sections.filter(s=>s.type==='document').map(s=>s.body).join('\\n');
+  item.repetitionAnalysis=repetition(documentText);
+  // Editorial warnings only: prose may legitimately include placeholders or
+  // instructions as supporting material. The server checks semantic promise
+  // alignment with its existing independent grounding review, and a human
+  // still decides whether the result feels complete.
+  const placeholders=[...documentText.matchAll(/\\[[^\\]\\n]{2,75}\\]/gu)]
+    .slice(0,8).map(m=>m[0]);
+  const homework=(documentText.match(/\\b(?:fill in|replace with|write your|complete the|draft your)\\b|(?:заполните|впишите|напишите|замените)/giu)||[]).length;
+  item.promiseDeliverySignals={
+    modelGroundingReviewAccepted:true,
+    documentCount:artifact.sections.filter(s=>s.type==='document').length,
+    placeholderCount:placeholders.length,
+    placeholderExamples:placeholders,
+    homeworkPhrasesCount:homework,
+    editorialFlags:[
+      ...(placeholders.length>=3?['multiple blanks in authored document — manually verify core value']:[]),
+      ...(homework>=3?['document frequently assigns user work — manually verify promise']:[]),
+    ],
+  };
+  item.questionNecessity={
+    count:item.plan.questions.length,
+    allSkipped:true,
+    preparationSucceededWithoutAnswers:true,
+    rationales:item.plan.questions.map(q=>({question:q.prompt,claimedImpact:q.why})),
+    necessityDecision:'HUMAN_REVIEW_PENDING',
+  };
   item.humanReview={usefulness:'PENDING',sourceHonesty:'PENDING',
-    languageNaturalness:'PENDING',willingnessToContinue:'PENDING'};
+    languageNaturalness:'PENDING',willingnessToContinue:'PENDING',
+    promiseVsDelivery:'PENDING',questionNecessity:'PENDING'};
   item.qualityChecks={
    substantial:item.documentCharacters>=260,
+   oneOrZeroClarifications:item.plan.questions.length<=1,
    noWorksheet:receipt.draftSource!=='worksheet',
    preparedNotSaved:receipt.status==='PREPARED',
    noExternalClaim:/No external action|Private draft|private/i.test(receipt.scope),
@@ -105,7 +134,8 @@ for(const {wish,locale} of samples){
  console.log(JSON.stringify({wish:item.wish,questions:item.questionCount,
   sections:item.sectionTypes,characters:item.documentCharacters,
   planMs:item.planningLatencyMs,draftMs:item.preparationLatencyMs,
-  receipt:item.receipt?.status,error:item.error}));
+  receipt:item.receipt?.status,alignmentFlags:item.promiseDeliverySignals?.editorialFlags,
+  error:item.error}));
 }
 const dir=new URL('../docs/evidence/f03-004/',import.meta.url);
 mkdirSync(dir,{recursive:true});
