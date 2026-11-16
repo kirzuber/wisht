@@ -152,7 +152,7 @@ try{
   await choose('Temporary Jinn');
   page.once('dialog',dialog=>dialog.accept());
   await page.getByRole('button',{name:'Delete empty Jinn'}).click();
-  assert.equal(await page.locator('.jinn-choice').filter({hasText:'Temporary Jinn'}).count(),0);
+  await page.locator('.jinn-choice').filter({hasText:'Temporary Jinn'}).waitFor({state:'detached'});
   // A deleted explicitly selected companion must not silently become primary.
   await page.getByRole('button',{name:'Jinn home'}).click();
   await page.getByText('previously selected Jinn is no longer available',{exact:false}).waitFor();
