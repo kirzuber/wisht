@@ -43,11 +43,12 @@ const signIn = async email => {
   await page.getByRole('button',{name:/Verify and continue/}).click();
   await page.getByRole('heading',{name:'My Jinns.'}).waitFor();
 };
+let continuationSource='';
 await page.route('**/api/first-deed',route=>{
   const data=route.request().postDataJSON();
   if (data.mode==='clarify')return route.fulfill({status:200,json:{question:null}});
   const isFollowUp=data.mode==='continue';
-  const note=isFollowUp?'Aunt confirmed one memory':(data.answer || '');
+  const note=isFollowUp?continuationSource:(data.answer || '');
   return route.fulfill({status:200,json:{
     artifact:{
       title:isFollowUp?'Follow-up kit':'Starter kit for this Wish',
@@ -198,14 +199,23 @@ try{
   await page.locator('#first-source-note').blur();
   await page.getByRole('button',{name:'Save corrections'}).click();
   await page.getByRole('button',{name:'Corrections saved'}).waitFor();
+  await page.reload();
+  await page.locator('#first-source-note').waitFor();
+  continuationSource=await page.locator('#first-source-note').inputValue();
+  assert.equal(continuationSource,'Aunt confirmed one memory',
+    'The corrected source note must survive reload before another Deed');
   const followUpRequest=page.waitForResponse(response=>response.url().includes('/rpc/append_prepared_deed'));
   await page.getByRole('button',{name:'Prepare next Deed'}).click();
   const followUpResponse=await followUpRequest;
+  const posted=followUpResponse.request().postDataJSON();
   if(!followUpResponse.ok()){
     const failure=await followUpResponse.json().catch(()=>({}));
     throw new Error('Local continuation RPC failed: HTTP '+followUpResponse.status()
-      +' / '+String(failure.code||'unknown')+' / '+String(failure.message||'unknown').slice(0,180));
+      +' / '+String(failure.code||'unknown')+' / '+String(failure.message||'unknown').slice(0,180)
+      +' / submitted-source-equals-saved-UI='+String(posted?.p_artifact?.sourceNote===continuationSource));
   }
+  assert.equal(posted.p_artifact.sourceNote,continuationSource,
+    'Follow-up draft must retain the saved Wish source note');
   await page.getByText('Earlier Deeds',{exact:false}).waitFor();
   await page.getByRole('banner').getByRole('button',{name:'My Jinns',exact:true}).click();
   await choose('Writing Jinn');
