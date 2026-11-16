@@ -270,18 +270,18 @@ select public.create_wish_with_deed(
  '{"status":"PREPARED","operation":"Legacy client prepared a draft","recordedAt":"2026-11-16T02:00:00Z","scope":"Private draft","draftSource":"model"}'::jsonb);
 select public.correct_artifact(
  (select a.id from public.artifacts a join public.wish_records w on w.id=a.wish_id
-    where w.original_intent='Help my houseplant' limit 1),
+    where w.original_intent='Make a family story book' limit 1),
  (select a.version from public.artifacts a join public.wish_records w on w.id=a.wish_id
-    where w.original_intent='Help my houseplant' limit 1),
+    where w.original_intent='Make a family story book' limit 1),
  jsonb_set(
    (select a.content from public.artifacts a join public.wish_records w on w.id=a.wish_id
-     where w.original_intent='Help my houseplant' limit 1),
+     where w.original_intent='Make a family story book' limit 1),
    '{sourceNote}','"Confirmed after migration"'::jsonb));
 do $$ begin
  if (select count(*) from public.wish_records where original_intent='Legacy client saved during mixed-version rollout')<>1 then
    raise exception 'Existing client first-save fallback failed after F03-004 migration'; end if;
  if not exists (select 1 from public.artifacts a join public.wish_records w on w.id=a.wish_id
-   where w.original_intent='Help my houseplant' and a.version>1 and a.content->>'sourceNote'='Confirmed after migration') then
+   where w.original_intent='Make a family story book' and a.version>1 and a.content->>'sourceNote'='Confirmed after migration') then
    raise exception 'Previously saved Wish could not be corrected after migration'; end if;
 end $$;
 reset role;
