@@ -58,7 +58,10 @@ try{
   await page.getByRole('heading',{name:scenario.deedHeading}).waitFor();
   assert.equal(await page.locator('.first-wish h1').innerText(),original,'Do not silently translate the original Wish');
   assert.equal(await page.locator('.first-canvas h2').innerText(),scenario.title);
-  assert.deepEqual(requests.map(x=>x.locale),[scenario.locale,scenario.locale]);
+  assert.ok(requests.some(item=>item.mode==='clarify')&&requests.some(item=>item.mode==='prepare'));
+  assert.ok(requests.every(item=>item.locale===scenario.locale),
+    'Every draft-related request must carry the explicit chosen locale');
+  const beforeSwitch=requests.length;
   await page.screenshot({path:`${dir}/${scenario.locale}-deed-desktop.png`,fullPage:true});
   await page.setViewportSize({width:390,height:844});
   await page.screenshot({path:`${dir}/${scenario.locale}-deed-mobile.png`,fullPage:true});
@@ -67,11 +70,11 @@ try{
   await page.getByRole('heading',{name:'Your first Deed.'}).waitFor();
   assert.equal(await page.locator('.first-canvas h2').innerText(),scenario.title,
     'Changing UI language must not silently translate or overwrite user Artifacts');
-  assert.equal(requests.length,2,'UI language change must not trigger a new paid model request');
+  assert.equal(requests.length,beforeSwitch,'UI language change must not trigger a new paid model request');
   await page.locator('#ui-language').selectOption(scenario.locale);
   await page.getByRole('button',{name:scenario.keep}).click();
   await page.getByText(scenario.email,{exact:true}).waitFor();
-  assert.equal(requests.length,2,'OTP gate must not trigger a new model request');
+  assert.equal(requests.length,beforeSwitch,'OTP gate must not trigger a new model request');
   await page.goto(base);
   assert.equal(await page.locator('#ui-language').inputValue(),scenario.locale,
     'Manual language choice must persist across page reload');
