@@ -151,7 +151,7 @@ export default function App(){
         <small>{activeJinn?.name} is helping with this Wish.</small>
        </>}
       </div>
-      {account&&<button type="button" className="home-jinn-manage" onClick={showMyWishes}>My Jinns</button>}
+      {account&&<button type="button" className="home-jinn-manage" onClick={showMyWishes} aria-label="Manage Jinns">Manage</button>}
      </div>}
      {!homeBusy&&!homeUnavailable&&homeDecision.requiresRecovery&&<div className="home-jinn-recovery" role="alert">
        <p>Your previously selected Jinn is no longer available for this account. No Wish has been reassigned.</p>
