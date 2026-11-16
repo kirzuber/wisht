@@ -13,7 +13,9 @@ const server=http.createServer(async(req,res)=>{
   const prompt=input.messages?.[0]?.content||'';
   const locale=prompt.match(/Selected interface locale: (en|ru|fr|es)/)?.[1]||'en';
   let output;
-  if(prompt.includes('private First-Value planner')){
+  if(prompt.includes('PLAN_FEASIBILITY_GATE')){
+    output={feasible:true,reason:'none'};
+  }else if(prompt.includes('private First-Value planner')){
     output={
       version:1,locale,intent:'Prepare an immediately useful first result from the Wish',
       firstOutcome:'One reusable first draft that can be reviewed, corrected and kept',
