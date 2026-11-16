@@ -54,6 +54,12 @@ grant select on public.jinns to service_role;
 grant select, insert on public.wish_records, public.deeds, public.artifacts to service_role;
 
 
--- Close the old client-controlled initial receipt path. Existing saved data
--- stays intact, and corrections/follow-ups continue through their own RPCs.
-revoke execute on function public.create_wish_with_deed(uuid,text,jsonb,jsonb) from authenticated;
+-- PHASE 1 (expand): keep the existing authenticated initial-save RPC
+-- available during the mixed-version rollout. Previously deployed clients
+-- and the non-F03-004 fallback still call create_wish_with_deed.
+-- This legacy entrypoint accepts client-prepared receipts; its existing risk
+-- remains temporarily, but revoking it here breaks deployed clients.
+-- PHASE 2 (contract): explicitly authorized retirement SQL lives at
+-- docs/release/f03-004-retire-legacy-first-save.sql and MUST NOT be placed
+-- in an automatically applied migration until traffic/client compatibility
+-- has been verified. No hosted schema/data is changed by this PR.
