@@ -115,7 +115,7 @@ try{
   await page.setViewportSize({width:1440,height:900});
   await page.getByRole('button',{name:'My Jinns'}).click();
   // Default Jinn is materialized for an existing/new signed-in account.
-  await page.getByRole('button',{name:/Jinn\s+0 Wishes/}).waitFor();
+  await page.locator('.jinn-choice').filter({hasText:'Default Jinn · 0 Wishes'}).waitFor();
   await page.getByRole('button',{name:'Edit Jinn'}).click();
   await page.locator('#jinn-name').fill('Everyday Jinn');
   await page.getByRole('button',{name:'Save Jinn'}).click();
