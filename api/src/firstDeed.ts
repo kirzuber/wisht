@@ -103,13 +103,13 @@ export async function callFirstDeedModel(messages: ModelMessage[], maxTokens: nu
     if (!response.ok) throw new DraftingError('AI drafting is temporarily unavailable. No draft was prepared.', 'ai_provider_rejected', 503, response.status);
     const payload = await response.json() as {choices?:Array<{finish_reason?:string;message?:{content?:string}}>};
     const content = payload.choices?.[0]?.message?.content;
-    if(!content || payload.choices?.[0]?.finish_reason==='length'){
+    if(!content?.trim() || payload.choices?.[0]?.finish_reason==='length'){
       console.warn('[Wisht] api model.incomplete_json',{
         finishReason:payload.choices?.[0]?.finish_reason||'missing_content',
         maxTokens,contentLength:content?.length||0,
       });
     }
-    if (!content || content.length > 16000) throw new DraftingError('The AI did not return a usable response.', 'ai_invalid_response', 502);
+    if (!content?.trim() || content.length > 16000) throw new DraftingError('The AI did not return a usable response.', 'ai_invalid_response', 502);
     return JSON.parse(content) as unknown;
   } catch (error) {
     if (error instanceof DraftingError) throw error;
