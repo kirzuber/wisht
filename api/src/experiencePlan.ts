@@ -60,6 +60,26 @@ export function conciseModelCopy(candidate:unknown,max:number):unknown {
   return clipped.length?clipped.replace(/[.!?。！？]+$/u,'')+'.':window.slice(0,max-1).trimEnd()+'.';
 }
 
+/** A displayed promise must never be assembled from mechanically shortened text. 
+ * Check only model-authored copy; historical saved V1 plans remain readable. */
+export function assertCompleteModelPlanCopy(plan:ExperiencePlanV1):void {
+  const items=[plan.intent,plan.firstOutcome,plan.deed.title,plan.deed.result,
+    ...plan.questions.flatMap(q=>[q.prompt,q.why,...q.choices])];
+  for(const item of items){
+    const value=item.trim();
+    let depth=0;
+    for(const char of value){
+      if(char==='(')depth++;
+      if(char===')')depth--;
+      if(depth<0)throw new Error('Incomplete model-generated promise.');
+    }
+    if(depth!==0||/[,;:–—-]$/u.test(value)||
+       /(?:\.{3}|…)$/u.test(value)||
+       /\s(?:and|or|with|for|to|of|the|a|an|but|и|или|с|для|а|y|o|con|de|et|ou|avec|pour)$/iu.test(value))
+      throw new Error('Incomplete model-generated promise.');
+  }
+}
+
 /** Model planning can choose one consequential question for the initial result;
  * older saved V1 plans with more questions remain valid and reopen safely. */
 export function focusFirstValueQuestions(plan:ExperiencePlanV1):ExperiencePlanV1 {
@@ -122,20 +142,19 @@ export function normalizeModelExperiencePlan(value:unknown,expectedLocale:Locale
   if(!Array.isArray(value.components)||
     value.components.some(component=>typeof component!=='string'||!componentSet.has(component)))
     throw new Error('Model attempted to use an unregistered component.');
-  // Do not cut model-generated user-facing copy in the middle of a word.
-  // Prefer a complete sentence; otherwise end at a word boundary with an ellipsis.
-  const short=(candidate:unknown,max:number)=> conciseModelCopy(candidate,max);
+  // Model-authored display text is never clipped or rewritten after generation.
+  // Invalid length is a repairable model failure rather than a broken promise.
   const rawQuestions=Array.isArray(value.questions)?value.questions:[];
   const questions:PlanQuestion[]=[];
   for(const raw of rawQuestions.slice(0,1)){
-    if(!record(raw)||!bounded(raw.prompt,250)||!bounded(raw.why,250)||
+    if(!record(raw)||!bounded(raw.prompt,180)||!bounded(raw.why,180)||
        !Array.isArray(raw.choices))continue;
     const choices=[...new Set(raw.choices.filter(x=>typeof x==='string')
-      .map(x=>conciseModelCopy(x,70) as string)
+      .map(x=>x as string)
       .filter(x=>x.length>0&&!['other','skip','not sure','другое','пропустить','не знаю'].includes(x.toLowerCase())))].slice(0,4);
-    if(choices.length<2)continue;
-    questions.push({id:`q${questions.length+1}`,prompt:conciseModelCopy(raw.prompt,180) as string,
-      why:conciseModelCopy(raw.why,180) as string,choices});
+    if(choices.length<2||choices.some(x=>x.length>70))throw new Error('Invalid model-generated choices.');
+    questions.push({id:`q${questions.length+1}`,prompt:raw.prompt.trim(),
+      why:raw.why.trim(),choices});
   }
   const suggested=[...new Set(value.components as ExperienceComponent[])];
   const trailing=suggested.filter(component=>
@@ -150,10 +169,10 @@ export function normalizeModelExperiencePlan(value:unknown,expectedLocale:Locale
   ];
   return validateExperiencePlan({
     version:1,locale:expectedLocale,
-    intent:short(value.intent,240),firstOutcome:short(value.firstOutcome,200),
+    intent:value.intent,firstOutcome:value.firstOutcome,
     deed:record(value.deed)?{
-      title:short(value.deed.title,110),scope:'PRIVATE_DRAFT',
-      result:short(value.deed.result,220),
+      title:value.deed.title,scope:'PRIVATE_DRAFT',
+      result:value.deed.result,
     }:null,
     questions,components,
   },expectedLocale);
