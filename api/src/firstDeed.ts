@@ -176,7 +176,7 @@ export async function prepareDeed(wish: string, sourceNote: string, previous: Ar
     catch { return {code:'draft_validation_failed',reason:'invalid_artifact'}; }
     if (object(result) && result.language !== undefined && result.language !== locale) return {code:'grounding_rejected',reason:'language_mismatch'};
     if ((locale==='ru'&&!russian(artifact.title))||(locale!=='ru'&&russian(artifact.title))) return {code:'grounding_rejected',reason:'language_mismatch'};
-    const verdict = await check(wish, note, artifact);
+    const verdict = await check(wish, note, artifact, generate, locale);
     return verdict.safe ? artifact : {code:'grounding_rejected',reason:verdict.reason};
   };
 
