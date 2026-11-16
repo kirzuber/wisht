@@ -34,6 +34,24 @@ const request=async (body,locale)=>{
   return {status:response.status,ms:Math.round(performance.now()-started),data};
  }finally{clearTimeout(timeout);}
 };
+// Advisory heuristics. A human must inspect the raw Artifact for invented facts
+// and usefulness; script-level character counts alone are NOT acceptance.
+const repetition=(content)=>{
+ const sentences=content.split(/[.!?。！？\\n]+/u)
+   .map(s=>s.trim().toLocaleLowerCase()).filter(s=>s.length>=45);
+ const counts=new Map();
+ for(const sentence of sentences)counts.set(sentence,(counts.get(sentence)||0)+1);
+ return {duplicatedLongSentences:[...counts.entries()].filter(([,count])=>count>1)
+   .map(([sentence,count])=>({count,excerpt:sentence.slice(0,130)})),
+   totalLongSentences:sentences.length};
+};
+const isRussianScriptPlausible=(content)=>{
+ const cyr=(content.match(/[\\u0400-\\u052f]/gu)||[]).length;
+ const latin=(content.match(/[a-z]/giu)||[]).length;
+ // This checks for obvious English output in Russian UI only; Cyrillic does
+ // not prove Russian correctness, which requires human review.
+ return cyr>=20 && cyr>=latin;
+};
 let failures=0;
 for(const {wish,locale} of samples){
  const item={wish,locale,plan:null,selectedAnswers:{},artifact:null,receipt:null,
@@ -50,16 +68,24 @@ for(const {wish,locale} of samples){
   if(prepared.status!==200||!prepared.data?.artifact)throw Error('First Artifact failed: HTTP '+prepared.status+' / '+(prepared.data?.code||'invalid'));
   const {artifact,receipt,proof}=prepared.data;
   item.artifact=artifact;item.receipt=receipt;
+  item.sourceHonestyNotice='Model grounding verdict was checked; independent human review for invented facts still required.';
   item.hasVerifiedSaveProof=typeof proof==='string'&&proof.length>40;
   item.documentCharacters=artifact.sections.filter(s=>s.type==='document').reduce((n,s)=>n+s.body.length,0);
   item.sectionTypes=artifact.sections.map(s=>s.type);
   item.questionCount=item.plan.questions.length;
+  item.repetitionAnalysis=repetition(artifact.sections.filter(s=>s.type==='document').map(s=>s.body).join('\\n'));
+  item.humanReview={usefulness:'PENDING',sourceHonesty:'PENDING',
+    languageNaturalness:'PENDING',willingnessToContinue:'PENDING'};
   item.qualityChecks={
    substantial:item.documentCharacters>=260,
    noWorksheet:receipt.draftSource!=='worksheet',
    preparedNotSaved:receipt.status==='PREPARED',
    noExternalClaim:/No external action|Private draft|private/i.test(receipt.scope),
    validatedPlanVersion:artifact.experience?.version===1,
+   localeMatchesSelectedInterface:item.plan.locale===locale && artifact.experience?.locale===locale,
+   noRepeatedLongSentences:item.repetitionAnalysis.duplicatedLongSentences.length===0,
+   russianScriptPlausible:locale==='ru'?isRussianScriptPlausible(
+     artifact.sections.filter(s=>s.type==='document').map(s=>s.body).join(' ')):true,
   };
   if(Object.values(item.qualityChecks).some(x=>!x))failures++;
  }catch(error){item.error=error instanceof Error?error.message:String(error);failures++;}
