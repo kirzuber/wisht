@@ -221,6 +221,11 @@ echo 'F03 legacy coexistence, multi-Jinn assignment, 5+ Wishes, owner RLS, persi
 # F03-004 expand migration follows legacy regression fixtures:
 # keep legacy client/save RPC operational until an explicitly authorized retirement.
 docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q < supabase/migrations/20261116040000_f03_004_verified_first_value.sql
+# Simulate a developer whose local DB already received the earlier draft
+# migration which revoked this RPC. The next additive file must repair it
+# without resetting or changing existing Wish data.
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q -c "revoke execute on function public.create_wish_with_deed(uuid,text,jsonb,jsonb) from authenticated;"
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q < supabase/migrations/20261116170000_f03_004_restore_legacy_first_save_grant.sql
 docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
 do $$ begin
  if not has_function_privilege('authenticated',
