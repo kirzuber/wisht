@@ -9,6 +9,7 @@ const cli = ['--yes', 'supabase@3.1.0', '--workdir', root];
 const localApi = 'http://127.0.0.1:54321';
 const baseline = '20261115224928_f03_additive_generic_wish_records.sql';
 const managementMigration = '20261115234000_f03_003_jinn_management.sql';
+const firstValueMigration = '20261116040000_f03_004_verified_first_value.sql';
 const checkOnly = process.argv.includes('--check');
 
 function supabase(...args) {
@@ -63,7 +64,12 @@ function checkSchema() {
         then has_column_privilege('authenticated','public.wish_records','primary_jinn_id','UPDATE')
         else false end as jinn_assignment,
       exists (select 1 from pg_policies where schemaname='public' and tablename='jinns'
-        and policyname='owner deletes empty non-primary jinns') as jinn_deletion
+        and policyname='owner deletes empty non-primary jinns') as jinn_deletion,
+      to_regprocedure('public.create_verified_first_value(uuid,uuid,text,jsonb,jsonb)') is not null as trusted_first_value,
+      case when to_regprocedure('public.create_wish_with_deed(uuid,text,jsonb,jsonb)') is not null
+        then not has_function_privilege('authenticated',
+          'public.create_wish_with_deed(uuid,text,jsonb,jsonb)','EXECUTE')
+        else false end as client_first_save_revoked
   `);
 }
 
@@ -77,6 +83,8 @@ function missingSchema(schema) {
     'F03 Wish columns': schema.wish_records_columns,
     'F03-003 Wish assignment grant': schema.jinn_assignment,
     'F03-003 safe Jinn deletion policy': schema.jinn_deletion,
+    'F03-004 server-only first save': schema.trusted_first_value,
+    'F03-004 old client receipt path revoked': schema.client_first_save_revoked,
   }).filter(([, present]) => present !== true).map(([name]) => name);
 }
 
@@ -91,12 +99,12 @@ function verifyLocalSchema() {
   const migrations = readdirSync(new URL('../supabase/migrations/', import.meta.url)).filter(file => file.endsWith('.sql'));
   const pristineHistory = schema.has_history === false || (schema.has_history === true &&
     readLocalRow('select count(*)::int as entries from supabase_migrations.schema_migrations').entries === 0);
-  if (!pristineHistory || migrations.length !== 2 || ![baseline, managementMigration].every(file => migrations.includes(file))) {
+  if (!pristineHistory || migrations.length !== 3 || ![baseline, managementMigration, firstValueMigration].every(file => migrations.includes(file))) {
     throw new Error(`The local F03 schema is incomplete. Missing: ${missing.join(', ')}. Review the local migration history before applying any changes.`);
   }
   if (checkOnly) throw new Error('Local Supabase is empty. Run npm run dev to apply the F03 baseline.');
 
-  console.info('[Wisht] Applying the two additive F03 migrations only to a verified empty local database.');
+  console.info('[Wisht] Applying the three additive F03 migrations only to a verified empty local database.');
   try {
     supabase('migration', 'up');
   } catch {
@@ -114,12 +122,15 @@ function localSupabaseEnv() {
     throw new Error('Cannot read local Supabase status. Start Docker and run npx supabase@3.1.0 start.');
   }
   const { API_URL, PUBLISHABLE_KEY } = settings;
+  const serviceKey = settings.SECRET_KEY || settings.SERVICE_ROLE_KEY;
   if (API_URL !== localApi || !PUBLISHABLE_KEY?.startsWith('sb_publishable_')) {
     throw new Error(`Expected the local Wisht Supabase API at ${localApi} with a publishable key.`);
   }
   verifyLocalSchema();
   // Both child processes receive the same local pair, even if the shell exported hosted settings.
-  return { VITE_SUPABASE_URL: API_URL, VITE_SUPABASE_PUBLISHABLE_KEY: PUBLISHABLE_KEY };
+  if(!serviceKey||serviceKey.length<32)throw new Error('Local Supabase service key is missing; secure first-value saving cannot start.');
+  return { VITE_SUPABASE_URL: API_URL, VITE_SUPABASE_PUBLISHABLE_KEY: PUBLISHABLE_KEY,
+    SUPABASE_SERVICE_ROLE_KEY: serviceKey };
 }
 
 try {
