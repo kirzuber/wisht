@@ -4,7 +4,7 @@ Status: **PR #24 DRAFT. NOT DEPLOYED.** This is an engineering release procedure
 
 ## Risk found in Product Owner review
 
-Previous F03-004 migration revoked `authenticated` EXECUTE on `create_wish_with_deed` during the same release that introduced `create_verified_first_value`. That breaks old SPA sessions and `saveFirstWish` fallback in the new bundle. The migration is now an **expand-only** step. The current F03-004 UI uses the signed server path for new Experience Plan Artifacts; legacy/fallback users keep the previous save RPC until an independently authorized contract phase.
+Previous F03-004 migration revoked `authenticated` EXECUTE on `create_wish_with_deed` during the same release that introduced `create_verified_first_value`. That breaks old SPA sessions and `saveFirstWish` fallback in the new bundle. The migration is now an **expand-only** step, followed by a non-destructive compatibility-grant repair for databases that previously applied the draft. The current F03-004 UI uses the signed server path for new Experience Plan Artifacts; legacy/fallback users keep the previous save RPC until an independently authorized contract phase.
 
 **Security trade-off:** During coexistence, older clients can still submit an unverified initial `PREPARED` receipt through the old RPC. The new path does not trust browser receipts, but the legacy API remains temporarily callable. This is an explicit deferred risk; do not report complete elimination until the contract phase has actually executed.
 
@@ -18,7 +18,7 @@ Previous F03-004 migration revoked `authenticated` EXECUTE on `create_wish_with_
 
 ## Phase 1 — expand safely (Founder approval required)
 
-1. Apply **only** `supabase/migrations/20261116040000_f03_004_verified_first_value.sql` as an approved hosted migration. It adds the service-only `create_verified_first_value` and its minimum grants. **It does not revoke `create_wish_with_deed`.** Validate existing Wish listing/read and correction, existing client first-save RPC, and new service-only RPC reachability (without inserting a hosted test Wish unless specifically authorized).
+1. Apply the two approved additive F03-004 migrations **in order**: `20261116040000_f03_004_verified_first_value.sql` and `20261116170000_f03_004_restore_legacy_first_save_grant.sql`. The first adds the service-only `create_verified_first_value` and its minimum grants without revoking the old RPC. The second is an idempotent repair for developer/local databases that already applied an earlier draft revocation. Both retain `create_wish_with_deed` availability for mixed-version clients. Validate existing Wish listing/read and correction, existing client first-save RPC, and new service-only RPC reachability (without inserting a hosted test Wish unless specifically authorized).
 2. Publish the atomic Netlify web + Functions release from the reviewed merge commit. Do not attempt a pre-schema web deploy; new server saving depends on the first-value function.
 3. Smoke the existing saved-Wish reopen/correction, existing client or controlled fallback save, new first-use plan/artifact, signed Keep/save and reopen, four locales, and Jinn selection. Existing browser sessions stay compatible during rollout.
 4. Observe browser/API errors and measure legacy `create_wish_with_deed` usage. If the client or Function release must be rolled back, restore the previous Netlify deploy **without database rollback**: the expand-only schema is additive and leaves the legacy RPC operational. Do **not** execute contract SQL in this phase.
