@@ -54,6 +54,8 @@ try{
  await page.locator('#wish').fill(wish);
  await page.getByRole('button',{name:'Continue with Jinn'}).click();
  await page.getByRole('button',{name:'Other',exact:true}).waitFor();
+ assert.equal(requests.filter(req=>req.body?.mode==='plan').length,1,
+  'A first Wish must not make duplicate paid planning calls under React StrictMode');
  assert.equal(await page.locator('.first-value-question').count(),1,'Question leads, not a fixed artifact type');
  assert.equal(await page.getByRole('button',{name:'Skip'}).count(),1);
  assert.equal(await page.getByRole('button',{name:'I’m not sure'}).count(),1);
