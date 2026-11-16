@@ -119,7 +119,7 @@ try{
   await page.getByRole('button',{name:'Edit Jinn'}).click();
   await page.locator('#jinn-name').fill('Everyday Jinn');
   await page.getByRole('button',{name:'Save Jinn'}).click();
-  await page.getByRole('heading',{name:'Everyday Jinn'}).waitFor();
+  await page.getByRole('heading',{name:'Everyday Jinn',exact:true}).waitFor();
   // Exactly one deliberately named Jinn is shown at the first screen.
   await page.getByRole('button',{name:'Jinn home'}).click();
   await page.getByRole('button',{name:'Continue with Everyday Jinn'}).waitFor();
