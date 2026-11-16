@@ -32,9 +32,9 @@ jobs:
       - name: Build
         run: npm run build
 
-  # PR #21 / localization PR #22 only: ephemeral local Auth/Postgres/browser, fixture AI. Never hosted.
+  # Multi-Jinn, localization, and F03-003.1 correction PRs: isolated local Auth/Postgres/browser. Never hosted.
   local-browser:
-    if: github.event_name == 'pull_request' && (github.event.pull_request.number == 21 || github.event.pull_request.number == 22)
+    if: github.event_name == 'pull_request' && (github.event.pull_request.number == 21 || github.event.pull_request.number == 22 || github.event.pull_request.number == 23)
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
@@ -68,7 +68,14 @@ jobs:
           exit 1
       - name: Real local Auth/DB browser acceptance
         run: |
-          if [ "${{ github.event.pull_request.number }}" = "22" ]; then npm run test:local-i18n; else npm run test:local-jinns; fi
+          if [ "${{ github.event.pull_request.number }}" = "22" ]; then
+            npm run test:local-i18n
+          elif [ "${{ github.event.pull_request.number }}" = "23" ]; then
+            npm run test:local-jinns
+            npm run test:local-i18n
+          else
+            npm run test:local-jinns
+          fi
       - name: Capture local browser screenshots
         if: always()
         uses: actions/upload-artifact@v4

@@ -24,5 +24,5 @@ export function languageInstruction(locale: Locale): string {
     fr: 'Write every user-visible draft field in natural French. Use respectful «vous» and idiomatic wording.',
     es: 'Write every user-visible draft field in natural Spanish (Spain). Use natural European Spanish without literal translations.',
   };
-  return `Selected interface locale: ${locale}. ${instructions[locale]} Do not copy the language of the original goal if it differs. Keep JSON field names and schema identifiers in English. Do not translate the person's original source note. The selected locale controls generated questions, drafts, unknowns, boundaries and next-Deed text.`;
+  return `Selected interface locale: ${locale}. ${instructions[locale]} Do not copy the language of the original goal if it differs. Cyrillic is a writing system, not a Russian language identifier: Ukrainian and Russian are distinct languages. Keep JSON field names and schema identifiers in English. Do not translate the person's original source note. The selected locale controls generated questions, drafts, unknowns, boundaries and next-Deed text.`;
 }

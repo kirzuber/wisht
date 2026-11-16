@@ -152,7 +152,7 @@ export default function App(){
          {!activeJinn&&<option value="">{t('Choose your Jinn')}</option>}
          {(home?.jinns||[]).map(jinn=><option key={jinn.id} value={jinn.id}>{jinn.name}{jinn.is_primary?' · '+t('Default'):''}</option>)}
         </select>
-        <small>{t('The selected Jinn will own this Wish. Each Wish keeps its own private context.')}</small>
+        <small>{t('The selected Jinn helps with this Wish. Your work stays in your account and this Wish keeps its own context.')}</small>
        </>:<>
         <span className="home-jinn-name">{t('Wish with {name}',{name:activeJinn?.name||'Jinn'})}</span>
         <small>{t('{name} is helping with this Wish.',{name:activeJinn?.name||'Jinn'})}</small>
@@ -170,7 +170,7 @@ export default function App(){
       <button type="submit" className="primary" disabled={wish.trim().length<2||homeDecision.requiresRecovery||namedHome&&!activeJinn}>{t('Continue with {name}',{name:namedHome&&activeJinn?activeJinn.name:'Jinn'})} <ArrowRight size={18}/></button></form>}
      <p className="try-label">{t('A few places to begin')}</p><div className="chips">{examples.map(example=><button key={example} type="button" className="chip" onClick={()=>setWish(t(example))}>{t(example)}</button>)}</div>
      {error&&<p className="error" role="alert">{error}</p>}
-     <p className="mini-note"><LockKeyhole size={14}/> {t(account?'Your Wish stays private to the companion you choose. AI prepares the first draft.':'Start without signing in. Your wish is sent to AI to prepare a private draft.')}</p></div>
+     <p className="mini-note"><LockKeyhole size={14}/> {t(account?'You control this Wish. Saving keeps it in your account; AI only prepares a draft.':'Start without signing in. Your wish is sent to AI to prepare a private draft.')}</p></div>
     <aside className="welcome-companion" aria-label={t('Current Wish companion')}><div className="welcome-orbit"><JinnAvatar size="large"/></div>
      <p className="welcome-companion-title">{t('One wish.')}<br/><em>{t('One meaningful start.')}</em></p><p>{t('{name} helps you shape a first Deed you can inspect, edit, and keep.',{name:namedHome&&activeJinn?activeJinn.name:'Jinn'})}</p>
      <div className="welcome-progress" aria-label="Wish journey"><span className="active">01 <small>{t('Your wish')}</small></span><span>02 <small>{t('One question')}</small></span><span>03 <small>{t('First Deed')}</small></span></div></aside>
@@ -179,7 +179,7 @@ export default function App(){
     preferredJinnId={draftSelection?.id??null} preferredJinnOwnerId={draftSelection?.ownerId??null} preferredJinnName={draftJinnName}
     onBack={()=>firstWishId?showMyWishes():reset()} onRequireAuth={()=>setAuthIntent('first')} onDeleted={showMyWishes}
     onSaved={id=>openWish(id,wish)}/></div>}
-   {!authIntent&&stage==='library'&&account&&<MyWishes email={account.email||''} onNewWish={startWishForJinn} onOpenFirstWish={openWish}/>}
+   {!authIntent&&stage==='library'&&account&&<MyWishes email={account.email||''} ownerId={account.id} onNewWish={startWishForJinn} onOpenFirstWish={openWish}/>}
   </main><footer className="footer"><span>{t('Your wishes. Real work.')}</span><span>WISHT / BETA</span></footer>
  </div>;
 }
