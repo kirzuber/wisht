@@ -30,6 +30,7 @@ export default function App(){
  const [wish,setWish]=useState('');
  const [firstWishId,setFirstWishId]=useState<string|null>(initialId);
  const [draftSelection,setDraftSelection]=useState<HomeSelection>(null);
+ const [draftJinnName,setDraftJinnName]=useState<string|null>(null);
  const [homeSelection,setHomeSelection]=useState<HomeSelection>(null);
  const [rememberedId,setRememberedId]=useState<string|null>(null);
  const [home,setHome]=useState<HomeAccount|null>(null);
@@ -82,7 +83,7 @@ export default function App(){
 
  const reset=()=>{
   window.history.replaceState(null,'',window.location.pathname);
-  setStage('wish');setWish('');setFirstWishId(null);setDraftSelection(null);
+  setStage('wish');setWish('');setFirstWishId(null);setDraftSelection(null);setDraftJinnName(null);
   setHomeSelection(null);setAuthIntent(null);setError('');
  };
  const selectHomeJinn=(jinnId:string)=>{
@@ -109,7 +110,7 @@ export default function App(){
   setStage('library');setAuthIntent(null);setError('');
  };
  const openWish=(id:string,aspiration:string)=>{
-  setWish(aspiration);setFirstWishId(id);setDraftSelection(null);setStage('first');
+  setWish(aspiration);setFirstWishId(id);setDraftSelection(null);setDraftJinnName(null);setStage('first');
   const url=new URL(window.location.href);url.searchParams.set('wish',id);
   window.history.replaceState(null,'',url.pathname+url.search);
  };
@@ -122,6 +123,7 @@ export default function App(){
  const beginWish=()=>{
   if(wish.trim().length<2||homeBusy||homeUnavailable||homeDecision.requiresRecovery)return;
   setDraftSelection(namedHome&&activeJinn&&ownerId?{id:activeJinn.id,ownerId}:null);
+  setDraftJinnName(namedHome&&activeJinn?activeJinn.name:null);
   setFirstWishId(null);setStage('first');
  };
  return <div className="app jinn-experience">
@@ -167,7 +169,7 @@ export default function App(){
      <div className="welcome-progress" aria-label="Wish journey"><span className="active">01 <small>Your wish</small></span><span>02 <small>One question</small></span><span>03 <small>First Deed</small></span></div></aside>
    </section>}
    {stage==='first'&&(!authIntent||!firstWishId)&&<div style={{display:authIntent?'none':'contents',width:'100%'}}><FirstWish key={firstWishId||wish} wish={wish.trim()} savedId={firstWishId}
-    preferredJinnId={draftSelection?.id??null} preferredJinnOwnerId={draftSelection?.ownerId??null}
+    preferredJinnId={draftSelection?.id??null} preferredJinnOwnerId={draftSelection?.ownerId??null} preferredJinnName={draftJinnName}
     onBack={()=>firstWishId?showMyWishes():reset()} onRequireAuth={()=>setAuthIntent('first')} onDeleted={showMyWishes}
     onSaved={id=>openWish(id,wish)}/></div>}
    {!authIntent&&stage==='library'&&account&&<MyWishes email={account.email||''} onNewWish={startWishForJinn} onOpenFirstWish={openWish}/>}
