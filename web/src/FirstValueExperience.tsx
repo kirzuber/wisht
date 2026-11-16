@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ArrowRight, Check, Pencil } from 'lucide-react';
 import type { Artifact, DeedReceipt, Section } from '../../api/src/firstDeed';
 import { validateExperiencePlan } from '../../api/src/experiencePlan';
@@ -43,10 +43,10 @@ export default function FirstValueExperience({artifact,receipt,saved,dirty,wish,
      section.type==='document'?readable(section.body):
      <ol>{section.items.map((item,i)=><li key={i}>{typeof item==='string'?item:item.text}</li>)}</ol>}
  </section>;
- const registry:Partial<Record<(typeof plan.components)[number],()=>React.ReactNode>>={
+ const registry:Partial<Record<(typeof plan.components)[number],()=>ReactNode>>={
   deed_proposal:()=> <section className="first-value-proposal" aria-label={t('First Deed proposal')}>
     <p className="eyebrow">{t('Prepared First Deed')}</p>
-    <h3>{plan.deed.title}</h3><p>{plan.firstOutcome}</p>
+    <h3>{plan.deed.title}</h3><p>{plan.firstOutcome}</p><small>{t('Current wish')}: {wish}</small>
     <small>{t('Private preparation only. No external action was performed.')}</small>
   </section>,
   artifact_reader:()=> <article className="first-value-reader" id="wish-artifacts">
@@ -54,7 +54,7 @@ export default function FirstValueExperience({artifact,receipt,saved,dirty,wish,
       <button type="button" className="first-value-edit" aria-pressed={editing}
         onClick={()=>setEditing(value=>!value)}><Pencil size={15}/> {editing?t('Finish editing'):t('Edit artifact')}</button>
       <h2>{artifact.title}</h2>
-      <p className="first-value-artifact-hint">{t('A working draft you can read and use now. Suggestions are not verified personal facts.')}</p>
+      <p className="first-value-artifact-hint">{t('A working draft you can read and use now. Suggestions are not verified personal facts.')} {t('With')}: {companionName}</p>
     </header>
     {renderSection(artifact.sections[mainIndex],mainIndex)}
     {!supporting&&otherIndices.map(i=>renderSection(artifact.sections[i],i))}
