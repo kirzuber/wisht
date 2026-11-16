@@ -218,14 +218,14 @@ do $$ begin if (select count(*) from public.wish_records) <> 0 then raise except
 SQL
 echo 'F03 legacy coexistence, multi-Jinn assignment, 5+ Wishes, owner RLS, persistence and safe deletion: PASS'
 
-# F03-004 migration happens AFTER all existing legacy/F03 regression fixtures:
-# revoking the old client insert path must never alter historical saved rows.
+# F03-004 expand migration follows legacy regression fixtures:
+# keep legacy client/save RPC operational until an explicitly authorized retirement.
 docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q < supabase/migrations/20261116040000_f03_004_verified_first_value.sql
 docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
 do $$ begin
- if has_function_privilege('authenticated',
+ if not has_function_privilege('authenticated',
    'public.create_wish_with_deed(uuid,text,jsonb,jsonb)','EXECUTE') then
-   raise exception 'Client can still forge a first Deed receipt'; end if;
+   raise exception 'Legacy first-save fallback broke during expansion'; end if;
  if has_function_privilege('authenticated',
    'public.create_verified_first_value(uuid,uuid,text,jsonb,jsonb)','EXECUTE') then
    raise exception 'Client can call the server-only receipt function'; end if;
@@ -252,3 +252,31 @@ do $$ begin
    raise exception 'Legacy Wishes unexpectedly altered'; end if;
 end $$;
 SQL
+
+# A client from the previous release and an existing saved Wish remain usable.
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);
+select set_config('request.jwt.claims','{"is_anonymous":false}',false);
+select public.create_wish_with_deed(
+ (select id from public.jinns where user_id='00000000-0000-0000-0000-000000000001' and is_primary limit 1),
+ 'Legacy client saved during mixed-version rollout',
+ '{"title":"Existing client draft","sourceNote":"Confirmed legacy note","sections":[{"type":"document","title":"Historical content","body":"Old saved work must remain editable."}],"unknowns":[],"nextDeed":{"title":"Edit","why":"Make a correction","prompt":"Correct one detail"},"boundary":"Private draft"}'::jsonb,
+ '{"status":"PREPARED","operation":"Legacy client prepared a draft","recordedAt":"2026-11-16T02:00:00Z","scope":"Private draft","draftSource":"model"}'::jsonb);
+select public.correct_artifact(
+ (select a.id from public.artifacts a join public.wish_records w on w.id=a.wish_id
+    where w.original_intent='Help my houseplant' limit 1),2,
+ jsonb_set(
+   (select a.content from public.artifacts a join public.wish_records w on w.id=a.wish_id
+     where w.original_intent='Help my houseplant' limit 1),
+   '{sourceNote}','"Confirmed after migration"'::jsonb));
+do $$ begin
+ if (select count(*) from public.wish_records where original_intent='Legacy client saved during mixed-version rollout')<>1 then
+   raise exception 'Existing client first-save fallback failed after F03-004 migration'; end if;
+ if not exists (select 1 from public.artifacts a join public.wish_records w on w.id=a.wish_id
+   where w.original_intent='Help my houseplant' and a.version=3 and a.content->>'sourceNote'='Confirmed after migration') then
+   raise exception 'Previously saved Wish could not be corrected after migration'; end if;
+end $$;
+reset role;
+SQL
+echo 'F03-004 expand: old client save, existing saved Wish correction and verified server save: PASS'
