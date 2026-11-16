@@ -8,8 +8,11 @@ for attempt in {1..30}; do docker exec "$container" pg_isready -h 127.0.0.1 -U p
 docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
 create role anon nologin;
 create role authenticated nologin;
+create role service_role nologin bypassrls;
 create schema auth;
-create table auth.users(id uuid primary key);
+create table auth.users(id uuid primary key, email_confirmed_at timestamptz default now(), is_anonymous boolean default false);
+grant usage on schema auth to service_role;
+grant select on auth.users to service_role;
 create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
 create function auth.jwt() returns jsonb language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb $$;
 grant usage on schema auth to authenticated;
@@ -214,3 +217,94 @@ do $$ begin if (select count(*) from public.wish_records) <> 0 then raise except
  exception when insufficient_privilege then null; end $$;
 SQL
 echo 'F03 legacy coexistence, multi-Jinn assignment, 5+ Wishes, owner RLS, persistence and safe deletion: PASS'
+
+# F03-004 expand migration follows legacy regression fixtures:
+# keep legacy client/save RPC operational until an explicitly authorized retirement.
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q < supabase/migrations/20261116040000_f03_004_verified_first_value.sql
+# Simulate a developer whose local DB already received the earlier draft
+# migration which revoked this RPC. The next additive file must repair it
+# without resetting or changing existing Wish data.
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q -c "revoke execute on function public.create_wish_with_deed(uuid,text,jsonb,jsonb) from authenticated;"
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q < supabase/migrations/20261116170000_f03_004_restore_legacy_first_save_grant.sql
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
+do $$ begin
+ if not has_function_privilege('authenticated',
+   'public.create_wish_with_deed(uuid,text,jsonb,jsonb)','EXECUTE') then
+   raise exception 'Legacy first-save fallback broke during expansion'; end if;
+ if has_function_privilege('authenticated',
+   'public.create_verified_first_value(uuid,uuid,text,jsonb,jsonb)','EXECUTE') then
+   raise exception 'Client can call the server-only receipt function'; end if;
+ if not has_function_privilege('service_role',
+   'public.create_verified_first_value(uuid,uuid,text,jsonb,jsonb)','EXECUTE') then
+   raise exception 'Verified server cannot write first value'; end if;
+end $$;
+grant usage on schema public to service_role;
+grant select, insert on public.jinns, public.wish_records, public.deeds, public.artifacts to service_role;
+set role service_role;
+select public.create_verified_first_value(
+ '00000000-0000-0000-0000-000000000001'::uuid,
+ (select id from public.jinns where user_id='00000000-0000-0000-0000-000000000001' and is_primary limit 1),
+ 'Create an independent first value result',
+ '{"title":"A first result","sourceNote":"","sections":[{"type":"document","title":"Useful first text","body":"A fully usable starter draft based on input."}],"unknowns":[],"nextDeed":{"title":"Refine one fact","why":"Ground the text","prompt":"Add a correction"},"boundary":"Private only","experience":{"version":1,"locale":"en","intent":"Start","firstOutcome":"An artifact","deed":{"title":"Write","scope":"PRIVATE_DRAFT","result":"A draft"},"questions":[],"components":["jinn_identity","deed_proposal","artifact_reader","source_status","work_receipt","next_deed"]}}'::jsonb,
+ '{"status":"PREPARED","operation":"AI composed a private First Artifact from your Wish and selected answers","recordedAt":"2026-11-16T02:00:00Z","scope":"Private draft only. No external action or source verification.","draftSource":"model"}'::jsonb);
+reset role;
+do $$ begin
+ if (select count(*) from public.wish_records where original_intent='Create an independent first value result')<>1
+   then raise exception 'Server-only first-value atomic save failed'; end if;
+ if (select count(*) from public.artifacts where content->'experience'->>'version'='1')<>1
+   then raise exception 'Experience Plan persistence failed'; end if;
+ if (select count(*) from public.wishes)<>5 then
+   raise exception 'Legacy Wishes unexpectedly altered'; end if;
+end $$;
+SQL
+
+# A client from the previous release and an existing saved Wish remain usable.
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);
+select set_config('request.jwt.claims','{"is_anonymous":false}',false);
+select public.create_wish_with_deed(
+ (select id from public.jinns where user_id='00000000-0000-0000-0000-000000000001' and is_primary limit 1),
+ 'Legacy client saved during mixed-version rollout',
+ '{"title":"Existing client draft","sourceNote":"Confirmed legacy note","sections":[{"type":"document","title":"Historical content","body":"Old saved work must remain editable."}],"unknowns":[],"nextDeed":{"title":"Edit","why":"Make a correction","prompt":"Correct one detail"},"boundary":"Private draft"}'::jsonb,
+ '{"status":"PREPARED","operation":"Legacy client prepared a draft","recordedAt":"2026-11-16T02:00:00Z","scope":"Private draft","draftSource":"model"}'::jsonb);
+select public.correct_artifact(
+ (select a.id from public.artifacts a join public.wish_records w on w.id=a.wish_id
+    where w.original_intent='Make a family story book' limit 1),
+ (select a.version from public.artifacts a join public.wish_records w on w.id=a.wish_id
+    where w.original_intent='Make a family story book' limit 1),
+ jsonb_set(
+   (select a.content from public.artifacts a join public.wish_records w on w.id=a.wish_id
+     where w.original_intent='Make a family story book' limit 1),
+   '{sourceNote}','"Confirmed after migration"'::jsonb));
+do $$ begin
+ if (select count(*) from public.wish_records where original_intent='Legacy client saved during mixed-version rollout')<>1 then
+   raise exception 'Existing client first-save fallback failed after F03-004 migration'; end if;
+ if not exists (select 1 from public.artifacts a join public.wish_records w on w.id=a.wish_id
+   where w.original_intent='Make a family story book' and a.version>1 and a.content->>'sourceNote'='Confirmed after migration') then
+   raise exception 'Previously saved Wish could not be corrected after migration'; end if;
+end $$;
+reset role;
+SQL
+echo 'F03-004 expand: old client save, existing saved Wish correction and verified server save: PASS'
+
+# Prove Phase 2 is separately executable and reversible on the disposable DB.
+# NEVER apply contract/rollback SQL to hosted Supabase as part of CI.
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q < docs/release/f03-004-retire-legacy-first-save.sql
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
+do $$ begin
+ if has_function_privilege('authenticated','public.create_wish_with_deed(uuid,text,jsonb,jsonb)','EXECUTE')
+   then raise exception 'Retirement failed to close legacy client receipt route'; end if;
+ if not has_function_privilege('service_role','public.create_verified_first_value(uuid,uuid,text,jsonb,jsonb)','EXECUTE')
+   then raise exception 'Retirement damaged verified server saving'; end if;
+ if (select count(*) from public.wishes)<>5 then raise exception 'Retirement modified legacy records'; end if;
+end $$;
+SQL
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q < docs/release/f03-004-restore-legacy-first-save.sql
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
+do $$ begin
+ if not has_function_privilege('authenticated','public.create_wish_with_deed(uuid,text,jsonb,jsonb)','EXECUTE')
+   then raise exception 'Rollback did not restore legacy client compatibility'; end if;
+end $$;
+SQL
+echo 'F03-004 later contract & rollback are independently verified (NOT hosted or automatically applied): PASS'

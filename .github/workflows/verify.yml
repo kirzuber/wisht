@@ -3,6 +3,7 @@ on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
 
 permissions:
   contents: read
@@ -23,6 +24,12 @@ jobs:
         run: node --check scripts/test-local-jinns.mjs
       - name: Check localization browser acceptance script syntax
         run: node --check scripts/test-local-i18n.mjs
+      - name: Check first-value browser and model evaluation script syntax
+        run: |
+          node --check scripts/test-local-first-value.mjs
+          node --check scripts/local-first-value-model.mjs
+          node --check scripts/test-live-first-value-browser.mjs
+          node --check scripts/eval-first-value-live.mjs
       - name: Typecheck
         run: npm run typecheck
       - name: Tests
@@ -34,7 +41,7 @@ jobs:
 
   # Multi-Jinn, localization, and F03-003.1 correction PRs: isolated local Auth/Postgres/browser. Never hosted.
   local-browser:
-    if: github.event_name == 'pull_request' && (github.event.pull_request.number == 21 || github.event.pull_request.number == 22 || github.event.pull_request.number == 23)
+    if: github.event_name == 'pull_request' && (github.event.pull_request.number == 21 || github.event.pull_request.number == 22 || github.event.pull_request.number == 23 || github.event.pull_request.number == 24)
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
@@ -58,6 +65,11 @@ jobs:
           # Node's --env-file-if-exists still watches the named path in dev mode.
           # Clean CI has no personal env files. Provide empty local-only placeholders.
           touch .env web/.env.local
+          if [ "${{ github.event.pull_request.number }}" = "24" ]; then
+            node scripts/local-first-value-model.mjs > /tmp/jinn-local-model.log 2>&1 &
+            export JINN_TEST_MODE=1
+            export JINN_LOCAL_MODEL_ENDPOINT=http://127.0.0.1:3999/v1/chat/completions
+          fi
           npm run dev > /tmp/wisht-dev.log 2>&1 &
           echo $! > /tmp/wisht-dev.pid
           for i in $(seq 1 75); do
@@ -68,7 +80,9 @@ jobs:
           exit 1
       - name: Real local Auth/DB browser acceptance
         run: |
-          if [ "${{ github.event.pull_request.number }}" = "22" ]; then
+          if [ "${{ github.event.pull_request.number }}" = "24" ]; then
+            npm run test:local-first-value
+          elif [ "${{ github.event.pull_request.number }}" = "22" ]; then
             npm run test:local-i18n
           elif [ "${{ github.event.pull_request.number }}" = "23" ]; then
             npm run test:local-jinns
@@ -84,6 +98,7 @@ jobs:
           path: |
             docs/evidence/f03-003/*.png
             docs/evidence/i18n/*.png
+            docs/evidence/f03-004/*.png
           if-no-files-found: ignore
       - name: Print local startup diagnostics on failure
         if: failure()
@@ -92,3 +107,58 @@ jobs:
       - name: Stop ephemeral local Supabase
         if: always()
         run: npx --yes supabase@3.1.0 stop || true
+
+  # Deliberately opt-in: one known public smoke pass per Founder-triggered label.
+  # No hosted Supabase or website, no preview deployment, and no blind-Wish text.
+  provider-smoke:
+    if: >
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.number == 24 &&
+      github.event.action == 'labeled' &&
+      github.event.label.name == 'f03-provider-smoke' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      LLM_PROVIDER: deepseek
+      LLM_MODEL: deepseek-flash
+      DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      # This synthetic HMAC key is NOT a Supabase key. No database is contacted.
+      SUPABASE_SERVICE_ROLE_KEY: local-evaluation-signing-only-never-a-real-service-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Verify provider key exists without revealing it
+        run: |
+          mkdir -p docs/evidence/f03-004
+          if [ -z "$DEEPSEEK_API_KEY" ]; then
+            echo "BLOCKED: GitHub Actions lacks DEEPSEEK_API_KEY. No real model requests were made." > docs/evidence/f03-004/real-model-gate-blocked.txt
+            cat docs/evidence/f03-004/real-model-gate-blocked.txt
+            exit 1
+          fi
+      - name: Start local API against actual configured provider
+        run: |
+          node --import tsx api/src/server.ts > /tmp/f03-real-provider-api.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3001/api/health > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          echo "Local API did not start" >&2
+          exit 1
+      - name: Evaluate public EN/RU demonstration Wishes with actual DeepSeek
+        run: npm run eval:first-value-live
+      - name: Upload actual-model evidence or explicit blocked state
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f03-004-real-provider-smoke-evidence
+          path: |
+            docs/evidence/f03-004/configured-real-model-evaluation.json
+            docs/evidence/f03-004/real-model-gate-blocked.txt
+          if-no-files-found: warn
