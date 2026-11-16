@@ -7,7 +7,7 @@ import {
   renameJinn, type JinnIdentity,
 } from './jinnStore';
 import './myWishes.css';
-import { formatLocalDate, localizeError, useLocale } from './i18n';
+import { formatLocalDate, localizeError, useLocale, wishCountNoun } from './i18n';
 
 type Props = {
   email: string;
@@ -118,7 +118,7 @@ export default function MyWishes({ email, onNewWish, onOpenFirstWish }: Props) {
         {jinns.map(jinn => <button key={jinn.id} type="button" className={`jinn-choice ${selectedId === jinn.id ? 'is-selected' : ''}`}
           aria-pressed={selectedId === jinn.id} disabled={busy} onClick={() => { setSelectedId(jinn.id); setEditor(null); setMoveTarget({}); }}>
           <JinnAvatar size="small"/>
-          <span className="jinn-choice-content"><strong>{jinn.name}</strong><small>{jinn.is_primary ? t('Default Jinn ·')+' ' : ''}{counts(jinn.id)} {t(counts(jinn.id) === 1 ? 'Wish' : 'Wishes')}</small>
+          <span className="jinn-choice-content"><strong>{jinn.name}</strong><small>{jinn.is_primary ? t('Default Jinn ·')+' ' : ''}{counts(jinn.id)} {wishCountNoun(counts(jinn.id),locale)}</small>
             {jinn.purpose && <small className="jinn-purpose">{jinn.purpose}</small>}</span>
         </button>)}
       </div>
