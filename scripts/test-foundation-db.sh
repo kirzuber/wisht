@@ -8,8 +8,11 @@ for attempt in {1..30}; do docker exec "$container" pg_isready -h 127.0.0.1 -U p
 docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
 create role anon nologin;
 create role authenticated nologin;
+create role service_role nologin bypassrls;
 create schema auth;
-create table auth.users(id uuid primary key);
+create table auth.users(id uuid primary key, email_confirmed_at timestamptz default now(), is_anonymous boolean default false);
+grant usage on schema auth to service_role;
+grant select on auth.users to service_role;
 create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
 create function auth.jwt() returns jsonb language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb $$;
 grant usage on schema auth to authenticated;
@@ -214,3 +217,38 @@ do $$ begin if (select count(*) from public.wish_records) <> 0 then raise except
  exception when insufficient_privilege then null; end $$;
 SQL
 echo 'F03 legacy coexistence, multi-Jinn assignment, 5+ Wishes, owner RLS, persistence and safe deletion: PASS'
+
+# F03-004 migration happens AFTER all existing legacy/F03 regression fixtures:
+# revoking the old client insert path must never alter historical saved rows.
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q < supabase/migrations/20261116040000_f03_004_verified_first_value.sql
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
+do $$ begin
+ if has_function_privilege('authenticated',
+   'public.create_wish_with_deed(uuid,text,jsonb,jsonb)','EXECUTE') then
+   raise exception 'Client can still forge a first Deed receipt'; end if;
+ if has_function_privilege('authenticated',
+   'public.create_verified_first_value(uuid,uuid,text,jsonb,jsonb)','EXECUTE') then
+   raise exception 'Client can call the server-only receipt function'; end if;
+ if not has_function_privilege('service_role',
+   'public.create_verified_first_value(uuid,uuid,text,jsonb,jsonb)','EXECUTE') then
+   raise exception 'Verified server cannot write first value'; end if;
+end $$;
+grant usage on schema public to service_role;
+grant select, insert on public.jinns, public.wish_records, public.deeds, public.artifacts to service_role;
+set role service_role;
+select public.create_verified_first_value(
+ '00000000-0000-0000-0000-000000000001'::uuid,
+ (select id from public.jinns where user_id='00000000-0000-0000-0000-000000000001' and is_primary limit 1),
+ 'Create an independent first value result',
+ '{"title":"A first result","sourceNote":"","sections":[{"type":"document","title":"Useful first text","body":"A fully usable starter draft based on input."}],"unknowns":[],"nextDeed":{"title":"Refine one fact","why":"Ground the text","prompt":"Add a correction"},"boundary":"Private only","experience":{"version":1,"locale":"en","intent":"Start","firstOutcome":"An artifact","deed":{"title":"Write","scope":"PRIVATE_DRAFT","result":"A draft"},"questions":[],"components":["jinn_identity","deed_proposal","artifact_reader","source_status","work_receipt","next_deed"]}}'::jsonb,
+ '{"status":"PREPARED","operation":"AI composed a private First Artifact from your Wish and selected answers","recordedAt":"2026-11-16T02:00:00Z","scope":"Private draft only. No external action or source verification.","draftSource":"model"}'::jsonb);
+reset role;
+do $$ begin
+ if (select count(*) from public.wish_records where original_intent='Create an independent first value result')<>1
+   then raise exception 'Server-only first-value atomic save failed'; end if;
+ if (select count(*) from public.artifacts where content->'experience'->>'version'='1')<>1
+   then raise exception 'Experience Plan persistence failed'; end if;
+ if (select count(*) from public.wishes)<>3 then
+   raise exception 'Legacy Wishes unexpectedly altered'; end if;
+end $$;
+SQL
