@@ -46,8 +46,8 @@ const signIn = async email => {
 await page.route('**/api/first-deed',route=>{
   const data=route.request().postDataJSON();
   if (data.mode==='clarify')return route.fulfill({status:200,json:{question:null}});
-  const note=data.answer || '';
   const isFollowUp=data.mode==='continue';
+  const note=isFollowUp?'Aunt confirmed one memory':(data.answer || '');
   return route.fulfill({status:200,json:{
     artifact:{
       title:isFollowUp?'Follow-up kit':'Starter kit for this Wish',
@@ -82,11 +82,8 @@ const startWish = async (jinnName,aspiration) => {
   await page.getByRole('button',{name:/Continue with Jinn/}).click();
   await page.getByRole('button',{name:/Prepare my first deed/}).click();
   await page.getByText('Your first Deed.',{exact:true}).waitFor();
-  assert.equal(await page.locator('#first-jinn-choice').inputValue(),
-    await page.locator('.jinn-choice').count().then(async () => {
-      // The current Jinn name is displayed in the first-use companion after save.
-      return page.locator('#first-jinn-choice option').filter({hasText:jinnName}).getAttribute('value');
-    }));
+  await page.locator('#first-jinn-choice').waitFor();
+  assert.equal(await page.locator('#first-jinn-choice option:checked').innerText(),jinnName);
   await page.getByRole('button',{name:/Keep this wish/}).click();
   await page.getByText('Continue your wish.',{exact:true}).waitFor();
   assert.equal(await page.locator('.first-jinn strong').innerText(),jinnName);
