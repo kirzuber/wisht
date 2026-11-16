@@ -88,6 +88,36 @@ export function saveFirstWish(wish: string, artifact: Artifact, receipt: DeedRec
   });
 }
 
+/**
+ * F03-004: do not let the browser submit an unverified receipt to Supabase.
+ * Server checks its signed preparation, caller Auth, and Jinn ownership, and
+ * writes Wish/Deed/Artifact atomically with its service-only database function.
+ */
+export function savePreparedFirstValue(
+  wish:string,edited:Artifact,prepared:Artifact,receipt:DeedReceipt,proof:string,
+  selectedJinnId?:string,
+):Promise<string>{
+  return logWishOperation('save',async()=>{
+    await getAuthenticatedUser();
+    const {data:{session},error:sessionError}=await getSupabase().auth.getSession();
+    if(sessionError||!session?.access_token)throw new Error('Sign in to save your Wish.');
+    const jinnId=selectedJinnId||(await ensurePrimaryJinn()).id;
+    const API=import.meta.env.VITE_API_BASE_URL||'';
+    let response:Response;
+    try{
+      response=await fetch(`${API}/api/first-deed`,{
+        method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`},
+        body:JSON.stringify({mode:'save_first_value',wish,jinnId,preparedArtifact:prepared,
+          artifact:edited,receipt,proof}),
+      });
+    }catch{throw new Error('Could not reach the saving service. Your draft is unchanged.');}
+    const payload=await response.json().catch(()=>null);
+    if(!response.ok||typeof payload?.wishId!=='string')
+      throw new Error('Your First Artifact was not saved. Keep it open and retry.');
+    return payload.wishId as string;
+  });
+}
+
 /** The database checks the artifact version and records a follow-up Deed atomically. */
 export async function updateFirstWish(row: FirstWishRow, artifact: Artifact, receipt?: DeedReceipt): Promise<FirstWishRow> {
   await logWishOperation(receipt ? 'continue' : 'edit', async () => {
