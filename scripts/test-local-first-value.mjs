@@ -51,12 +51,16 @@ try{
  await page.locator('#wish').fill(wish);
  await page.getByRole('button',{name:'Continue with Jinn'}).click();
  await page.getByRole('button',{name:'Other',exact:true}).waitFor();
+ assert.equal(await page.locator('.first-value-question').count(),1,'Question leads, not a fixed artifact type');
  assert.equal(await page.getByRole('button',{name:'Skip'}).count(),1);
  assert.equal(await page.getByRole('button',{name:'I’m not sure'}).count(),1);
  await page.screenshot({path:out+'/first-question-desktop.png',fullPage:true});
  await page.getByRole('button',{name:'Other'}).click();
  await page.locator('#first-other').fill('A calm practical first step');
- await page.getByRole('button',{name:/Prepare my first deed/}).click();
+ await page.getByRole('button',{name:'Continue',exact:true}).click();
+ await page.getByRole('button',{name:'Let Jinn prepare it'}).waitFor();
+ await page.screenshot({path:out+'/deed-proposal-desktop.png',fullPage:true});
+ await page.getByRole('button',{name:'Let Jinn prepare it'}).click();
  await page.locator('.first-value-reader h2').waitFor();
  const document=await page.locator('.first-value-prose').innerText();
  assert.ok(document.length>=260,'First Artifact must contain substantial work, not an empty worksheet');
@@ -64,6 +68,9 @@ try{
   'This draft is only in this open session until you keep it.');
  assert.match(await page.locator('.first-value-receipt').innerText(),/PREPARED/);
  assert.match(await page.locator('.first-value-source').innerText(),/Sources and unknowns/);
+ assert.equal(await page.locator('.first-value-provenance span').count(),2);
+ const headingColor=await page.locator('.first-value-reader h2').evaluate(node=>getComputedStyle(node).color);
+ assert.notEqual(headingColor,'rgb(255, 255, 255)','Artifact heading must contrast with light reader');
  await page.screenshot({path:out+'/first-artifact-desktop.png',fullPage:true});
  await page.setViewportSize({width:390,height:844});
  await page.screenshot({path:out+'/first-artifact-mobile.png',fullPage:true});
@@ -99,6 +106,7 @@ try{
  await page.goto(savedUrl);
  await page.locator('#auth-email').waitFor();
  await signIn(email,false);
+ await page.getByRole('button',{name:'Sign out',exact:true}).waitFor();
  await page.goto(savedUrl);
  await page.locator('.first-value-reader').waitFor();
  assert.match(await page.locator('.first-value-prose').innerText(),/authored by the user/);
@@ -107,6 +115,7 @@ try{
  await page.locator('#auth-email').waitFor();
  const another='first-value-second-'+Date.now()+'@example.test';
  await signIn(another,false);
+ await page.getByRole('button',{name:'Sign out',exact:true}).waitFor();
  await page.goto(savedUrl);
  await page.getByText(/saved wish is unavailable|Could not load wish/i).first().waitFor();
  assert.equal(await page.locator('.first-value-reader').count(),0);
