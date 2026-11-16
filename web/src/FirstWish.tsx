@@ -56,6 +56,9 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
   const [jinnValidated,setJinnValidated]=useState(!preferredJinnId);
   const [dirty,setDirty]=useState(false);
   const sourceBaseline=useRef('');
+  // React StrictMode repeats mount effects in development; reuse one request
+  // for the same Wish/Jinn/locale so it does not trigger duplicate paid LLM calls.
+  const planRequestRef=useRef<{key:string;promise:Promise<{plan:unknown}>}|null>(null);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const [retryAttempt,setRetryAttempt]=useState(0);
@@ -120,16 +123,23 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
       void loadFirstWish(savedId).then(saved=>{if(!live)return;setRow(saved);setArtifact(saved.first_artifact);sourceBaseline.current=saved.first_artifact.sourceNote;setReceipt(saved.first_deed);setPhase('workspace');})
         .catch(e=>{if(live){setError(localizeError(e,locale,'Could not load wish.'));setPhase('workspace');}});
     }else{
-      void endpoint({
-        mode:'plan',wish,jinnName:companionName,
-        jinnPurpose:jinnChoices.find(jinn=>jinn.id===saveJinnId)?.purpose||undefined,
-      },locale).then(data=>{
+      const purpose=jinnChoices.find(jinn=>jinn.id===saveJinnId)?.purpose||'';
+      const requestKey=JSON.stringify([wish,locale,companionName,saveJinnId,purpose,retryAttempt]);
+      if(planRequestRef.current?.key!==requestKey){
+        planRequestRef.current={
+          key:requestKey,
+          promise:endpoint({
+            mode:'plan',wish,jinnName:companionName,
+            jinnPurpose:purpose||undefined,
+          },locale),
+        };
+      }
+      void planRequestRef.current.promise.then(data=>{
         if(!live)return;
         const validated=validateExperiencePlan(data.plan,locale);
         setPlan(validated);setQuestionIndex(0);setAnswers({});setSelectedChoice('');setUseOther(false);
         setPhase(validated.questions.length?'answer':'clarify');
-      })
-        .catch(e=>{if(live){setError(localizeError(e,locale,'Could not begin.'));setPhase('start-error');}});
+      }).catch(e=>{if(live){setError(localizeError(e,locale,'Could not begin.'));setPhase('start-error');}});
     }
     return()=>{live=false;};
   },[savedId,wish,retryAttempt,locale,preferredJinnId,jinnValidated]);
