@@ -1,5 +1,5 @@
-import type { Locale } from './locale';
-import type { Artifact } from './firstDeed';
+import type { Locale } from './locale.js';
+import type { Artifact } from './firstDeed.js';
 
 /** Safe and useful fallback content, never an executed action. English schema keys are stable. */
 const worksheets: Record<Locale,Omit<Artifact,'sourceNote'>> = {
