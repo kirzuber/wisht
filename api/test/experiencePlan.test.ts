@@ -4,7 +4,7 @@ import {
  FIRST_VALUE_COMPONENTS,FIRST_VALUE_CAPABILITIES,EXPERIENCE_PLANNER_PROMPT,
  validateExperiencePlan,validatePlanAnswers,summarizePlanFacts,type ExperiencePlanV1,
 } from '../src/experiencePlan.ts';
-import {planFirstValue,prepareDeed,validateArtifact} from '../src/firstDeed.ts';
+import {planFirstValue,prepareDeed,signPreparedFirstValue,verifyPreparedFirstValue,validateArtifact} from '../src/firstDeed.ts';
 
 const base={
  version:1,locale:'en',intent:'Find a useful first result',
@@ -106,6 +106,31 @@ describe('F03-004 bounded Experience Plan v1',()=>{
   assert.equal(response.receipt.draftSource,'model');
   assert.match(response.receipt.scope,/No external action/);
   assert.equal(validateArtifact(response.artifact,response.artifact.sourceNote).experience?.deed.scope,'PRIVATE_DRAFT');
+ });
+ it('prevents forged initial receipt, Wish, artifact and expired preparation proof',async()=>{
+  const env={SUPABASE_SERVICE_ROLE_KEY:'local-test-only-signing-key-'.repeat(3)} as NodeJS.ProcessEnv;
+  const plan=valid();
+  const artifact=validateArtifact({
+    title:'First result',sections:[{type:'document',title:'Prepared section',
+      body:'Meaningful text that is ready to use. '.repeat(12)}],
+    unknowns:[],boundary:'Only a private draft.',
+    nextDeed:{title:'Refine',why:'Improve one detail',prompt:'Add a fact'},
+    experience:plan,
+  },'');
+  const receipt={status:'PREPARED' as const,operation:'AI composed a private first artifact',
+    recordedAt:'2026-11-16T03:00:00Z',scope:'Private draft only; no external action.',
+    draftSource:'model' as const};
+  const now=Date.now();
+  const proof=signPreparedFirstValue('A Wish',artifact,receipt,env,now+60000);
+  assert.doesNotThrow(()=>verifyPreparedFirstValue('A Wish',artifact,receipt,proof,env,now));
+  assert.throws(()=>verifyPreparedFirstValue('Different Wish',artifact,receipt,proof,env,now),
+    {code:'invalid_preparation'});
+  assert.throws(()=>verifyPreparedFirstValue('A Wish',{...artifact,title:'Forged result'},receipt,proof,env,now),
+    {code:'invalid_preparation'});
+  assert.throws(()=>verifyPreparedFirstValue('A Wish',artifact,{...receipt,status:'SENT' as never},proof,env,now),
+    {code:'invalid_preparation'});
+  assert.throws(()=>verifyPreparedFirstValue('A Wish',artifact,receipt,proof,env,now+120000),
+    {code:'expired_preparation'});
  });
  it('refuses hollow worksheets in first-value mode but retains existing saved data on failure',async()=>{
   const plan=valid();let calls=0;
