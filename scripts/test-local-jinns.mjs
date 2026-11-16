@@ -245,7 +245,7 @@ try{
   await page.locator('#auth-email').waitFor();
   // Second account must not inherit the first account's Jinns or Wishes.
   const secondEmail='f03-003-isolated-'+Date.now()+'@example.test';
-  await page.getByRole('button',{name:'Cancel'}).click();
+  await page.getByRole('button',{name:'Not now — keep exploring'}).click();
   await signIn(secondEmail);
   await page.locator('.jinn-choice').first().waitFor();
   assert.equal(await page.locator('.jinn-choice').count(),1);
