@@ -81,6 +81,20 @@ describe('F03-004 bounded Experience Plan v1',()=>{
   assert.equal(calls,2);
   assert.equal(output.version,1);
  });
+ it('retries DeepSeek JSON mode whitespace-only content once',async()=>{
+  let calls=0;
+  const output=await planFirstValue('An unrelated Wish','en','Jinn','',
+    (messages,maxTokens)=>callFirstDeedModel(messages,maxTokens,
+      {DEEPSEEK_API_KEY:'dummy-test-key',LLM_PROVIDER:'deepseek'} as NodeJS.ProcessEnv,
+      async()=>{
+        calls++;
+        return new Response(JSON.stringify({choices:[{finish_reason:'stop',
+          message:{content:calls===1?'    ':JSON.stringify(base)}}]}),
+          {status:200,headers:{'Content-Type':'application/json'}});
+      },1000));
+  assert.equal(calls,2);
+  assert.equal(output.version,1);
+ });
  it('offers at most three optional, consequential questions and safely validates answers',()=>{
   const plan=valid({questions:[choice],components:['jinn_identity','choice_chips',...base.components.slice(1)]});
   assert.deepEqual(validatePlanAnswers(plan,{priority:'Option A'}),{priority:'Option A'});
