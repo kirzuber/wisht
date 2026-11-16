@@ -422,7 +422,7 @@ html[lang="es"] .first-section:last-of-type::before { content:'?  PREGUNTAS PEND
 .first-value-proposal {background:#f3effd;}
 .first-value-proposal h3,.first-value-next h3 {font-size:21px;margin:6px 0;color:#1c2840;}
 .first-value-proposal p,.first-value-next p {line-height:1.6;color:#515d74;}
-.first-value-proposal small {color:#677089;}
+.first-value-proposal small {display:block;color:#677089;line-height:1.5;margin-top:6px;}
 .first-value-reader {padding:clamp(22px,4vw,44px);background:#fffefb;}
 .first-value-reader header {position:relative;padding-bottom:16px;border-bottom:1px solid #e8e1ea;}
 .first-value-reader h2 {font-family:'DM Serif Display',Georgia,serif;font-size:clamp(30px,4vw,48px);font-weight:400;line-height:1.12;margin:16px 0 12px;overflow-wrap:anywhere;}
