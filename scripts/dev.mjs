@@ -137,9 +137,12 @@ try {
   const env = localSupabaseEnv();
   console.info(`[Wisht] F03 schema verified at ${localApi}. Local sign-in codes: http://127.0.0.1:54324/`);
   if (!checkOnly) {
+    const { SUPABASE_SERVICE_ROLE_KEY, ...browserEnv } = env;
     const { result } = concurrently([
-      { name: 'api', command: 'npm run dev -w api', prefixColor: 'blue', env, cwd: root },
-      { name: 'web', command: 'npm run dev -w web', prefixColor: 'magenta', env, cwd: root },
+      { name: 'api', command: 'npm run dev -w api', prefixColor: 'blue',
+        env: { ...browserEnv, SUPABASE_SERVICE_ROLE_KEY }, cwd: root },
+      { name: 'web', command: 'npm run dev -w web', prefixColor: 'magenta',
+        env: browserEnv, cwd: root },
     ], { killOthersOn: ['failure', 'success'] });
     await result.catch(() => { process.exitCode = 1; });
   }
