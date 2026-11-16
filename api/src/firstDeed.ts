@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import { isLocale, languageInstruction, type Locale } from './locale';
-import { starterWorksheet } from './starterWorksheet';
+import { isLocale, languageInstruction, type Locale } from './locale.js';
+import { starterWorksheet } from './starterWorksheet.js';
 
 export type Section =
   | { type: 'document'; title: string; body: string }
