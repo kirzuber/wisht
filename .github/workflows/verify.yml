@@ -23,6 +23,10 @@ jobs:
         run: node --check scripts/test-local-jinns.mjs
       - name: Check localization browser acceptance script syntax
         run: node --check scripts/test-local-i18n.mjs
+      - name: Check first-value browser and local fixture syntax
+        run: |
+          node --check scripts/test-local-first-value.mjs
+          node --check scripts/local-first-value-model.mjs
       - name: Typecheck
         run: npm run typecheck
       - name: Tests
@@ -34,7 +38,7 @@ jobs:
 
   # Multi-Jinn, localization, and F03-003.1 correction PRs: isolated local Auth/Postgres/browser. Never hosted.
   local-browser:
-    if: github.event_name == 'pull_request' && (github.event.pull_request.number == 21 || github.event.pull_request.number == 22 || github.event.pull_request.number == 23)
+    if: github.event_name == 'pull_request' && (github.event.pull_request.number == 21 || github.event.pull_request.number == 22 || github.event.pull_request.number == 23 || github.event.pull_request.number == 24)
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
@@ -58,6 +62,11 @@ jobs:
           # Node's --env-file-if-exists still watches the named path in dev mode.
           # Clean CI has no personal env files. Provide empty local-only placeholders.
           touch .env web/.env.local
+          if [ "${{ github.event.pull_request.number }}" = "24" ]; then
+            node scripts/local-first-value-model.mjs > /tmp/jinn-local-model.log 2>&1 &
+            export JINN_TEST_MODE=1
+            export JINN_LOCAL_MODEL_ENDPOINT=http://127.0.0.1:3999/v1/chat/completions
+          fi
           npm run dev > /tmp/wisht-dev.log 2>&1 &
           echo $! > /tmp/wisht-dev.pid
           for i in $(seq 1 75); do
@@ -68,7 +77,9 @@ jobs:
           exit 1
       - name: Real local Auth/DB browser acceptance
         run: |
-          if [ "${{ github.event.pull_request.number }}" = "22" ]; then
+          if [ "${{ github.event.pull_request.number }}" = "24" ]; then
+            npm run test:local-first-value
+          elif [ "${{ github.event.pull_request.number }}" = "22" ]; then
             npm run test:local-i18n
           elif [ "${{ github.event.pull_request.number }}" = "23" ]; then
             npm run test:local-jinns
@@ -84,6 +95,7 @@ jobs:
           path: |
             docs/evidence/f03-003/*.png
             docs/evidence/i18n/*.png
+            docs/evidence/f03-004/*.png
           if-no-files-found: ignore
       - name: Print local startup diagnostics on failure
         if: failure()
