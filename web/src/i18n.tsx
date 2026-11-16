@@ -212,6 +212,13 @@ const translations: Record<string,readonly [string,string,string]> = {
   'Skip':['Пропустить','Passer','Saltar'],
   'Continue':['Продолжить','Continuer','Continuar'],
   'Suggested next step — not performed yet.':['Предложенный следующий шаг — пока не выполнен.','Prochaine étape suggérée — pas encore effectuée.','Siguiente paso sugerido; aún no se ha realizado.'],
+  'PROPOSED FIRST DEED':['ПРЕДЛОЖЕННЫЙ ПЕРВЫЙ ШАГ','PREMIER ACTE PROPOSÉ','PRIMERA ACCIÓN PROPUESTA'],
+  'Let Jinn prepare it':['Пусть Jinn подготовит','Laisser Jinn le préparer','Dejar que Jinn lo prepare'],
+  'Change the plan':['Изменить план','Modifier le plan','Cambiar el plan'],
+  'Choose what fits':['Выберите подходящий вариант','Choisissez une option','Elige una opción'],
+  'Based on your Wish':['На основе вашего желания','Basé sur votre souhait','Basado en tu deseo'],
+  'AI suggestion · Not verified':['Предложение ИИ · Не проверено','Suggestion de l’IA · Non vérifiée','Sugerencia de IA · Sin verificar'],
+
   'Preparing something useful for your Wish…':['Готовим полезный результат для вашего желания…','Préparation d’un résultat utile pour votre souhait…','Preparando algo útil para tu deseo…'],
   'The Experience Plan was invalid. Try again.':['План не удалось проверить. Повторите попытку.','Le plan n’a pas pu être validé. Réessayez.','No se ha podido validar el plan. Inténtalo de nuevo.'],
   // Recoverable errors: do not show untranslated provider internals to the user
