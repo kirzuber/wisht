@@ -119,7 +119,7 @@ export default function MyWishes({ email, ownerId, onNewWish, onOpenFirstWish }:
     <div className="my-work-heading">
       <JinnAvatar size="large"/>
       <p className="eyebrow">{t('YOUR COMPANIONS')}</p><h2>{t('My')} <em>{t('Jinns.')}</em></h2>
-      <p className="my-work-subtitle">{t('Each Jinn helps you keep track of its Wishes. Your work stays private to each Wish.')}</p>
+      <p className="my-work-subtitle">{t('Each Jinn helps with assigned Wishes. Your Wishes stay in your account and keep separate context.')}</p>
       <p className="my-work-email"><LockKeyhole size={13}/> {t('Signed in as {email}',{email})}</p>
     </div>
 
