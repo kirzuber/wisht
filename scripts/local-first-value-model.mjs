@@ -26,7 +26,7 @@ const server=http.createServer(async(req,res)=>{
         'supporting_section','source_status','work_receipt','next_deed'],
     };
   }else if(prompt.includes('Review a proposed private draft')){
-    output={safe:true};
+    output={safe:true,promiseFulfilled:true};
   }else{
     const context=input.messages?.[1]?.content||'';
     const wish=context.match(/Goal: ([^\n]+)/)?.[1]||'This Wish';
