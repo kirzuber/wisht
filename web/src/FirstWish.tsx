@@ -142,7 +142,7 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
       setArtifact(result.artifact);setIssuedArtifact(result.artifact);
       setPreparationProof(typeof result.proof==='string'?result.proof:'');
       sourceBaseline.current=result.artifact.sourceNote;setReceipt(result.receipt);setPhase('workspace');
-    }catch(e){setError(localizeError(e,locale,'Could not prepare this deed.'));setPhase(plan.questions.length?'answer':'clarify');}
+    }catch(e){setError(localizeError(e,locale,'Could not prepare this deed.'));setPhase('clarify');}
     finally{setBusy(false);}
   };
   const respond=(value:string)=>{
@@ -152,7 +152,7 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
     setAnswers(next);setSelectedChoice('');setUseOther(false);
     if(questionIndex+1<(plan?.questions.length||0)){
       setQuestionIndex(index=>index+1);
-    }else void prepare(next);
+    }else setPhase('clarify');
   };
   const save=async()=>{
     if(!artifact||!receipt)return;
@@ -224,20 +224,22 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
       </button>
     </div>}
     {phase==='clarify'&&!artifact&&plan&&<div className="first-panel first-value-entry">
-      <p className="first-panel-kicker">{t('{name}’s starting point',{name:companionName})}</p>
-      <h2>{plan.deed.title}</h2><p>{plan.firstOutcome}</p>
+      <p className="first-panel-kicker">{t('PROPOSED FIRST DEED')}</p>
+      <h2>{plan.deed.title}</h2><p className="first-value-preview-outcome">{plan.firstOutcome}</p>
       <small>{t('Private preparation only. No external action was performed.')}</small>
       <div className="first-actions"><button type="button" className="primary" disabled={busy}
-        onClick={()=>void prepare({})}>{t('Prepare my first deed')} <ArrowRight size={16}/></button></div>
+        onClick={()=>void prepare(answers)}>{t('Let Jinn prepare it')} <ArrowRight size={16}/></button>
+        <button type="button" className="first-secondary" disabled={busy}
+          onClick={()=>setRetryAttempt(value=>value+1)}>{t('Change the plan')}</button></div>
       {error&&<p className="error" role="alert">{error}</p>}
     </div>}
     {phase==='answer'&&plan&&plan.questions[questionIndex]&&<div className="first-panel first-value-entry">
       <p className="first-panel-kicker">{t('A question from {name}',{name:companionName})}
         <span className="first-value-question-count"> {questionIndex+1}/{plan.questions.length}</span></p>
-      <h2>{plan.deed.title}</h2><p className="first-value-outcome">{plan.firstOutcome}</p>
+      <h2 className="first-value-question">{plan.questions[questionIndex].prompt}</h2>
+      <p className="first-value-outcome">{plan.questions[questionIndex].why}</p>
       <fieldset className="first-value-choices">
-        <legend>{plan.questions[questionIndex].prompt}</legend>
-        <small>{plan.questions[questionIndex].why}</small>
+        <legend>{t('Choose what fits')}</legend>
         <div className="first-value-choice-list">{plan.questions[questionIndex].choices.map(choice=>
           <button type="button" key={choice} aria-pressed={!useOther&&selectedChoice===choice}
             className={!useOther&&selectedChoice===choice?'first-value-choice is-selected':'first-value-choice'}
@@ -251,7 +253,7 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
       </fieldset>
       <div className="first-actions">
         <button type="button" className="primary" disabled={busy||!selectedChoice.trim()}
-          onClick={()=>respond(selectedChoice.trim())}>{questionIndex+1===plan.questions.length?t('Prepare my first deed'):t('Continue')}
+          onClick={()=>respond(selectedChoice.trim())}>{t('Continue')}
           <ArrowRight size={16}/></button>
         <button type="button" className="first-secondary" disabled={busy} onClick={()=>respond('__unsure__')}>{t('I’m not sure')}</button>
         <button type="button" className="first-secondary" disabled={busy} onClick={()=>respond('__skip__')}>{t('Skip')}</button>
