@@ -12,6 +12,7 @@
     "test": "npm run test -w api",
     "test:db": "bash scripts/test-foundation-db.sh",
     "test:local-browser": "node scripts/test-local-browser.mjs && node scripts/test-local-scenarios.mjs",
+    "test:local-jinns": "node scripts/test-local-jinns.mjs",
     "typecheck": "npm run typecheck -w api && npm run typecheck -w web"
   },
   "devDependencies": {
