@@ -52,6 +52,9 @@ export default function FirstValueExperience({artifact,receipt,saved,wish,compan
         onClick={()=>setEditing(value=>!value)}><Pencil size={15}/> {editing?t('Finish editing'):t('Edit artifact')}</button>
       <h2>{artifact.title}</h2>
       <p className="first-value-artifact-hint">{t('A working draft you can read and use now. Suggestions are not verified personal facts.')} {t('With')}: {companionName}</p>
+    <div className="first-value-provenance" aria-label={t('Sources and unknowns')}>
+      <span>{t('Based on your Wish')}</span><span>{t('AI suggestion · Not verified')}</span>
+    </div>
     </header>
     {renderSection(artifact.sections[mainIndex],mainIndex)}
     {!supporting&&otherIndices.map(i=>renderSection(artifact.sections[i],i))}
