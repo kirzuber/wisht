@@ -382,3 +382,20 @@
   .app.jinn-experience .brand { font-size:22px; }
   .app.jinn-experience .brand-mark { width:37px;height:37px; }
 }
+
+/* The original visual system generates labels in CSS; localize those too. */
+html[lang="ru"] .first-source::before { content:'✦  ВАШИ СЛОВА'; }
+html[lang="ru"] .first-section[data-kind="document"]::before { content:'▤  ДОКУМЕНТ'; }
+html[lang="ru"] .first-section[data-kind="checklist"]::before { content:'☑  СПИСОК ДЕЙСТВИЙ'; }
+html[lang="ru"] .first-section[data-kind="questions"]::before { content:'?  ВОПРОСЫ'; }
+html[lang="ru"] .first-section:last-of-type::before { content:'?  ОТКРЫТЫЕ ВОПРОСЫ'; }
+html[lang="fr"] .first-source::before { content:'✦  VOS MOTS'; }
+html[lang="fr"] .first-section[data-kind="document"]::before { content:'▤  DOCUMENT'; }
+html[lang="fr"] .first-section[data-kind="checklist"]::before { content:'☑  LISTE DE CONTRÔLE'; }
+html[lang="fr"] .first-section[data-kind="questions"]::before { content:'?  QUESTIONS'; }
+html[lang="fr"] .first-section:last-of-type::before { content:'?  QUESTIONS EN SUSPENS'; }
+html[lang="es"] .first-source::before { content:'✦  TUS PALABRAS'; }
+html[lang="es"] .first-section[data-kind="document"]::before { content:'▤  DOCUMENTO'; }
+html[lang="es"] .first-section[data-kind="checklist"]::before { content:'☑  LISTA DE TAREAS'; }
+html[lang="es"] .first-section[data-kind="questions"]::before { content:'?  PREGUNTAS'; }
+html[lang="es"] .first-section:last-of-type::before { content:'?  PREGUNTAS PENDIENTES'; }
