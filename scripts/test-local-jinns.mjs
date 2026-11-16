@@ -52,7 +52,7 @@ await page.route('**/api/first-deed',route=>{
   return route.fulfill({status:200,json:{
     artifact:{
       title:isFollowUp?'Follow-up kit':'Starter kit for this Wish',
-      sourceNote:isFollowUp?'Source remains with this Wish':note,
+      sourceNote:note,
       sections:[{type:'document',title:'Starting notes',body:'Keep facts with this Wish only.'}],
       unknowns:['One unanswered question'],
       nextDeed:{title:'Record a detail',why:'To make progress',prompt:'Write only what you know'},
