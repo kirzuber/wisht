@@ -59,7 +59,9 @@ function checkSchema() {
         join pg_catalog.pg_namespace n on n.oid = c.relnamespace
         where n.nspname = 'public' and c.relkind in ('r','p','v','m','f')) as public_relations,
       to_regclass('supabase_migrations.schema_migrations') is not null as has_history,
-      has_column_privilege('authenticated','public.wish_records','primary_jinn_id','UPDATE') as jinn_assignment,
+      case when to_regclass('public.wish_records') is not null
+        then has_column_privilege('authenticated','public.wish_records','primary_jinn_id','UPDATE')
+        else false end as jinn_assignment,
       exists (select 1 from pg_policies where schemaname='public' and tablename='jinns'
         and policyname='owner deletes empty non-primary jinns') as jinn_deletion
   `);
