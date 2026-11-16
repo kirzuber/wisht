@@ -8,6 +8,7 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const cli = ['--yes', 'supabase@3.1.0', '--workdir', root];
 const localApi = 'http://127.0.0.1:54321';
 const baseline = '20261115224928_f03_additive_generic_wish_records.sql';
+const managementMigration = '20261115234000_f03_003_jinn_management.sql';
 const checkOnly = process.argv.includes('--check');
 
 function supabase(...args) {
@@ -57,7 +58,10 @@ function checkSchema() {
       (select count(*)::int from pg_catalog.pg_class c
         join pg_catalog.pg_namespace n on n.oid = c.relnamespace
         where n.nspname = 'public' and c.relkind in ('r','p','v','m','f')) as public_relations,
-      to_regclass('supabase_migrations.schema_migrations') is not null as has_history
+      to_regclass('supabase_migrations.schema_migrations') is not null as has_history,
+      has_column_privilege('authenticated','public.wish_records','primary_jinn_id','UPDATE') as jinn_assignment,
+      exists (select 1 from pg_policies where schemaname='public' and tablename='jinns'
+        and policyname='owner deletes empty non-primary jinns') as jinn_deletion
   `);
 }
 
@@ -69,6 +73,8 @@ function missingSchema(schema) {
     'public.artifacts': schema.artifacts,
     'create_wish_with_deed RPC': schema.save_rpc,
     'F03 Wish columns': schema.wish_records_columns,
+    'F03-003 Wish assignment grant': schema.jinn_assignment,
+    'F03-003 safe Jinn deletion policy': schema.jinn_deletion,
   }).filter(([, present]) => present !== true).map(([name]) => name);
 }
 
@@ -83,12 +89,12 @@ function verifyLocalSchema() {
   const migrations = readdirSync(new URL('../supabase/migrations/', import.meta.url)).filter(file => file.endsWith('.sql'));
   const pristineHistory = schema.has_history === false || (schema.has_history === true &&
     readLocalRow('select count(*)::int as entries from supabase_migrations.schema_migrations').entries === 0);
-  if (!pristineHistory || migrations.length !== 1 || migrations[0] !== baseline) {
+  if (!pristineHistory || migrations.length !== 2 || ![baseline, managementMigration].every(file => migrations.includes(file))) {
     throw new Error(`The local F03 schema is incomplete. Missing: ${missing.join(', ')}. Review the local migration history before applying any changes.`);
   }
   if (checkOnly) throw new Error('Local Supabase is empty. Run npm run dev to apply the F03 baseline.');
 
-  console.info('[Wisht] Applying the additive F03 baseline only to a verified empty local database.');
+  console.info('[Wisht] Applying the two additive F03 migrations only to a verified empty local database.');
   try {
     supabase('migration', 'up');
   } catch {
