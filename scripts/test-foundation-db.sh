@@ -280,3 +280,24 @@ end $$;
 reset role;
 SQL
 echo 'F03-004 expand: old client save, existing saved Wish correction and verified server save: PASS'
+
+# Prove Phase 2 is separately executable and reversible on the disposable DB.
+# NEVER apply contract/rollback SQL to hosted Supabase as part of CI.
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q < docs/release/f03-004-retire-legacy-first-save.sql
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
+do $$ begin
+ if has_function_privilege('authenticated','public.create_wish_with_deed(uuid,text,jsonb,jsonb)','EXECUTE')
+   then raise exception 'Retirement failed to close legacy client receipt route'; end if;
+ if not has_function_privilege('service_role','public.create_verified_first_value(uuid,uuid,text,jsonb,jsonb)','EXECUTE')
+   then raise exception 'Retirement damaged verified server saving'; end if;
+ if (select count(*) from public.wishes)<>5 then raise exception 'Retirement modified legacy records'; end if;
+end $$;
+SQL
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q < docs/release/f03-004-restore-legacy-first-save.sql
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
+do $$ begin
+ if not has_function_privilege('authenticated','public.create_wish_with_deed(uuid,text,jsonb,jsonb)','EXECUTE')
+   then raise exception 'Rollback did not restore legacy client compatibility'; end if;
+end $$;
+SQL
+echo 'F03-004 later contract & rollback are independently verified (NOT hosted or automatically applied): PASS'
