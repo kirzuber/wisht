@@ -49,7 +49,7 @@ const request=async (body,locale)=>{
 // Advisory heuristics. A human must inspect the raw Artifact for invented facts
 // and usefulness; script-level character counts alone are NOT acceptance.
 const repetition=(content)=>{
- const sentences=content.split(/[.!?。！？\\n]+/u)
+ const sentences=content.split(/[.!?。！？\n]+/u)
    .map(s=>s.trim().toLocaleLowerCase()).filter(s=>s.length>=45);
  const counts=new Map();
  for(const sentence of sentences)counts.set(sentence,(counts.get(sentence)||0)+1);
@@ -58,7 +58,7 @@ const repetition=(content)=>{
    totalLongSentences:sentences.length};
 };
 const isRussianScriptPlausible=(content)=>{
- const cyr=(content.match(/[\\u0400-\\u052f]/gu)||[]).length;
+ const cyr=(content.match(/[\u0400-\u052f]/gu)||[]).length;
  const latin=(content.match(/[a-z]/giu)||[]).length;
  // This checks for obvious English output in Russian UI only; Cyrillic does
  // not prove Russian correctness, which requires human review.
@@ -92,9 +92,9 @@ for(const {wish,locale} of samples){
   // instructions as supporting material. The server checks semantic promise
   // alignment with its existing independent grounding review, and a human
   // still decides whether the result feels complete.
-  const placeholders=[...documentText.matchAll(/\\[[^\\]\\n]{2,75}\\]/gu)]
+  const placeholders=[...documentText.matchAll(/\[[^[\]\r\n]{2,75}\]/gu)]
     .slice(0,8).map(m=>m[0]);
-  const homework=(documentText.match(/\\b(?:fill in|replace with|write your|complete the|draft your)\\b|(?:заполните|впишите|напишите|замените)/giu)||[]).length;
+  const homework=(documentText.match(/\b(?:fill in|replace with|write your|complete the|draft your)\b|(?:заполните|впишите|напишите|замените)/giu)||[]).length;
   item.promiseDeliverySignals={
     modelGroundingReviewAccepted:true,
     documentCount:artifact.sections.filter(s=>s.type==='document').length,
