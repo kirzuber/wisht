@@ -9,21 +9,21 @@ if(process.env.JINN_TEST_MODE==='1'||process.env.JINN_LOCAL_MODEL_ENDPOINT)
 const url=process.env.JINN_EVAL_API_URL||'http://127.0.0.1:3001/api/first-deed';
 if(!/^http:\/\/127\.0\.0\.1:3001\/api\/first-deed$/.test(url))
   throw new Error('Only the locally configured API is accepted; never submit evaluation Wishes to hosted production.');
-const locale='en';
 const samples=[
- 'I want to write a book about my life',
- 'I want to change my career but have no resume ready',
- 'I want to become a frog',
+ {locale:'en',wish:'I want to write a book about my life'},
+ {locale:'en',wish:'I want to change my career but have no resume ready'},
+ {locale:'en',wish:'I want to become a frog'},
+ {locale:'ru',wish:'Я хочу написать книгу семейных историй'},
 ];
 // These are published smoke cases from the designer brief, never the future blind Wish.
 const hashes=Object.fromEntries(['api/src/experiencePlan.ts','api/src/firstDeed.ts',
  'web/src/FirstValueExperience.tsx'].map(path=>
   [path,createHash('sha256').update(readFileSync(new URL('../'+path,import.meta.url))).digest('hex')]));
 const evidence={kind:'F03-004 configured-live-model evaluation',kindOfInput:'published-smoke-not-blind',
- locale,recordedAt:new Date().toISOString(),sourceHashes:hashes,
+ locales:['en','ru'],recordedAt:new Date().toISOString(),sourceHashes:hashes,
  evidence:[],limitations:['No real-world external action is available','Human emotional reaction is not measured',
   'Real-world facts are not independently verified','Model token cost is not returned by this API wrapper']};
-const request=async body=>{
+const request=async (body,locale)=>{
  const controller=new AbortController();
  const timeout=setTimeout(()=>controller.abort(),70000);
  const started=performance.now();
@@ -35,17 +35,17 @@ const request=async body=>{
  }finally{clearTimeout(timeout);}
 };
 let failures=0;
-for(const wish of samples){
- const item={wish,plan:null,selectedAnswers:{},artifact:null,receipt:null,
+for(const {wish,locale} of samples){
+ const item={wish,locale,plan:null,selectedAnswers:{},artifact:null,receipt:null,
   planningLatencyMs:null,preparationLatencyMs:null,error:null};
  try{
-  const planned=await request({mode:'plan',wish,jinnName:'Jinn'});
+  const planned=await request({mode:'plan',wish,jinnName:'Jinn'},locale);
   item.planningLatencyMs=planned.ms;
   if(planned.status!==200||!planned.data?.plan)throw Error('Plan failed: HTTP '+planned.status+' / '+(planned.data?.code||'invalid'));
   item.plan=planned.data.plan;
   // Skip every optional question to test sparse-input quality without fabricated facts.
   item.selectedAnswers=Object.fromEntries(item.plan.questions.map(q=>[q.id,'__skip__']));
-  const prepared=await request({mode:'prepare',wish,plan:item.plan,answers:item.selectedAnswers});
+  const prepared=await request({mode:'prepare',wish,plan:item.plan,answers:item.selectedAnswers},locale);
   item.preparationLatencyMs=prepared.ms;
   if(prepared.status!==200||!prepared.data?.artifact)throw Error('First Artifact failed: HTTP '+prepared.status+' / '+(prepared.data?.code||'invalid'));
   const {artifact,receipt,proof}=prepared.data;
