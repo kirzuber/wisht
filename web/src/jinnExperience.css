@@ -455,3 +455,46 @@ html[lang="es"] .first-section:last-of-type::before { content:'?  PREGUNTAS PEND
  .app.jinn-experience .first-value-choice {padding:10px;word-break:normal;}
 }
 @media(prefers-reduced-motion:reduce){.first-value-experience *{animation:none!important;transition:none!important;}}
+
+
+/* F03-004 Designer parity corrections: preserve navy/lavender Jinn, fix contrast and reading hierarchy. */
+.app.jinn-experience .is-conversation .first-value-entry h2.first-value-question {
+ color:#fffdfd;font-family:'DM Serif Display',Georgia,serif;font-size:clamp(24px,2.8vw,38px);
+ line-height:1.18;margin:4px 0 14px;
+}
+.app.jinn-experience .is-conversation .first-value-entry .first-value-outcome,
+.app.jinn-experience .is-conversation .first-value-entry .first-value-preview-outcome {
+ color:#d4cee7;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:400;line-height:1.6;margin:0 0 16px;
+}
+.app.jinn-experience .is-conversation .first-value-entry .first-value-choices {margin:14px 0 20px;}
+.app.jinn-experience .is-conversation .first-value-entry .first-value-choices legend {
+ color:#e7defc;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;letter-spacing:.06em;margin:0 0 11px;
+}
+.app.jinn-experience .is-conversation .first-value-entry small {color:#d8d2ea;font-family:'DM Sans',sans-serif;font-size:12px;}
+.app.jinn-experience .is-conversation .first-value-entry .first-value-choices .first-value-choice {
+ color:#232f49;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:650;
+}
+.app.jinn-experience .is-conversation .first-value-entry .first-value-choices .first-value-choice.is-selected {
+ background:#e8dcff;border-color:#c1aeff;
+}
+.app.jinn-experience .is-conversation .first-value-entry .first-value-other {color:#f9f6ff;font:600 13px 'DM Sans',sans-serif;}
+.app.jinn-experience .is-conversation .first-value-entry .first-value-other input {color:#1b2540;background:#fff;}
+.app.jinn-experience .is-workspace .first-value-experience .first-value-reader h2 {color:#18243b;}
+.app.jinn-experience .is-workspace .first-value-experience .first-value-proposal h3,
+.app.jinn-experience .is-workspace .first-value-experience .first-value-next h3 {color:#18243b;}
+.app.jinn-experience .is-workspace .first-value-experience .first-value-next small,
+.app.jinn-experience .is-workspace .first-value-experience .first-value-proposal small {color:#515d74;}
+.app.jinn-experience .is-workspace .first-value-experience .first-value-next-state {color:#5b6680;font-size:12px;line-height:1.45;}
+.app.jinn-experience .is-workspace .first-value-experience .first-value-source,
+.app.jinn-experience .is-workspace .first-value-experience .first-value-receipt,
+.app.jinn-experience .is-workspace .first-value-experience .first-value-support {color:#29364f;}
+.app.jinn-experience .is-workspace .first-value-experience .first-value-reader .first-value-provenance {
+ display:flex;flex-wrap:wrap;gap:7px;margin:12px 0 16px;
+}
+.first-value-provenance span {color:#4d4b70;background:#f0eaf9;border:1px solid #ded3ed;border-radius:20px;
+ padding:5px 10px;font:600 11px/1.5 'DM Sans',sans-serif;}
+.app.jinn-experience .is-workspace .first-value-experience .first-value-proposal .first-value-intent {display:block;font-size:12px;color:#515e77;margin-bottom:10px;line-height:1.5;}
+@media(max-width:620px) {
+ .app.jinn-experience .is-conversation .first-value-entry h2.first-value-question {font-size:27px;}
+ .first-value-provenance span {font-size:10px;}
+}
