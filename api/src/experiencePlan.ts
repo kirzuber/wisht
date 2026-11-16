@@ -127,11 +127,11 @@ export function normalizeModelExperiencePlan(value:unknown,expectedLocale:Locale
     if(!record(raw)||!bounded(raw.prompt,250)||!bounded(raw.why,250)||
        !Array.isArray(raw.choices))continue;
     const choices=[...new Set(raw.choices.filter(x=>typeof x==='string')
-      .map(x=>(x as string).trim().slice(0,70))
+      .map(x=>conciseModelCopy(x,70) as string)
       .filter(x=>x.length>0&&!['other','skip','not sure','другое','пропустить','не знаю'].includes(x.toLowerCase())))].slice(0,4);
     if(choices.length<2)continue;
-    questions.push({id:`q${questions.length+1}`,prompt:raw.prompt.trim().slice(0,180),
-      why:raw.why.trim().slice(0,180),choices});
+    questions.push({id:`q${questions.length+1}`,prompt:conciseModelCopy(raw.prompt,180) as string,
+      why:conciseModelCopy(raw.why,180) as string,choices});
   }
   const suggested=[...new Set(value.components as ExperienceComponent[])];
   const trailing=suggested.filter(component=>
