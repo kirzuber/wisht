@@ -4,7 +4,7 @@ import { serveFirstDeed } from './firstDeed.js';
 
 const app=express();
 app.disable('x-powered-by');
-app.use(express.json({limit:'16kb'}));
+app.use(express.json({limit:'40kb'}));
 if(process.env.CORS_ORIGIN)app.use(cors({origin:process.env.CORS_ORIGIN}));
 app.get('/api/health',(_req,res)=>res.json({status:'ok',story:'JINN-F03-001'}));
 app.post('/api/first-deed',async(req,res)=>{
