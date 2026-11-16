@@ -140,7 +140,9 @@ try {
     const { SUPABASE_SERVICE_ROLE_KEY, ...browserEnv } = env;
     const { result } = concurrently([
       { name: 'api', command: 'npm run dev -w api', prefixColor: 'blue',
-        env: { ...browserEnv, SUPABASE_SERVICE_ROLE_KEY }, cwd: root },
+        env: { ...browserEnv, SUPABASE_SERVICE_ROLE_KEY,
+          JINN_TEST_MODE: process.env.JINN_TEST_MODE || '',
+          JINN_LOCAL_MODEL_ENDPOINT: process.env.JINN_LOCAL_MODEL_ENDPOINT || '' }, cwd: root },
       { name: 'web', command: 'npm run dev -w web', prefixColor: 'magenta',
         env: browserEnv, cwd: root },
     ], { killOthersOn: ['failure', 'success'] });
