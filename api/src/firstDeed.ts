@@ -385,6 +385,14 @@ export async function serveFirstDeed(request: Request): Promise<Response> {
       }
       const plan=body.plan===undefined?undefined:validateExperiencePlan(body.plan,locale);
       const answers=plan?validatePlanAnswers(plan,body.answers??{}):{};
+      // A prepared First-Value Artifact requires a server-signed receipt.
+      // Fail BEFORE spending real-model tokens if the API has no signing key.
+      if(plan&&(!process.env.SUPABASE_SERVICE_ROLE_KEY||
+        process.env.SUPABASE_SERVICE_ROLE_KEY.length<32))
+        throw new DraftingError(
+          'Verified saving is unavailable. Start the local API through npm run dev from the repository root.',
+          'save_not_configured',503,
+        );
       const prepared=await prepareDeed(body.wish, String(body.answer || ''), null, undefined, undefined, locale,plan,answers);
       return Response.json(plan?{...prepared,proof:signPreparedFirstValue(body.wish,prepared.artifact,prepared.receipt)}:prepared);
     }
