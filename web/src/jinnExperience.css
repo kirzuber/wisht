@@ -322,3 +322,43 @@
 .first-jinn-assignment select{width:100%;padding:10px 12px;border:1px solid #cfc6e6;border-radius:9px;background:#fff;color:#242c42;font:inherit}
 .app.jinn-experience select:focus-visible{outline:3px solid #8070d5;outline-offset:2px}
 @media(max-width:600px){.first-jinn-switch{margin-left:0}.first-jinn{flex-wrap:wrap}.first-jinn-assignment{margin:12px 0}}
+
+/* F03-003 adaptive home: visible companion before entering the Wish. */
+.home-jinn-context {
+  display:flex; align-items:center; gap:15px; padding:12px 14px;
+  margin:0 0 16px; border:1px solid #ded5f0; border-radius:16px;
+  background:#fffdfa; box-shadow:0 8px 25px #493f6c0c;
+}
+.home-jinn-context .jinn-avatar-small { width:60px; height:60px; }
+.home-jinn-details { min-width:0; flex:1; display:flex; flex-direction:column; gap:5px; }
+.home-jinn-details label {
+  color:#705db0; font-weight:700; font-size:10px; letter-spacing:.11em;
+}
+.home-jinn-name { color:#19243d; font-size:18px; font-weight:700; overflow-wrap:anywhere; }
+.home-jinn-details small { color:#697285; font-size:11px; line-height:1.5; }
+.home-jinn-details select {
+  display:block; width:100%; min-height:42px; padding:9px 12px;
+  border:1px solid #cfc1e9; border-radius:10px; background:#f8f5ff;
+  color:#202b44; font:inherit; font-size:15px; font-weight:650;
+}
+.home-jinn-manage {
+  border:1px solid #d8d1e6; background:transparent; border-radius:9px;
+  padding:9px 12px; font-weight:650; font-size:12px; color:#6356a5;
+}
+.home-jinn-manage:hover { background:#f3eefa; }
+.home-jinn-loading {
+  display:flex; align-items:center; min-height:57px; font-size:13px;
+  color:#656b82;
+}
+.home-jinn-recovery {
+  border:1px solid #dfbdb9; border-radius:12px; padding:13px 16px;
+  background:#fff8f6; margin:0 0 16px; color:#8b4744;
+}
+.home-jinn-recovery p { font-size:13px; line-height:1.5; margin:0 0 9px; }
+.home-jinn-recovery .first-secondary { display:inline-flex; margin:3px 7px 3px 0; }
+@media(max-width:600px) {
+  .home-jinn-context { padding:11px; gap:10px; align-items:flex-start; flex-wrap:wrap; }
+  .home-jinn-context .jinn-avatar-small { width:51px; height:51px; }
+  .home-jinn-details { min-width:calc(100% - 66px); }
+  .home-jinn-manage { margin-left:auto; }
+}
