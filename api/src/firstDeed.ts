@@ -3,7 +3,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { isLocale, languageInstruction, type Locale } from './locale.js';
 import { starterWorksheet } from './starterWorksheet.js';
 import {
-  EXPERIENCE_PLANNER_PROMPT, validateExperiencePlan, validatePlanAnswers, summarizePlanFacts,
+  EXPERIENCE_PLANNER_PROMPT, validateExperiencePlan, normalizeModelExperiencePlan, validatePlanAnswers, summarizePlanFacts,
   type ExperiencePlanV1, type PlanAnswers,
 } from './experiencePlan.js';
 
@@ -101,8 +101,14 @@ export async function callFirstDeedModel(messages: ModelMessage[], maxTokens: nu
       body: JSON.stringify({ model: p.model, max_tokens: maxTokens, response_format: {type:'json_object'},
         ...(p.deepseek ? {reasoning_effort:'none'} : {temperature:0.3}), messages }) });
     if (!response.ok) throw new DraftingError('AI drafting is temporarily unavailable. No draft was prepared.', 'ai_provider_rejected', 503, response.status);
-    const payload = await response.json() as {choices?:Array<{message?:{content?:string}}>};
+    const payload = await response.json() as {choices?:Array<{finish_reason?:string;message?:{content?:string}}>};
     const content = payload.choices?.[0]?.message?.content;
+    if(!content || payload.choices?.[0]?.finish_reason==='length'){
+      console.warn('[Wisht] api model.incomplete_json',{
+        finishReason:payload.choices?.[0]?.finish_reason||'missing_content',
+        maxTokens,contentLength:content?.length||0,
+      });
+    }
     if (!content || content.length > 16000) throw new DraftingError('The AI did not return a usable response.', 'ai_invalid_response', 502);
     return JSON.parse(content) as unknown;
   } catch (error) {
@@ -140,15 +146,25 @@ export async function planFirstValue(
   });
   let rejected='none';
   for(let attempt=0;attempt<2;attempt++){
-    const response=await call([
-      {role:'system',content:`${EXPERIENCE_PLANNER_PROMPT} ${languageInstruction(locale)} ${attempt?'One repair only. Previous candidate was invalid: '+rejected+'. Return the exact schema, no other fields, valid component IDs and no outside effects.':''}`},
-      {role:'user',content:context},
-    ],1400);
     try{
-      return validateExperiencePlan(response,locale);
+      const response=await call([
+        {role:'system',content:`${EXPERIENCE_PLANNER_PROMPT} ${languageInstruction(locale)} ${attempt?'One repair only. Previous candidate was invalid: '+rejected+'. Return the exact schema, no other fields, valid component IDs and no outside effects.':''}`},
+        {role:'user',content:context},
+      ],2300);
+      try{
+        return validateExperiencePlan(response,locale);
+      }catch{
+        // Model-generated presentation data may need canonical IDs/order.
+        // Client-submitted or saved plans still use the strict validator.
+        return normalizeModelExperiencePlan(response,locale);
+      }
     }catch(error){
-      rejected=error instanceof Error?error.message:'invalid plan';
-      console.warn('[Wisht] api first_value.plan_rejected',{attempt:attempt+1,reason:rejected});
+      if(error instanceof DraftingError && error.code!=='ai_invalid_response')throw error;
+      rejected=error instanceof DraftingError ? error.code :
+        error instanceof Error ? error.message : 'invalid plan';
+      console.warn('[Wisht] api first_value.plan_rejected',{
+        attempt:attempt+1,reason:rejected.slice(0,120),
+      });
     }
   }
   throw new DraftingError('Jinn could not make a safe First-Value plan. Your Wish is unchanged; please retry.','experience_plan_invalid',422);
