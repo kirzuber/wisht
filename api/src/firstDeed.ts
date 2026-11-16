@@ -148,7 +148,7 @@ export async function planFirstValue(
   for(let attempt=0;attempt<2;attempt++){
     try{
       const response=await call([
-        {role:'system',content:`${EXPERIENCE_PLANNER_PROMPT} ${languageInstruction(locale)} ${attempt?'One repair only. Previous candidate was invalid: '+rejected+'. Return the exact schema, no other fields, valid component IDs and no outside effects.':''}`},
+        {role:'system',content:`${EXPERIENCE_PLANNER_PROMPT} ${languageInstruction(locale)} The JSON locale field MUST be exactly "${locale}". ${attempt?'One repair only. Previous candidate was invalid: '+rejected+'. Return the exact schema, no other fields, valid component IDs and no outside effects.':''}`},
         {role:'user',content:context},
       ],2300);
       try{
