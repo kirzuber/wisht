@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { ArrowRight, Check, Pencil } from 'lucide-react';
+import { Check, Pencil } from 'lucide-react';
 import type { Artifact, DeedReceipt, Section } from '../../api/src/firstDeed';
 import { validateExperiencePlan } from '../../api/src/experiencePlan';
 import { correctSource } from './firstWishModel';
@@ -10,16 +10,13 @@ type Props={
   artifact:Artifact;
   receipt:DeedReceipt;
   saved:boolean;
-  dirty:boolean;
   wish:string;
   companionName:string;
   onChange:(artifact:Artifact)=>void;
-  onContinue?:()=>void;
-  busy:boolean;
 };
 const readable=(text:string)=><div className="first-value-prose">{text.split('\n').map((line,i)=>
   <p key={i}>{line.trim()||'\u00a0'}</p>)}</div>;
-export default function FirstValueExperience({artifact,receipt,saved,dirty,wish,companionName,onChange,onContinue,busy}:Props){
+export default function FirstValueExperience({artifact,receipt,saved,wish,companionName,onChange}:Props){
  const {t,locale}=useLocale();
  const plan=artifact.experience?validateExperiencePlan(artifact.experience):null;
  const [editing,setEditing]=useState(false);
@@ -82,8 +79,7 @@ export default function FirstValueExperience({artifact,receipt,saved,dirty,wish,
   </details>,
   next_deed:()=> <section className="first-value-next" id="wish-next"><p className="eyebrow">{t('ONE NEXT DEED')}</p>
     <h3>{artifact.nextDeed.title}</h3><p>{artifact.nextDeed.why}</p><small>{artifact.nextDeed.prompt}</small>
-    {saved&&onContinue&&<button type="button" disabled={busy||dirty||editing} className="first-secondary"
-      onClick={onContinue}>{t('Prepare next Deed')} <ArrowRight size={15}/></button>}
+    <p className="first-value-next-state">{t('Suggested next step — not performed yet.')}</p>
   </section>,
   work_receipt:()=> <details className="first-value-receipt" id="wish-history">
     <summary>{t('Work receipt')} · {t('PREPARED')}</summary>
