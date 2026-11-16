@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { createServer } from 'node:net';
 import { readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parseEnv } from 'node:util';
@@ -133,10 +134,23 @@ function localSupabaseEnv() {
     SUPABASE_SERVICE_ROLE_KEY: serviceKey };
 }
 
+async function assertApiPortAvailable(){
+  await new Promise((resolve,reject)=>{
+    const probe=createServer();
+    probe.once('error',error=>{
+      if(error.code==='EADDRINUSE')
+        reject(new Error('Port 3001 already has an API process. Stop the old API before starting F03-004: lsof -nP -iTCP:3001 -sTCP:LISTEN. Do not run two API versions against one local Vite proxy.'));
+      else reject(error);
+    });
+    probe.listen(3001,'127.0.0.1',()=>probe.close(resolve));
+  });
+}
+
 try {
   const env = localSupabaseEnv();
   console.info(`[Wisht] F03 schema verified at ${localApi}. Local sign-in codes: http://127.0.0.1:54324/`);
   if (!checkOnly) {
+    await assertApiPortAvailable();
     const { SUPABASE_SERVICE_ROLE_KEY, ...browserEnv } = env;
     const { result } = concurrently([
       { name: 'api', command: 'npm run dev -w api', prefixColor: 'blue',
