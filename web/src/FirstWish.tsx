@@ -149,7 +149,6 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
       const saved=await updateFirstWish(row,artifact);
       setRow(saved);setArtifact(saved.first_artifact);sourceBaseline.current=saved.first_artifact.sourceNote;setReceipt(saved.first_deed);setDirty(false);
     }catch(e){
-      const message=e instanceof Error?e.message:'Could not save your wish.';
       if(e instanceof Error && e.name==='WishSignInRequired')onRequireAuth();else setError(localizeError(e,locale,'Could not save your wish.'));
     }finally{setBusy(false);}
   };
