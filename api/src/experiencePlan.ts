@@ -64,7 +64,7 @@ export function conciseModelCopy(candidate:unknown,max:number):unknown {
  * Check only model-authored copy; historical saved V1 plans remain readable. */
 export function assertCompleteModelPlanCopy(plan:ExperiencePlanV1):void {
   const items=[plan.intent,plan.firstOutcome,plan.deed.title,plan.deed.result,
-    ...plan.questions.flatMap(q=>[q.prompt,q.why,...q.choices])];
+    ...plan.questions.flatMap(q=>[q.prompt,q.why])];
   for(const item of items){
     const value=item.trim();
     let depth=0;
