@@ -2,7 +2,7 @@ import { describe,it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
  FIRST_VALUE_COMPONENTS,FIRST_VALUE_CAPABILITIES,EXPERIENCE_PLANNER_PROMPT,
- validateExperiencePlan,normalizeModelExperiencePlan,conciseModelCopy,focusFirstValueQuestions,validatePlanAnswers,summarizePlanFacts,type ExperiencePlanV1,
+ validateExperiencePlan,normalizeModelExperiencePlan,conciseModelCopy,focusFirstValueQuestions,assertCompleteModelPlanCopy,validatePlanAnswers,summarizePlanFacts,type ExperiencePlanV1,
 } from '../src/experiencePlan.ts';
 import {callFirstDeedModel,planFirstValue,prepareDeed,reviewGrounding,signPreparedFirstValue,verifyPreparedFirstValue,validateArtifact,serveFirstDeed} from '../src/firstDeed.ts';
 
@@ -88,9 +88,8 @@ describe('F03-004 bounded Experience Plan v1',()=>{
    const old=valid({questions,components});
    assert.equal(old.questions.length,2);
    assert.deepEqual(focusFirstValueQuestions(old).questions.map(q=>q.id),['priority']);
-   const proposed=await planFirstValue('Create a useful private object','en','Jinn','',async()=>({
-     ...base,questions,components,
-   }));
+   const proposed=await planFirstValue('Create a useful private object','en','Jinn','',async messages=>messages[0].content.includes('PLAN_FEASIBILITY_GATE')?
+     {feasible:true,reason:'none'}:{...base,questions,components});
    assert.equal(proposed.questions.length,1);
    assert.equal(proposed.questions[0].id,'priority');
    assert.ok(EXPERIENCE_PLANNER_PROMPT.includes('Before proposing the First Deed'));
@@ -159,10 +158,11 @@ describe('F03-004 bounded Experience Plan v1',()=>{
   const output=await planFirstValue('A normal unseen Wish','en','Jinn','',
     (messages,maxTokens)=>callFirstDeedModel(messages,maxTokens,
       {OPENAI_API_KEY:'dummy-test-key',LLM_PROVIDER:'openai'} as NodeJS.ProcessEnv,
-      async()=>{
-        calls++;
-        return new Response(JSON.stringify({choices:[{finish_reason:calls===1?'length':'stop',
-          message:{content:calls===1?'{"version":1,"locale":"en"':JSON.stringify(base)}}]}),
+      async(_url,init)=>{
+        const reviewing=JSON.parse(String(init?.body)).messages[0].content.includes('PLAN_FEASIBILITY_GATE');
+        if(!reviewing)calls++;
+        return new Response(JSON.stringify({choices:[{finish_reason:calls===1&&!reviewing?'length':'stop',
+          message:{content:reviewing?JSON.stringify({feasible:true,reason:'none'}):calls===1?'{"version":1,"locale":"en"':JSON.stringify(base)}}]}),
           {status:200,headers:{'Content-Type':'application/json'}});
       },1000));
   assert.equal(calls,2);
@@ -176,11 +176,46 @@ describe('F03-004 bounded Experience Plan v1',()=>{
       async()=>{
         calls++;
         return new Response(JSON.stringify({choices:[{finish_reason:'stop',
-          message:{content:calls===1?'    ':JSON.stringify(base)}}]}),
+          message:{content:reviewing?JSON.stringify({feasible:true,reason:'none'}):calls===1?'    ':JSON.stringify(base)}}]}),
           {status:200,headers:{'Content-Type':'application/json'}});
       },1000));
   assert.equal(calls,2);
   assert.equal(output.version,1);
+ });
+ it('rejects broken user-visible promises rather than silently clipping them',()=>{
+   const dangling=valid({firstOutcome:'A completed first result (with an unfinished explanation.'});
+   assert.throws(()=>assertCompleteModelPlanCopy(dangling),/Incomplete/);
+   assert.throws(()=>normalizeModelExperiencePlan({...base,
+     firstOutcome:'An overlong unfinished promise '.repeat(12)},'en'),/invalid/);
+   assert.doesNotThrow(()=>assertCompleteModelPlanCopy(valid()));
+ });
+ it('repairs an infeasible initial promise once before showing it',async()=>{
+   let plans=0,reviews=0;
+   const result=await planFirstValue('I want a new direction','en','Jinn','My helper',async messages=>{
+     if(messages[0].content.includes('PLAN_FEASIBILITY_GATE')){
+       reviews++;
+       const data=JSON.parse(messages[1].content);
+       assert.equal(data.optionalAnswers,'ALL_SKIPPED');
+       assert.equal(data.wish,'I want a new direction');
+       return reviews===1?{feasible:false,reason:'missing_facts'}:{feasible:true,reason:'none'};
+     }
+     plans++;
+     if(plans===2)assert.match(messages[0].content,/FINAL bounded repair.*missing_facts/);
+     return {...base,firstOutcome:plans===1?'A tailored personal achievements report':
+       'A ready-to-use, generalized comparison of three possible directions'};
+   });
+   assert.equal(result.firstOutcome,'A ready-to-use, generalized comparison of three possible directions');
+   assert.equal(plans,2);
+   assert.equal(reviews,2);
+ });
+ it('fails closed after exactly one infeasible plan repair',async()=>{
+   let calls=0;
+   await assert.rejects(planFirstValue('A Wish','en','Jinn','',async messages=>{
+     calls++;
+     return messages[0].content.includes('PLAN_FEASIBILITY_GATE')?
+       {feasible:false,reason:'external_dependency'}:base;
+   }),{code:'experience_plan_invalid',status:422});
+   assert.equal(calls,4);
  });
  it('offers at most three optional, consequential questions and safely validates answers',()=>{
   const plan=valid({questions:[choice],components:['jinn_identity','choice_chips',...base.components.slice(1)]});
@@ -191,7 +226,7 @@ describe('F03-004 bounded Experience Plan v1',()=>{
   assert.throws(()=>validatePlanAnswers(plan,{notListed:'Answer'}),/Unsupported/);
   assert.equal(summarizePlanFacts(plan,{priority:'Option A'}),'Which aspect matters most?: Option A');
  });
- it('plans different arrangements using one model call and locale, without topic routing',async()=>{
+ it('plans different arrangements with a bounded gate call and no topic routing',async()=>{
   const contexts:string[]=[];
   const wishes=[
    'I want to write stories about my life',
@@ -204,6 +239,12 @@ describe('F03-004 bounded Experience Plan v1',()=>{
      base.components;
    const p=await planFirstValue(wish,'en','Maya','A user-written note',
      async messages=>{
+      if(messages[0].content.includes('PLAN_FEASIBILITY_GATE')){
+       const gate=JSON.parse(messages[1].content);
+       assert.equal(gate.optionalAnswers,'ALL_SKIPPED');
+       assert.deepEqual(gate.availableCapabilities,['private_draft','local_edit','account_save']);
+       return {feasible:true,reason:'none'};
+      }
       contexts.push(messages[1].content);
       return {...base,intent:'User wants a helpful start for '+i,
         firstOutcome:'A distinct usable output '+i,
