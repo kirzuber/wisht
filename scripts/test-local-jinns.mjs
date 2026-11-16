@@ -135,12 +135,26 @@ try{
   await create('Exploring Jinn','Curiosity projects');
   assert.match(await page.locator('.jinn-workspace').innerText(),/No Wishes with Exploring Jinn yet/);
   await create('Temporary Jinn');
-  // Multi-Jinn home must show a chooser and honor explicit selection.
+  // A Jinn intentionally chosen in My Jinns must appear on Home.
   await page.getByRole('button',{name:'Jinn home'}).click();
   await page.locator('#home-jinn-choice').waitFor();
   assert.equal(await page.locator('#home-jinn-choice option').count(),4);
+  assert.match(await page.locator('#home-jinn-choice option:checked').innerText(),/Temporary Jinn/);
+  // Home -> My Jinns uses the same account-scoped selection.
+  await page.locator('#home-jinn-choice').selectOption({label:'Writing Jinn'});
+  await page.getByRole('banner').getByRole('button',{name:'My Jinns',exact:true}).click();
+  await page.locator('.jinn-choice.is-selected strong').getByText('Writing Jinn').waitFor();
+  // My Jinns -> Home must also stay synchronized, including after a reload.
+  await page.locator('.jinn-choice').filter({hasText:'Exploring Jinn'}).click();
+  await page.getByRole('button',{name:'Jinn home'}).click();
+  await page.locator('#home-jinn-choice').waitFor();
+  assert.match(await page.locator('#home-jinn-choice option:checked').innerText(),/Exploring Jinn/);
+  await page.reload();
+  await page.locator('#home-jinn-choice').waitFor();
+  assert.match(await page.locator('#home-jinn-choice option:checked').innerText(),/Exploring Jinn/);
   await page.locator('#home-jinn-choice').selectOption({label:'Writing Jinn'});
   await page.getByRole('button',{name:'Continue with Writing Jinn'}).waitFor();
+  assert.match(await page.locator('.home-jinn-details small').innerText(),/Your work stays in your account/);
   await page.screenshot({path:dir+'/home-multiple-desktop.png',fullPage:true});
   await page.setViewportSize({width:390,height:844});
   await page.screenshot({path:dir+'/home-multiple-mobile.png',fullPage:true});
@@ -250,6 +264,11 @@ try{
   await page.locator('.jinn-choice').first().waitFor();
   assert.equal(await page.locator('.jinn-choice').count(),1);
   assert.equal(await page.getByText(goals[0]).count(),0);
+  assert.equal(await page.locator('.jinn-choice.is-selected').count(),1);
+  await page.getByRole('button',{name:'Jinn home'}).click();
+  await page.getByRole('button',{name:'Continue with Jinn'}).waitFor();
+  assert.equal(await page.locator('#home-jinn-choice').count(),0,
+    'The previous owner\'s Jinn preference must not leak to this account');
   console.log('PASS: local Auth/DB multi-Jinn creation, four Wishes, correction+history preservation on move, reload, mobile and owner isolation');
 }catch(error){
   console.error(error); console.error((await page.locator('body').innerText()).slice(0,3500));throw error;
