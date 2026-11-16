@@ -66,6 +66,7 @@ insert into public.portfolio_publications(id, user_id, portfolio_id, slug) value
  ('30000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','legacy-portfolio');
 SQL
 docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q < supabase/migrations/20261115224928_f03_additive_generic_wish_records.sql
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q < supabase/migrations/20261115234000_f03_003_jinn_management.sql
 docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
 -- The generic schema must coexist with real legacy table names and linked rows.
 do $$ begin
@@ -135,9 +136,79 @@ end $$;
 delete from public.wish_records where original_intent='Help my houseplant';
 do $$ begin if (select count(*) from public.wish_records) <> 3 or (select count(*) from public.deeds) <> 3 or (select count(*) from public.artifacts) <> 3 then raise exception 'cascade deletion failed'; end if; end $$;
 SQL
+# Multi-Jinn acceptance: save 5+ under one Jinn, move without changing work,
+# reject foreign-owner links, and delete only empty non-primary companions.
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000002',false);
+select set_config('request.jwt.claims','{"is_anonymous":false}',false);
+insert into public.jinns(user_id,is_primary,name) values
+ ('00000000-0000-0000-0000-000000000002',true,'Other owner Jinn');
+SQL
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);
+select set_config('request.jwt.claims','{"is_anonymous":false}',false);
+update public.jinns set name='Everyday Jinn',updated_at=now() where is_primary;
+insert into public.jinns(user_id,name,settings) values
+ ('00000000-0000-0000-0000-000000000001','Writing Jinn','{"purpose":"Descriptive only"}'::jsonb);
+do $ declare a jsonb; r jsonb; primary_id uuid; second_id uuid; other_id uuid; moved_wish uuid; before_content jsonb; before_deeds integer;
+begin
+ select id into primary_id from public.jinns where is_primary and user_id='00000000-0000-0000-0000-000000000001';
+ select id into second_id from public.jinns where name='Writing Jinn' and user_id='00000000-0000-0000-0000-000000000001';
+ select id into other_id from public.jinns where user_id='00000000-0000-0000-0000-000000000002';
+ a := '{"title":"Fresh kit","sourceNote":"Source remains local","sections":[{"type":"document","title":"Notes","body":"No shared memories"}],"unknowns":["Unconfirmed"],"nextDeed":{"title":"Continue","why":"A bounded step","prompt":"Write"},"boundary":"Draft"}'::jsonb;
+ r := '{"status":"PREPARED","operation":"Prepared only","recordedAt":"2026-11-15T00:00:00Z","scope":"Private"}'::jsonb;
+ perform public.create_wish_with_deed(primary_id,'Research a local language',a,r);
+ perform public.create_wish_with_deed(primary_id,'Practice yoga',a,r);
+ perform public.create_wish_with_deed(primary_id,'Plan garden visits',a,r);
+ if (select count(*) from public.wish_records where primary_jinn_id=primary_id) < 5 then
+   raise exception 'five-or-more Wishes per Jinn failed'; end if;
+ moved_wish := public.create_wish_with_deed(second_id,'Write a short story',a,r);
+ select content into before_content from public.artifacts where wish_id=moved_wish;
+ select count(*) into before_deeds from public.deeds where wish_id=moved_wish;
+ update public.wish_records set primary_jinn_id=primary_id,updated_at=now() where id=moved_wish;
+ if (select count(*) from public.wish_records where id=moved_wish and primary_jinn_id=primary_id) <> 1
+   or (select content from public.artifacts where wish_id=moved_wish) is distinct from before_content
+   or (select count(*) from public.deeds where wish_id=moved_wish) <> before_deeds then
+   raise exception 'reassignment changed stored work or did not persist'; end if;
+ begin
+   update public.wish_records set primary_jinn_id=other_id where id=moved_wish;
+   raise exception 'foreign-owner reassignment unexpectedly succeeded';
+ exception when foreign_key_violation then null;
+ end;
+ if (select primary_jinn_id from public.wish_records where id=moved_wish) <> primary_id then
+   raise exception 'foreign-owner attempt changed Jinn'; end if;
+ -- Only an empty nonprimary Jinn may be deleted; the primary Jinn must survive.
+ delete from public.jinns where id=primary_id;
+ if not exists (select 1 from public.jinns where id=primary_id) then raise exception 'primary Jinn was deletable'; end if;
+ delete from public.jinns where id=second_id;
+ if exists (select 1 from public.jinns where id=second_id) then raise exception 'empty Jinn deletion failed'; end if;
+ -- FK still prevents deleting a nonprimary Jinn while it owns any Wish.
+ insert into public.jinns(user_id,name) values
+   ('00000000-0000-0000-0000-000000000001','Protected Jinn') returning id into second_id;
+ perform public.create_wish_with_deed(second_id,'Inspect a book',a,r);
+ delete from public.jinns where id=second_id;
+ if not exists (select 1 from public.jinns where id=second_id) then raise exception 'nonempty Jinn was deleted'; end if;
+end $;
+SQL
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000002',false);
+select set_config('request.jwt.claims','{"is_anonymous":false}',false);
+do $ declare n integer; begin
+ if (select count(*) from public.wish_records) <> 0 then raise exception 'second owner can list another owner Wishes'; end if;
+ update public.jinns set name='Cross-owner change' where name='Everyday Jinn';
+ get diagnostics n=row_count;
+ if n <> 0 then raise exception 'second owner updated first owner Jinn'; end if;
+ update public.wish_records set primary_jinn_id=(select id from public.jinns where name='Other owner Jinn');
+ get diagnostics n=row_count;
+ if n <> 0 then raise exception 'second owner moved first owner Wish'; end if;
+end $;
+SQL
 docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
 set role anon;
 do $$ begin if (select count(*) from public.wish_records) <> 0 then raise exception 'anonymous saved-work access'; end if;
  exception when insufficient_privilege then null; end $$;
 SQL
-echo 'F03 legacy coexistence, four generic wishes, atomic save/edit/follow-up, return, RLS and deletion: PASS'
+echo 'F03 legacy coexistence, multi-Jinn assignment, 5+ Wishes, owner RLS, persistence and safe deletion: PASS'
