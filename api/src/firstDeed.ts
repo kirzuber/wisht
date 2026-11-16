@@ -308,7 +308,11 @@ async function saveVerifiedFirstValue(body:Record<string,unknown>,token:string,e
     p_artifact:editable,p_receipt:receipt,
   });
   if(error||typeof data!=='string'){
-    console.error('[Wisht] api first_value.save.failed',{code:error?.code||'db_save_failed'});
+    console.error('[Wisht] api first_value.save.failed',{
+      code:error?.code||'db_save_failed',
+      ...(env.VITE_SUPABASE_URL?.startsWith('http://127.0.0.1:54321') ?
+        {localCause:String(error?.message||'unknown').slice(0,220)} : {}),
+    });
     throw new DraftingError('Your First Artifact was not saved. Your draft is still here. Please retry.','save_failed',503);
   }
   return data;
