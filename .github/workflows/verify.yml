@@ -19,6 +19,8 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Check local startup script syntax
         run: node --check scripts/dev.mjs
+      - name: Check multi-Jinn browser acceptance script syntax
+        run: node --check scripts/test-local-jinns.mjs
       - name: Typecheck
         run: npm run typecheck
       - name: Tests
