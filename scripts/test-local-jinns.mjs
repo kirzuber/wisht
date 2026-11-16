@@ -198,7 +198,14 @@ try{
   await page.locator('#first-source-note').blur();
   await page.getByRole('button',{name:'Save corrections'}).click();
   await page.getByRole('button',{name:'Corrections saved'}).waitFor();
+  const followUpRequest=page.waitForResponse(response=>response.url().includes('/rpc/append_prepared_deed'));
   await page.getByRole('button',{name:'Prepare next Deed'}).click();
+  const followUpResponse=await followUpRequest;
+  if(!followUpResponse.ok()){
+    const failure=await followUpResponse.json().catch(()=>({}));
+    throw new Error('Local continuation RPC failed: HTTP '+followUpResponse.status()
+      +' / '+String(failure.code||'unknown')+' / '+String(failure.message||'unknown').slice(0,180));
+  }
   await page.getByText('Earlier Deeds',{exact:false}).waitFor();
   await page.getByRole('banner').getByRole('button',{name:'My Jinns',exact:true}).click();
   await choose('Writing Jinn');
