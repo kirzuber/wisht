@@ -106,12 +106,12 @@ try{
  const listRequest=url=>url.href.startsWith(`${rest}/wish_records?`)&&url.searchParams.get('select')?.includes('updated_at');
  await page.route(listRequest,route=>route.fulfill(schemaFailure('42703')));
  const listFailure=page.waitForEvent('console',{predicate:message=>message.type()==='error'&&message.text().includes('[Wisht] wish.list.failed')});
- await page.getByRole('banner').getByRole('button',{name:'My wishes'}).click();
+ await page.getByRole('banner').getByRole('button',{name:'My Jinns'}).click();
  await schemaNotice.waitFor();
  const listDetails=await (await listFailure).args()[1].jsonValue();
  assert.equal(listDetails.step,'read wishes');
  assert.equal(listDetails.code,'42703');
- assert.equal(await page.getByText('No saved wishes yet.',{exact:false}).count(),0);
+ assert.equal(await page.getByText('No Wishes with',{exact:false}).count(),0);
  assert.equal(await page.locator('.my-work-section-header span').count(),0);
  await page.unroute(listRequest);
  await page.getByRole('button',{name:'Retry',exact:true}).click();
@@ -140,7 +140,7 @@ try{
  await page.getByText('Earlier Deeds').waitFor();
  page.once('dialog',dialog=>dialog.accept());
  await page.getByRole('button',{name:/Delete wish and artifact/}).click();
- await page.getByText('No saved wishes yet').waitFor();
+ await page.getByText('No Wishes with',{exact:false}).waitFor();
  console.log('PASS: drafting and OTP diagnostics, real local OTP, save/open/list retries, edit, second Deed, return and delete');
 }catch(error){console.error(error);console.log((await page.locator('body').innerText()).slice(0,3000));throw error;}
 finally{await context.close();await browser.close();}
