@@ -29,3 +29,16 @@ Filter the browser console or dev terminal by `[Wisht]` for drafting, sign-in an
 For the safe non-destructive F03 integration, use branch `mira/f03-safe-live-persistence` (PR #20), not the older `codex/jinn-f03-001` branch. The generic schema is `public.wish_records`, and the legacy table `public.wishes` remains in hosted `wisht-dev` intentionally.
 
 The development startup is **local-only**, using the Docker Supabase stack at `http://127.0.0.1:54321`; it does not connect to the hosted project. Run `npx supabase@3.1.0 start` first, then `npm run dev -- --check`. The check reports CLI failures and missing schema objects separately. If the local database predates the `wish_records` migration, inspect `npx supabase@3.1.0 migration list`. A local reset discards local data, and must be explicit; no automatic reset, no hosted reset or hosted `db push`.
+
+## F03-003 development branch (review only)
+
+The **Multi-Jinn Creation** story is in draft PR #21, branched from the F03 integration candidate. It is **not deployed**; PR #20 must be released separately before any F03-003 go-live.
+
+- F03-003 adds `supabase/migrations/20261115234000_f03_003_jinn_management.sql`, a small additive migration that allows owner-only Wish reassignment and deletion of empty non-primary Jinns. **Do not apply this migration to hosted `wisht-dev` without Kirill's approval.**
+- For a **fresh** disposable local Supabase project, `npx supabase@3.1.0 start` loads both canonical migrations. For an **existing local** stack, inspect `npx supabase@3.1.0 migration list` and apply only the pending migration with `npx supabase@3.1.0 migration up`. Local data should not be reset automatically.
+- Verify `npm run dev -- --check`, then `npm run typecheck && npm test && npm run test:db && npm run build`.
+- Run `npm run dev` in another terminal, then `npm run test:local-browser` (baseline regression) and `npm run test:local-jinns` (F03-003 browser acceptance); browser tests use **real local Supabase Auth/Postgres** with deterministic LLM fixtures and refuse a hosted Vite bundle. Screenshots are captured under `docs/evidence/f03-003/`.
+- `My Jinns` allows create/rename, optional **descriptive-only** purpose, a per-Jinn Wish collection, a named companion in the Wish workspace, explicit reassignment, and deletion of only empty, nonprimary Jinns. Purpose does not modify LLM instructions, grant cross-Wish memory, or enable external action.
+- Multi-Jinn does not change today's prepared-only Deed semantics. Artifact preservation per separate Deed and server-authoritative receipts belong to F03-002.
+
+No merge, deployment, hosted SQL, or destructive action has been authorized for this story.
