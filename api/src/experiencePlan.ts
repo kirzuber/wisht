@@ -45,12 +45,12 @@ export function conciseModelCopy(candidate:unknown,max:number):unknown {
   const text=candidate.trim();
   if(text.length<=max)return text;
   const window=text.slice(0,max);
-  const sentenceStops=[...window.matchAll(/[.!?。！？](?=\\s|$)/gu)]
+  const sentenceStops=[...window.matchAll(/[.!?。！？](?=\s|$)/gu)]
     .map(m=>(m.index??0)+m[0].length).filter(index=>index>=Math.floor(max*0.50));
   if(sentenceStops.length)return window.slice(0,sentenceStops[sentenceStops.length-1]).trim();
   const prefix=text.slice(0,max-1);
-  const lastBreak=Math.max(prefix.lastIndexOf(' '),prefix.lastIndexOf('\\n'),
-    prefix.lastIndexOf('\\t'));
+  const lastBreak=Math.max(prefix.lastIndexOf(' '),prefix.lastIndexOf('\n'),
+    prefix.lastIndexOf('\t'));
   const safe=(lastBreak>=Math.floor(max*0.45)?prefix.slice(0,lastBreak):prefix)
     .trim().replace(/[,;:–—-]+$/u,'').trim();
   return (safe||prefix.trim())+'…';
