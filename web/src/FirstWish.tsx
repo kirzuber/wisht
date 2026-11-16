@@ -264,8 +264,7 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
       <div className="first-state"><span className="first-pill">{row?label('SAVED WISH','ЖЕЛАНИЕ СОХРАНЕНО'):label('UNSAVED DRAFT','ЧЕРНОВИК НЕ СОХРАНЁН')}</span><span className="first-pill first-prepared">{label('DEED PREPARED','ПЕРВЫЙ ШАГ ПОДГОТОВЛЕН')}</span></div>
       <p className="first-intro">{row?label('Welcome back. Your saved Wish and latest corrections are ready for the next Deed.','С возвращением. Jinn видит это желание и ваши последние исправления.'):label('Your first Deed is ready to inspect and edit.','Первый шаг готов: его можно просмотреть и исправить.')}</p>
       {artifact.experience?<FirstValueExperience artifact={artifact} receipt={receipt} saved={!!row}
-        wish={currentWish} companionName={companionName} dirty={dirty} busy={busy}
-        onChange={edit} onContinue={row?()=>void continueWish():undefined}/>:
+        wish={currentWish} companionName={companionName} onChange={edit}/>:
       <div className="first-layout">
         <article className="first-canvas" id="wish-artifacts"><header><p className="eyebrow">{label('DRAFT · EDITABLE','ЧЕРНОВИК · МОЖНО ИЗМЕНИТЬ')}</p><h2>{artifact.title}</h2></header>
           <div className="first-source"><label htmlFor="first-source-note">{label('From you · source note','Ваши слова · исходная заметка')}</label>
