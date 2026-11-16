@@ -4,7 +4,7 @@ import {
  FIRST_VALUE_COMPONENTS,FIRST_VALUE_CAPABILITIES,EXPERIENCE_PLANNER_PROMPT,
  validateExperiencePlan,normalizeModelExperiencePlan,validatePlanAnswers,summarizePlanFacts,type ExperiencePlanV1,
 } from '../src/experiencePlan.ts';
-import {callFirstDeedModel,planFirstValue,prepareDeed,signPreparedFirstValue,verifyPreparedFirstValue,validateArtifact} from '../src/firstDeed.ts';
+import {callFirstDeedModel,planFirstValue,prepareDeed,signPreparedFirstValue,verifyPreparedFirstValue,validateArtifact,serveFirstDeed} from '../src/firstDeed.ts';
 
 const base={
  version:1,locale:'en',intent:'Find a useful first result',
@@ -127,6 +127,23 @@ describe('F03-004 bounded Experience Plan v1',()=>{
   }
   assert.equal(contexts.length,3);
   assert.ok(contexts.every(x=>x.includes('"jinnName":"Maya"')&&x.includes('"priorWishData":null')));
+ });
+ it('fails before paid model generation when local First-Value signing is not configured',async()=>{
+  const original=process.env.SUPABASE_SERVICE_ROLE_KEY;
+  try{
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const response=await serveFirstDeed(new Request('http://localhost/api/first-deed',{
+      method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({mode:'prepare',wish:'Start a first useful document',locale:'en',
+        plan:base,answers:{}}),
+    }));
+    const body=await response.json();
+    assert.equal(response.status,503);
+    assert.equal(body.code,'save_not_configured');
+  }finally{
+    if(original===undefined)delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    else process.env.SUPABASE_SERVICE_ROLE_KEY=original;
+  }
  });
  it('rejects an invalid plan after one bounded repair rather than displaying generic tips',async()=>{
   let calls=0;
