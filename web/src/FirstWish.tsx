@@ -7,18 +7,19 @@ import { deleteFirstWish, loadFirstWish, saveFirstWish, updateFirstWish, type Fi
 import { correctSource, validateEditedArtifact } from './firstWishModel';
 import { browserDiagnostic, diagnosticCode } from './browserDiagnostics';
 import JinnAvatar from './JinnAvatar';
+import { formatLocalDateTime, localizeError, useLocale, type Locale } from './i18n';
 
 type Props={wish:string;savedId?:string|null;preferredJinnId?:string|null;preferredJinnOwnerId?:string|null;preferredJinnName?:string|null;onBack:()=>void;onRequireAuth:()=>void;onDeleted:()=>void;onSaved:(id:string)=>void};
 type Phase='clarify'|'answer'|'working'|'workspace'|'start-error';
 const API=import.meta.env.VITE_API_BASE_URL||'';
 const FOLLOW_UP_OPERATION='AI prepared a follow-up draft from the saved, corrected artifact';
 
-async function endpoint(body:{mode:'clarify'|'prepare'|'continue'} & Record<string,unknown>, token?:string){
+async function endpoint(body:{mode:'clarify'|'prepare'|'continue'} & Record<string,unknown>, locale:Locale, token?:string){
   const event = `deed.${body.mode}`;
   browserDiagnostic('info', `${event}.started`);
   let response: Response;
   try {
-    response=await fetch(`${API}/api/first-deed`,{method:'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},body:JSON.stringify(body)});
+    response=await fetch(`${API}/api/first-deed`,{method:'POST',headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},body:JSON.stringify({...body,locale})});
   } catch {
     browserDiagnostic('error', `${event}.failed`, {code:'api_unreachable'});
     throw new Error('Could not reach the drafting service. Please try again.');
@@ -35,6 +36,7 @@ async function endpoint(body:{mode:'clarify'|'prepare'|'continue'} & Record<stri
 }
 
 export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwnerId,preferredJinnName,onBack,onRequireAuth,onDeleted,onSaved}:Props){
+  const {locale,t}=useLocale();
   const [phase,setPhase]=useState<Phase>('working');
   const [question,setQuestion]=useState<string|null>(null);
   const [answer,setAnswer]=useState('');
@@ -52,8 +54,7 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
   const [retryAttempt,setRetryAttempt]=useState(0);
   const currentWish=row?.aspiration||wish;
   const companionName=row?.jinn_name||jinnChoices.find(jinn=>jinn.id===saveJinnId)?.name||preferredJinnName||'Jinn';
-  const ru=/[\u0400-\u04ff]/u.test(currentWish);
-  const label=(english:string,russian:string)=>ru?russian:english;
+  const label=(english:string,_russian:string)=>t(english);
   const receiptDescription=(item:DeedReceipt)=>{
     if(item.draftSource==='worksheet') return label(
       'Jinn prepared a starter worksheet. Fill in what you know and leave the rest open.',
@@ -108,10 +109,10 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
     setPhase('working');
     if(savedId){
       void loadFirstWish(savedId).then(saved=>{if(!live)return;setRow(saved);setArtifact(saved.first_artifact);sourceBaseline.current=saved.first_artifact.sourceNote;setReceipt(saved.first_deed);setPhase('workspace');})
-        .catch(e=>{if(live){setError(e instanceof Error?e.message:'Could not load wish.');setPhase('workspace');}});
+        .catch(e=>{if(live){setError(localizeError(e,locale,'Could not load wish.'));setPhase('workspace');}});
     }else{
-      void endpoint({mode:'clarify',wish}).then(data=>{if(!live)return;setQuestion(data.question);setPhase(data.question?'answer':'clarify');})
-        .catch(e=>{if(live){setError(e instanceof Error?e.message:'Could not begin.');setPhase('start-error');}});
+      void endpoint({mode:'clarify',wish},locale).then(data=>{if(!live)return;setQuestion(data.question);setPhase(data.question?'answer':'clarify');})
+        .catch(e=>{if(live){setError(localizeError(e,locale,'Could not begin.'));setPhase('start-error');}});
     }
     return()=>{live=false;};
   },[savedId,wish,retryAttempt]);
@@ -119,9 +120,9 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
   const prepare=async(source:string)=>{
     setBusy(true);setError('');setPhase('working');
     try{
-      const result=await endpoint({mode:'prepare',wish,answer:source});
+      const result=await endpoint({mode:'prepare',wish,answer:source},locale);
       setArtifact(result.artifact);sourceBaseline.current=result.artifact.sourceNote;setReceipt(result.receipt);setPhase('workspace');
-    }catch(e){setError(e instanceof Error?e.message:'Could not prepare this deed.');setPhase(question?'answer':'clarify');}
+    }catch(e){setError(localizeError(e,locale,'Could not prepare this deed.'));setPhase(question?'answer':'clarify');}
     finally{setBusy(false);}
   };
   const save=async()=>{
@@ -148,8 +149,7 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
       const saved=await updateFirstWish(row,artifact);
       setRow(saved);setArtifact(saved.first_artifact);sourceBaseline.current=saved.first_artifact.sourceNote;setReceipt(saved.first_deed);setDirty(false);
     }catch(e){
-      const message=e instanceof Error?e.message:'Could not save your wish.';
-      if(e instanceof Error && e.name==='WishSignInRequired')onRequireAuth();else setError(message);
+      if(e instanceof Error && e.name==='WishSignInRequired')onRequireAuth();else setError(localizeError(e,locale,'Could not save your wish.'));
     }finally{setBusy(false);}
   };
   const continueWish=async()=>{
@@ -158,17 +158,17 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
     try{
       const {data:{session},error:sessionError}=await getSupabase().auth.getSession();
       if(sessionError||!session?.access_token)throw new Error('Sign in to continue this wish.');
-      const result=await endpoint({mode:'continue',wishId:row.id},session.access_token);
+      const result=await endpoint({mode:'continue',wishId:row.id},locale,session.access_token);
       const saved=await updateFirstWish(row,result.artifact,result.receipt);
       setRow(saved);setArtifact(saved.first_artifact);sourceBaseline.current=saved.first_artifact.sourceNote;setReceipt(saved.first_deed);setDirty(false);
-    }catch(e){setError(e instanceof Error?e.message:'Could not continue this wish.');}
+    }catch(e){setError(localizeError(e,locale,'Could not continue this wish.'));}
     finally{setBusy(false);}
   };
   const remove=async()=>{
-    if(!row||!window.confirm('Delete this wish and its first-deed artifact? This cannot be undone.'))return;
+    if(!row||!window.confirm(t('Delete this wish and its first-deed artifact? This cannot be undone.')))return;
     setBusy(true);setError('');
     try{await deleteFirstWish(row.id);onDeleted();}
-    catch(e){setError(e instanceof Error?e.message:'Could not delete this wish.');setBusy(false);}
+    catch(e){setError(localizeError(e,locale,'Could not delete this wish.'));setBusy(false);}
   };
   const edit=(updated:Artifact)=>{setArtifact(updated);setDirty(true);};
   const updateSection=(index:number,section:Section)=>{
@@ -189,17 +189,17 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
         <RotateCcw size={16}/> {label('Retry starting wish','Попробовать снова')}
       </button>
     </div>}
-    {phase==='clarify'&&!artifact&&<div className="first-panel"><p className="first-panel-kicker">{label(companionName+'’s starting point','НАЧАЛЬНЫЙ ШАГ '+companionName)}</p><p>{question||label('We can start with what you shared. I’ll prepare one useful first step.','Можно начать с того, что вы рассказали. Подготовлю один полезный первый шаг.')}</p>
+    {phase==='clarify'&&!artifact&&<div className="first-panel"><p className="first-panel-kicker">{t('{name}’s starting point',{name:companionName})}</p><p>{question||label('We can start with what you shared. I’ll prepare one useful first step.','Можно начать с того, что вы рассказали. Подготовлю один полезный первый шаг.')}</p>
       <button className="primary" disabled={busy} onClick={()=>void prepare('')}>{label('Prepare my first deed','Подготовить первый шаг')} <ArrowRight size={16}/></button>
       {error&&<p className="error" role="alert">{error}</p>}</div>}
-    {phase==='answer'&&<div className="first-panel"><p className="first-panel-kicker">{label('A question from '+companionName,'ВОПРОС ОТ '+companionName)}</p>
+    {phase==='answer'&&<div className="first-panel"><p className="first-panel-kicker">{t('A question from {name}',{name:companionName})}</p>
       <label htmlFor="first-answer">{question}</label>
       <textarea id="first-answer" rows={3} maxLength={500} value={answer} onChange={e=>setAnswer(e.target.value)} placeholder={label('A few words are enough','Достаточно нескольких слов')}/>
       <div className="first-actions"><button className="primary" disabled={busy} onClick={()=>void prepare(answer.trim())}>{label('Prepare my first deed','Подготовить первый шаг')} <ArrowRight size={16}/></button>
       <button type="button" className="first-secondary" disabled={busy} onClick={()=>void prepare('')}>{label('I’m not sure','Не знаю')}</button></div>
       {error&&<p className="error" role="alert">{error}</p>}
     </div>}
-    {phase==='working'&&<div className="first-panel" role="status"><p className="first-panel-kicker"><Sparkles size={16}/> {label(companionName+' is with you',companionName+' РЯДОМ')}</p>{savedId?label('Welcome back. Opening your saved work…','С возвращением. Открываю сохранённую работу…'):busy?label('Preparing your first Deed…','Готовлю ваш первый шаг…'):label('Finding one good place to start…','Ищу хороший первый шаг…')}</div>}
+    {phase==='working'&&<div className="first-panel" role="status"><p className="first-panel-kicker"><Sparkles size={16}/> {t('{name} is with you',{name:companionName})}</p>{savedId?label('Welcome back. Opening your saved work…','С возвращением. Открываю сохранённую работу…'):busy?label('Preparing your first Deed…','Готовлю ваш первый шаг…'):label('Finding one good place to start…','Ищу хороший первый шаг…')}</div>}
     {phase==='workspace'&&artifact&&receipt&&<>
       <div className="workspace-intro"><div><p className="eyebrow">{row?label('WELCOME BACK','С ВОЗВРАЩЕНИЕМ'):label('YOUR FIRST DEED','ВАШ ПЕРВЫЙ ШАГ')}</p><h2>{row?label('Continue your wish.','Продолжим ваше желание.'):label('Your first Deed.','Ваш первый шаг.')}</h2></div><JinnAvatar size="medium"/></div>
       <div className="first-state"><span className="first-pill">{row?label('SAVED WISH','ЖЕЛАНИЕ СОХРАНЕНО'):label('UNSAVED DRAFT','ЧЕРНОВИК НЕ СОХРАНЁН')}</span><span className="first-pill first-prepared">{label('DEED PREPARED','ПЕРВЫЙ ШАГ ПОДГОТОВЛЕН')}</span></div>
@@ -219,11 +219,11 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
             {section.type==='document'?<textarea id={`section-${index}`} rows={Math.max(5,Math.min(20,Math.ceil(section.body.length/35)))} maxLength={2500}
               value={section.body} onChange={e=>updateSection(index,{...section,body:e.target.value})}/>:
               section.type==='checklist'?<ol>{section.items.map((item,itemIndex)=><li key={itemIndex}>
-                <textarea rows={Math.max(2,Math.ceil(item.text.length/28))} maxLength={220} aria-label={`${section.title} step ${itemIndex+1}`} value={item.text}
+                <textarea rows={Math.max(2,Math.ceil(item.text.length/28))} maxLength={220} aria-label={`${section.title} ${t('step')} ${itemIndex+1}`} value={item.text}
                   onChange={e=>updateSection(index,{...section,items:section.items.map((it,i)=>i===itemIndex?{...it,text:e.target.value}:it)})}/>
-                {item.dependsOn!==undefined&&<small>After step {item.dependsOn+1}</small>}
+                {item.dependsOn!==undefined&&<small>{t('After step {number}',{number:item.dependsOn+1})}</small>}
               </li>)}</ol>:
-              <ol>{section.items.map((item,itemIndex)=><li key={itemIndex}><textarea rows={Math.max(2,Math.ceil(item.length/28))} maxLength={220} aria-label={`${section.title} question ${itemIndex+1}`}
+              <ol>{section.items.map((item,itemIndex)=><li key={itemIndex}><textarea rows={Math.max(2,Math.ceil(item.length/28))} maxLength={220} aria-label={`${section.title} ${t('question')} ${itemIndex+1}`}
                 value={item} onChange={e=>updateSection(index,{...section,items:section.items.map((it,i)=>i===itemIndex?e.target.value:it)})}/></li>)}</ol>}
           </div>)}
           <div className="first-section"><label htmlFor="first-unknowns">{label('Still unknown','Пока неизвестно')}</label>
@@ -235,7 +235,7 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
           <p>{artifact.nextDeed.why}</p><small>{artifact.nextDeed.prompt}</small></div>
           <div className="first-receipt" id="wish-history"><p className="eyebrow">{label('HISTORY · WORK RECEIPT','ИСТОРИЯ · ЗАПИСЬ О РАБОТЕ')}</p><strong>{label('PREPARED','ПОДГОТОВЛЕНО')}</strong><p>{receiptDescription(receipt)}</p><small>{label('Private draft only. Nothing sent, published, or independently fact-checked.','Личный черновик. Ничего не отправлено, не опубликовано и не проверено во внешних источниках.')}</small></div>
           {row&&row.deed_history.length>1&&<details className="first-history"><summary>{label('Earlier Deeds','Предыдущие шаги')} ({row.deed_history.length-1})</summary>
-            <ol>{row.deed_history.slice(0,-1).map((item,index)=><li key={`${item.recordedAt}-${index}`}><strong>{label('PREPARED','ПОДГОТОВЛЕНО')}</strong><span>{receiptDescription(item)}</span><time>{new Date(item.recordedAt).toLocaleString()}</time></li>)}</ol>
+            <ol>{row.deed_history.slice(0,-1).map((item,index)=><li key={`${item.recordedAt}-${index}`}><strong>{label('PREPARED','ПОДГОТОВЛЕНО')}</strong><span>{receiptDescription(item)}</span><time>{formatLocalDateTime(item.recordedAt,locale)}</time></li>)}</ol>
           </details>}
           <div className="first-privacy"><LockKeyhole size={17}/><p>{row?label('Saved privately under your account.','Сохранено только в вашем аккаунте.'):label('This draft is only in this open session until you keep it.','Черновик останется только в этой сессии, пока вы его не сохраните.')} {label('No cross-wish memory or external action.','Нет общей памяти между желаниями и внешних действий.')}</p></div>
         </aside>

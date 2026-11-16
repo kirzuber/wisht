@@ -21,6 +21,8 @@ jobs:
         run: node --check scripts/dev.mjs
       - name: Check multi-Jinn browser acceptance script syntax
         run: node --check scripts/test-local-jinns.mjs
+      - name: Check localization browser acceptance script syntax
+        run: node --check scripts/test-local-i18n.mjs
       - name: Typecheck
         run: npm run typecheck
       - name: Tests
@@ -30,9 +32,9 @@ jobs:
       - name: Build
         run: npm run build
 
-  # PR #21 only: real ephemeral local Auth/Postgres/browser, fixture AI. Never hosted.
+  # PR #21 / localization PR #22 only: ephemeral local Auth/Postgres/browser, fixture AI. Never hosted.
   local-browser:
-    if: github.event_name == 'pull_request' && github.event.pull_request.number == 21
+    if: github.event_name == 'pull_request' && (github.event.pull_request.number == 21 || github.event.pull_request.number == 22)
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
@@ -64,14 +66,17 @@ jobs:
           done
           cat /tmp/wisht-dev.log
           exit 1
-      - name: Real local Auth/DB + browser multi-Jinn acceptance
-        run: npm run test:local-jinns
+      - name: Real local Auth/DB browser acceptance
+        run: |
+          if [ "${{ github.event.pull_request.number }}" = "22" ]; then npm run test:local-i18n; else npm run test:local-jinns; fi
       - name: Capture local browser screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: f03-003-home-browser-evidence
-          path: docs/evidence/f03-003/*.png
+          name: jinn-browser-evidence
+          path: |
+            docs/evidence/f03-003/*.png
+            docs/evidence/i18n/*.png
           if-no-files-found: ignore
       - name: Print local startup diagnostics on failure
         if: failure()
