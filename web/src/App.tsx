@@ -97,7 +97,12 @@ export default function App(){
  };
  const startWishForJinn=(jinnId?:string)=>{
   reset();
-  if(jinnId&&account){selectHomeJinn(jinnId);}
+  if(jinnId&&account){
+    // My Jinns owns this selection. Home reload will independently validate it.
+    const choice={id:jinnId,ownerId:account.id};
+    setHomeSelection(choice);setRememberedId(jinnId);
+    rememberChosenJinn(account.id,jinnId);
+  }
  };
  const showMyWishes=()=>{
   window.history.replaceState(null,'',window.location.pathname);
