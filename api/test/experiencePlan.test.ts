@@ -111,6 +111,10 @@ describe('F03-004 bounded Experience Plan v1',()=>{
    assert.deepEqual(result,{safe:false,reason:'promise_unfulfilled'});
    assert.match(system,/compare artifact.experience.firstOutcome/);
    assert.match(system,/actual substantive text/);
+   const incomplete=await reviewGrounding('I want an introduction','',artifact,async()=>({safe:true}));
+   assert.deepEqual(incomplete,{safe:false,reason:'promise_unfulfilled'});
+   const attested=await reviewGrounding('I want an introduction','',artifact,async()=>({safe:true,promiseFulfilled:true}));
+   assert.deepEqual(attested,{safe:true});
  });
  it('revises an unfulfilled First Deed only once and never claims a failed promise is prepared',async()=>{
    const plan=valid({firstOutcome:'A full substantive letter ready for editing'});
