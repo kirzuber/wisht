@@ -9,6 +9,18 @@ if(process.env.JINN_TEST_MODE==='1'||process.env.JINN_LOCAL_MODEL_ENDPOINT)
 const url=process.env.JINN_EVAL_API_URL||'http://127.0.0.1:3001/api/first-deed';
 if(!/^http:\/\/127\.0\.0\.1:3001\/api\/first-deed$/.test(url))
   throw new Error('Only the locally configured API is accepted; never submit evaluation Wishes to hosted production.');
+let health;
+try{
+  const response=await fetch('http://127.0.0.1:3001/api/health',
+    {signal:AbortSignal.timeout(5000)});
+  health=await response.json();
+}catch{
+  throw new Error('Local Jinn API is unreachable on port 3001. Start from the repo root with npm run dev.');
+}
+if(health.story!=='JINN-F03-004'||health.localFirstValueSigningReady!==true)
+  throw new Error('Local API lacks the Supabase signing key. Restart with npm run dev at the repository root and check /api/health before spending real-model tokens.');
+if(health.localModelFixtureEnabled!==false)
+  throw new Error('Real-model evaluation refused: deterministic model fixture is enabled.');
 const samples=[
  {locale:'en',wish:'I want to write a book about my life'},
  {locale:'en',wish:'I want to change my career but have no resume ready'},
