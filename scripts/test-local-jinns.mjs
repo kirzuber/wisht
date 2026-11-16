@@ -115,6 +115,8 @@ try{
     'Practice a new language',
   ];
   for(const goal of goals) await startWish('Writing Jinn',goal);
+  // Explicitly save a NEW Wish to a different owned Jinn, not just by moving one.
+  await startWish('Exploring Jinn','Restore an old clock safely');
   await choose('Writing Jinn');
   assert.equal(await page.locator('.my-work-card').count(),4);
   await page.screenshot({path:dir+'/my-jinns-desktop.png',fullPage:true});
@@ -138,7 +140,7 @@ try{
   await page.getByText('Your saved work stays with the Wish.',{exact:false}).waitFor();
   await page.getByRole('button',{name:'Confirm move'}).click();
   await page.locator('.jinn-workspace-identity h3').getByText('Exploring Jinn').waitFor();
-  assert.equal(await page.locator('.my-work-card').count(),1);
+  assert.equal(await page.locator('.my-work-card').count(),2);
   await page.getByRole('button',{name:new RegExp(goals[0])}).first().click();
   await page.locator('#first-source-note').waitFor();
   assert.equal(await page.locator('#first-source-note').inputValue(),'Aunt confirmed one memory');
