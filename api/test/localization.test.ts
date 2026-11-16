@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { isLocale, languageInstruction, normalizeLocale, supportedLocales } from '../src/locale.ts';
 import { prepareDeed, serveFirstDeed, suggestClarification } from '../src/firstDeed.ts';
 import { starterWorksheet } from '../src/starterWorksheet.ts';
-import { translate, formatLocalDate, formatLocalDateTime } from '../../web/src/i18n.tsx';
+import { translate, formatLocalDate, formatLocalDateTime, wishCountNoun } from '../../web/src/i18n.tsx';
 
 describe('JINN localization contract', () => {
   it('supports exactly English, Russian, French and Spanish, with safe browser negotiation',()=>{
@@ -21,6 +21,8 @@ describe('JINN localization contract', () => {
       assert.ok(translate(locale,'Could not complete that action. Please try again.'));
     }
     assert.equal(translate('ru','My Jinns'),'Мои джинны');
+    assert.deepEqual([0,1,2,5,11,21,24,31].map(n=>wishCountNoun(n,'ru')),
+      ['желаний','желание','желания','желаний','желаний','желание','желания','желание']);
     assert.equal(translate('fr','Continue with {name}',{name:'Maya'}),'Continuer avec Maya');
     assert.equal(translate('es','Continue with {name}',{name:'Maya'}),'Continuar con Maya');
     assert.equal(translate('fr','I want to…'),'Je voudrais…');
