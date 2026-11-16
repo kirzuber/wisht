@@ -76,6 +76,13 @@ class DraftingError extends Error {
 }
 
 function provider(env: NodeJS.ProcessEnv) {
+  // Disposable local integration tests only. Never redirect hosted AI traffic.
+  if(env.JINN_TEST_MODE==='1' &&
+    env.VITE_SUPABASE_URL?.startsWith('http://127.0.0.1:54321') &&
+    /^http:\/\/127\.0\.0\.1:3999\/v1\/chat\/completions$/.test(env.JINN_LOCAL_MODEL_ENDPOINT||'')){
+    return {key:'local-only-fixture',model:'bounded-local-fixture',
+      endpoint:env.JINN_LOCAL_MODEL_ENDPOINT!,deepseek:false};
+  }
   const deepseek = env.LLM_PROVIDER === 'deepseek' || (!env.LLM_PROVIDER && !!env.DEEPSEEK_API_KEY);
   const key = (deepseek ? env.DEEPSEEK_API_KEY : env.OPENAI_API_KEY)?.trim();
   if (!key) throw new DraftingError('AI drafting is unavailable because the server is missing its AI provider key.', 'ai_not_configured');
