@@ -2,7 +2,7 @@ import { describe,it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
  FIRST_VALUE_COMPONENTS,FIRST_VALUE_CAPABILITIES,EXPERIENCE_PLANNER_PROMPT,
- validateExperiencePlan,normalizeModelExperiencePlan,conciseModelCopy,focusFirstValueQuestions,assertCompleteModelPlanCopy,validatePlanAnswers,summarizePlanFacts,type ExperiencePlanV1,
+ validateExperiencePlan,normalizeModelExperiencePlan,classifyModelPlanSchemaIssue,conciseModelCopy,focusFirstValueQuestions,assertCompleteModelPlanCopy,validatePlanAnswers,summarizePlanFacts,type ExperiencePlanV1,
 } from '../src/experiencePlan.ts';
 import {callFirstDeedModel,planFirstValue,prepareDeed,reviewGrounding,signPreparedFirstValue,verifyPreparedFirstValue,validateArtifact,serveFirstDeed} from '../src/firstDeed.ts';
 
@@ -83,6 +83,17 @@ describe('F03-004 bounded Experience Plan v1',()=>{
   assert.throws(()=>normalizeModelExperiencePlan({...semantic,
    components:['jinn_identity','execute_js']},'en'),/unregistered/);
   assert.throws(()=>normalizeModelExperiencePlan({...semantic,locale:'es'},'en'),/locale/);
+ });
+ it('diagnoses only safe structural reason codes, not raw user content',()=>{
+  const base={intent:'A meaningful start',firstOutcome:'A private first draft',
+   deed:{title:'Make one draft',result:'A complete authored result'},questions:[]};
+  assert.equal(classifyModelPlanSchemaIssue(null,'en'),'non_object');
+  assert.equal(classifyModelPlanSchemaIssue({...base,locale:'es'},'en'),'locale_mismatch');
+  assert.equal(classifyModelPlanSchemaIssue({...base,deed:{...base.deed,scope:'PUBLISH'}},'en'),'forbidden_scope');
+  assert.equal(classifyModelPlanSchemaIssue({...base,components:['execute_js']},'en'),'unregistered_component');
+  assert.equal(classifyModelPlanSchemaIssue({...base,firstOutcome:''},'en'),'required_copy_invalid');
+  assert.equal(classifyModelPlanSchemaIssue({...base,questions:[{prompt:'What matters?',why:'Changes output',
+   choices:['One choice']}]},'en'),'question_format');
  });
  it('normalizes typical model formatting without allowing unknown UI components',()=>{
   const response={...base,locale:'ru-RU',version:'1',
@@ -238,6 +249,7 @@ describe('F03-004 bounded Experience Plan v1',()=>{
    assert.equal(diagnostic.status,'rejected');
    assert.equal(diagnostic.lastRejection,'invalid_model');
    assert.equal(diagnostic.lastFailureStage,'plan_schema');
+   assert.equal(diagnostic.lastSchemaIssue,'required_copy_invalid');
    assert.equal(diagnostic.modelCalls,2);
    assert.ok(!JSON.stringify(infos).includes('PRIVATE_CANARY_NOT_FOR_LOGS'));
   }finally{console.info=originalInfo;}
