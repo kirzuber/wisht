@@ -3,8 +3,8 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { isLocale, languageInstruction, type Locale } from './locale.js';
 import { starterWorksheet } from './starterWorksheet.js';
 import {
-  EXPERIENCE_PLANNER_PROMPT, validateExperiencePlan, normalizeModelExperiencePlan, classifyModelPlanSchemaIssue, focusFirstValueQuestions, assertCompleteModelPlanCopy, validatePlanAnswers, summarizePlanFacts,
-  type ExperiencePlanV1, type PlanAnswers, type ModelPlanSchemaIssue,
+  EXPERIENCE_PLANNER_PROMPT, validateExperiencePlan, normalizeModelExperiencePlan, classifyModelPlanSchemaIssue, requiredModelCopyIssues, focusFirstValueQuestions, assertCompleteModelPlanCopy, validatePlanAnswers, summarizePlanFacts,
+  type ExperiencePlanV1, type PlanAnswers, type ModelPlanSchemaIssue, type RequiredModelCopyIssue,
 } from './experiencePlan.js';
 
 export type Section =
@@ -182,6 +182,7 @@ export async function planFirstValue(
   let repairs=0;
   let lastFailureStage:PlanFailureStage='none';
   let lastSchemaIssue:ModelPlanSchemaIssue|'none'='none';
+  let lastRequiredCopyIssues:RequiredModelCopyIssue[]=[];
   const counted:ModelCall=async(messages,tokens)=>{
     calls++;
     return call(messages,tokens);
@@ -192,9 +193,13 @@ export async function planFirstValue(
     for(let attempt=0;attempt<2;attempt++){
       repairs=attempt;
       let stage:PlanFailureStage='provider_output';
+      const copyRepair=lastFailureStage==='plan_schema'&&lastRequiredCopyIssues.length
+        ? ' Rewrite these required fields: '+lastRequiredCopyIssues.map(({field,condition,max})=>
+          `${field} (${condition.replaceAll('_',' ')}, maximum ${max} characters)`).join('; ')+'. Use short complete phrasing.'
+        : '';
       try{
         const response=await counted([
-          {role:'system',content:`${EXPERIENCE_PLANNER_PROMPT} ${languageInstruction(locale)} The server owns the JSON locale, version, scope and UI components. Do NOT generate those fields. Write every user-facing text value in the selected language (${locale}). ${attempt?`FINAL bounded repair: previous proposal failed at ${lastFailureStage} (reason: ${rejected}). If its JSON/schema was invalid, return the exact specified JSON shape with complete, bounded copy. If its promise was infeasible, choose a DIFFERENT, smaller fully authored result that is complete without any optional answers or unknown personal facts. Make all promise copy concise, balanced and within length limits. No new user questions required. Output the same semantic-only JSON fields without UI components or executable actions.`:''}`},
+          {role:'system',content:`${EXPERIENCE_PLANNER_PROMPT} ${languageInstruction(locale)} The server owns the JSON locale, version, scope and UI components. Do NOT generate those fields. Write every user-facing text value in the selected language (${locale}). ${attempt?`FINAL bounded repair: previous proposal failed at ${lastFailureStage} (reason: ${rejected}). If its JSON/schema was invalid, return the exact specified JSON shape with complete, bounded copy.${copyRepair} If its promise was infeasible, choose a DIFFERENT, smaller fully authored result that is complete without any optional answers or unknown personal facts. Make all promise copy concise, balanced and within length limits. No new user questions required. Output the same semantic-only JSON fields without UI components or executable actions.`:''}`},
           {role:'user',content:context},
         ],2300);
         stage='plan_schema';
@@ -202,7 +207,11 @@ export async function planFirstValue(
         try{plan=validateExperiencePlan(response,locale);}
         catch{
           try{plan=normalizeModelExperiencePlan(response,locale);}
-          catch(error){lastSchemaIssue=classifyModelPlanSchemaIssue(response,locale);throw error;}
+          catch(error){
+            lastSchemaIssue=classifyModelPlanSchemaIssue(response,locale);
+            lastRequiredCopyIssues=lastSchemaIssue==='required_copy_invalid'?requiredModelCopyIssues(response):[];
+            throw error;
+          }
         }
         plan=focusFirstValueQuestions(plan);
         stage='promise_copy';
@@ -226,7 +235,7 @@ export async function planFirstValue(
       status:accepted?'accepted':'rejected',
       modelCalls:calls,planningLatencyMs:Date.now()-started,
       repairCount:repairs,
-      lastRejection:lastFailure,lastFailureStage,lastSchemaIssue,
+      lastRejection:lastFailure,lastFailureStage,lastSchemaIssue,lastRequiredCopyIssues,
     });
   }
 }
