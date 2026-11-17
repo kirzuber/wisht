@@ -44,6 +44,46 @@ describe('F03-004 bounded Experience Plan v1',()=>{
   assert.ok(!('rogue' in plan));
   assert.throws(()=>validateExperiencePlan(plan,'ru'),/invalid/);
  });
+ it('builds a safe Experience Plan from a semantic-only Russian model response',async()=>{
+  const semantic={
+   intent:'Помочь начать книгу семейных историй',
+   firstOutcome:'Готовый оригинальный пролог в художественной форме для редактирования',
+   deed:{title:'Написать первый пролог',result:'Первый полный текст для самостоятельного чтения'},
+   questions:[],supportingMaterial:false,
+  };
+  const result=await planFirstValue('Я хочу написать семейную историю','ru','Jinn','',async messages=>
+   messages[0].content.includes('PLAN_FEASIBILITY_GATE')
+    ? {feasible:true,reason:'none'}:semantic);
+  assert.equal(result.version,1);
+  assert.equal(result.locale,'ru');
+  assert.equal(result.deed.scope,'PRIVATE_DRAFT');
+  assert.deepEqual(result.questions,[]);
+  assert.deepEqual(result.components,['jinn_identity','deed_proposal','artifact_reader',
+   'source_status','work_receipt','next_deed']);
+  assert.ok(EXPERIENCE_PLANNER_PROMPT.includes('Do not generate version, locale, deed scope'));
+ });
+ it('composes optional questions and supporting content without model UI identifiers',()=>{
+  const proposal={
+   intent:'Start a creative project',firstOutcome:'A finished starting draft',
+   deed:{title:'Write the first paragraph',result:'A complete fictional example'},
+   questions:[{prompt:'Which direction matters most?',why:'Changes the opening scene',
+    choices:['Playful','Reflective']}],supportingMaterial:true,
+  };
+  const result=normalizeModelExperiencePlan(proposal,'en');
+  assert.equal(result.questions[0].id,'q1');
+  assert.deepEqual(result.components,['jinn_identity','choice_chips','deed_proposal',
+   'artifact_reader','source_status','supporting_section','work_receipt','next_deed']);
+  assert.equal(result.deed.scope,'PRIVATE_DRAFT');
+ });
+ it('still rejects explicit external scopes, unknown UI components and locale spoofing',()=>{
+  const semantic={intent:'A first draft',firstOutcome:'A useful first object',
+   deed:{title:'Compose safely',result:'A private authored text'},questions:[]};
+  assert.throws(()=>normalizeModelExperiencePlan({...semantic,
+   deed:{...semantic.deed,scope:'SEND_EMAIL'}},'en'),/scope/);
+  assert.throws(()=>normalizeModelExperiencePlan({...semantic,
+   components:['jinn_identity','execute_js']},'en'),/unregistered/);
+  assert.throws(()=>normalizeModelExperiencePlan({...semantic,locale:'es'},'en'),/locale/);
+ });
  it('normalizes typical model formatting without allowing unknown UI components',()=>{
   const response={...base,locale:'ru-RU',version:'1',
     intent:'Подготовить первый полезный результат',
