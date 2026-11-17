@@ -125,6 +125,35 @@ export function validateExperiencePlan(value:unknown, expectedLocale?:Locale):Ex
     questions,components:[...value.components],
   };
 }
+/** Privacy-safe diagnostics: record shape classes, never model/user content. */
+export type ModelPlanSchemaIssue=
+  'non_object'|'locale_mismatch'|'forbidden_scope'|'unregistered_component'|
+  'required_copy_invalid'|'question_format'|'plan_shape_invalid';
+export function classifyModelPlanSchemaIssue(value:unknown,expectedLocale:Locale):ModelPlanSchemaIssue{
+  if(!record(value))return 'non_object';
+  if(value.locale!==undefined&&value.locale!==expectedLocale&&
+    value.locale!==intlLocaleCode(expectedLocale))return 'locale_mismatch';
+  if(value.deed!==undefined&&(!record(value.deed)||
+    (value.deed.scope!==undefined&&value.deed.scope!=='PRIVATE_DRAFT')))
+    return 'forbidden_scope';
+  if(value.components!==undefined&&(!Array.isArray(value.components)||
+    value.components.some(id=>typeof id!=='string'||!componentSet.has(id))))
+    return 'unregistered_component';
+  if(!bounded(value.intent,240)||!bounded(value.firstOutcome,200)||
+    !record(value.deed)||!bounded(value.deed.title,110)||
+    !bounded(value.deed.result,220))return 'required_copy_invalid';
+  if(Array.isArray(value.questions)&&value.questions.length>0){
+    const q=value.questions[0];
+    if(record(q)&&bounded(q.prompt,180)&&bounded(q.why,180)&&Array.isArray(q.choices)){
+      const choices=[...new Set(q.choices.filter(x=>typeof x==='string'&&x.length>0)
+        .filter(x=>!['other','skip','not sure','другое','пропустить','не знаю'].includes(x.toLowerCase())))];
+      if(choices.length<2||choices.slice(0,4).some(x=>x.length>70))
+        return 'question_format';
+    }
+  }
+  return 'plan_shape_invalid';
+}
+
 /**
  * Tolerant MODEL-OUTPUT boundary, not the inbound API validator.
  * Keep executable capabilities immutable. Repair only presentation/schema
