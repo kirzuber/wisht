@@ -16,16 +16,17 @@ const server=http.createServer(async(req,res)=>{
   if(prompt.includes('PLAN_FEASIBILITY_GATE')){
     output={feasible:true,reason:'none'};
   }else if(prompt.includes('private First-Value planner')){
+    // Deliberately omit all server-owned layout, scope, locale and version
+    // fields: local browser coverage tests the semantic-only model contract.
     output={
-      version:1,locale,intent:'Prepare an immediately useful first result from the Wish',
+      intent:'Prepare an immediately useful first result from the Wish',
       firstOutcome:'One reusable first draft that can be reviewed, corrected and kept',
-      deed:{title:'Compose a first draft',scope:'PRIVATE_DRAFT',
+      deed:{title:'Compose a first draft',
         result:'A private document prepared only from the Wish and the person’s optional answer'},
-      questions:[{id:'focus',prompt:'Which direction would make the first draft more useful?',
+      questions:[{prompt:'Which direction would make the first draft more useful?',
         why:'A selected focus changes the writing without assuming unknown personal facts',
         choices:['Practical first step','Creative example']}],
-      components:['jinn_identity','choice_chips','deed_proposal','artifact_reader',
-        'supporting_section','source_status','work_receipt','next_deed'],
+      supportingMaterial:true,
     };
   }else if(prompt.includes('Review a proposed private draft')){
     output={safe:true,promiseFulfilled:true};

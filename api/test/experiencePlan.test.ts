@@ -2,7 +2,7 @@ import { describe,it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
  FIRST_VALUE_COMPONENTS,FIRST_VALUE_CAPABILITIES,EXPERIENCE_PLANNER_PROMPT,
- validateExperiencePlan,normalizeModelExperiencePlan,conciseModelCopy,focusFirstValueQuestions,assertCompleteModelPlanCopy,validatePlanAnswers,summarizePlanFacts,type ExperiencePlanV1,
+ validateExperiencePlan,normalizeModelExperiencePlan,classifyModelPlanSchemaIssue,conciseModelCopy,focusFirstValueQuestions,assertCompleteModelPlanCopy,validatePlanAnswers,summarizePlanFacts,type ExperiencePlanV1,
 } from '../src/experiencePlan.ts';
 import {callFirstDeedModel,planFirstValue,prepareDeed,reviewGrounding,signPreparedFirstValue,verifyPreparedFirstValue,validateArtifact,serveFirstDeed} from '../src/firstDeed.ts';
 
@@ -43,6 +43,57 @@ describe('F03-004 bounded Experience Plan v1',()=>{
   const plan=validateExperiencePlan({...base,rogue:'<script>alert(1)</script>'},'en');
   assert.ok(!('rogue' in plan));
   assert.throws(()=>validateExperiencePlan(plan,'ru'),/invalid/);
+ });
+ it('builds a safe Experience Plan from a semantic-only Russian model response',async()=>{
+  const semantic={
+   intent:'Помочь начать книгу семейных историй',
+   firstOutcome:'Готовый оригинальный пролог в художественной форме для редактирования',
+   deed:{title:'Написать первый пролог',result:'Первый полный текст для самостоятельного чтения'},
+   questions:[],supportingMaterial:false,
+  };
+  const result=await planFirstValue('Я хочу написать семейную историю','ru','Jinn','',async messages=>
+   messages[0].content.includes('PLAN_FEASIBILITY_GATE')
+    ? {feasible:true,reason:'none'}:semantic);
+  assert.equal(result.version,1);
+  assert.equal(result.locale,'ru');
+  assert.equal(result.deed.scope,'PRIVATE_DRAFT');
+  assert.deepEqual(result.questions,[]);
+  assert.deepEqual(result.components,['jinn_identity','deed_proposal','artifact_reader',
+   'source_status','work_receipt','next_deed']);
+  assert.ok(EXPERIENCE_PLANNER_PROMPT.includes('Do not generate version, locale, deed scope'));
+ });
+ it('composes optional questions and supporting content without model UI identifiers',()=>{
+  const proposal={
+   intent:'Start a creative project',firstOutcome:'A finished starting draft',
+   deed:{title:'Write the first paragraph',result:'A complete fictional example'},
+   questions:[{prompt:'Which direction matters most?',why:'Changes the opening scene',
+    choices:['Playful','Reflective']}],supportingMaterial:true,
+  };
+  const result=normalizeModelExperiencePlan(proposal,'en');
+  assert.equal(result.questions[0].id,'q1');
+  assert.deepEqual(result.components,['jinn_identity','choice_chips','deed_proposal',
+   'artifact_reader','source_status','supporting_section','work_receipt','next_deed']);
+  assert.equal(result.deed.scope,'PRIVATE_DRAFT');
+ });
+ it('still rejects explicit external scopes, unknown UI components and locale spoofing',()=>{
+  const semantic={intent:'A first draft',firstOutcome:'A useful first object',
+   deed:{title:'Compose safely',result:'A private authored text'},questions:[]};
+  assert.throws(()=>normalizeModelExperiencePlan({...semantic,
+   deed:{...semantic.deed,scope:'SEND_EMAIL'}},'en'),/scope/);
+  assert.throws(()=>normalizeModelExperiencePlan({...semantic,
+   components:['jinn_identity','execute_js']},'en'),/unregistered/);
+  assert.throws(()=>normalizeModelExperiencePlan({...semantic,locale:'es'},'en'),/locale/);
+ });
+ it('diagnoses only safe structural reason codes, not raw user content',()=>{
+  const base={intent:'A meaningful start',firstOutcome:'A private first draft',
+   deed:{title:'Make one draft',result:'A complete authored result'},questions:[]};
+  assert.equal(classifyModelPlanSchemaIssue(null,'en'),'non_object');
+  assert.equal(classifyModelPlanSchemaIssue({...base,locale:'es'},'en'),'locale_mismatch');
+  assert.equal(classifyModelPlanSchemaIssue({...base,deed:{...base.deed,scope:'PUBLISH'}},'en'),'forbidden_scope');
+  assert.equal(classifyModelPlanSchemaIssue({...base,components:['execute_js']},'en'),'unregistered_component');
+  assert.equal(classifyModelPlanSchemaIssue({...base,firstOutcome:''},'en'),'required_copy_invalid');
+  assert.equal(classifyModelPlanSchemaIssue({...base,questions:[{prompt:'What matters?',why:'Changes output',
+   choices:['One choice']}]},'en'),'question_format');
  });
  it('normalizes typical model formatting without allowing unknown UI components',()=>{
   const response={...base,locale:'ru-RU',version:'1',
@@ -198,6 +249,7 @@ describe('F03-004 bounded Experience Plan v1',()=>{
    assert.equal(diagnostic.status,'rejected');
    assert.equal(diagnostic.lastRejection,'invalid_model');
    assert.equal(diagnostic.lastFailureStage,'plan_schema');
+   assert.equal(diagnostic.lastSchemaIssue,'required_copy_invalid');
    assert.equal(diagnostic.modelCalls,2);
    assert.ok(!JSON.stringify(infos).includes('PRIVATE_CANARY_NOT_FOR_LOGS'));
   }finally{console.info=originalInfo;}
