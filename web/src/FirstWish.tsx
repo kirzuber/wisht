@@ -229,6 +229,7 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
     <p className="eyebrow">{label('YOUR WISH','ВАШЕ ЖЕЛАНИЕ')}</p><h1>{currentWish}</h1>
     {phase==='start-error'&&<div className="first-panel">
       <p className="error" role="alert">{error}</p>
+      <p>{t('Your Wish is unchanged. You can retry, or go back and add one concrete detail that helps Jinn prepare a grounded first result.')}</p>
       <button type="button" className="primary" onClick={()=>setRetryAttempt(attempt=>attempt+1)}>
         <RotateCcw size={16}/> {label('Retry starting wish','Попробовать снова')}
       </button>

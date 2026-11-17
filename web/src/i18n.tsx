@@ -138,6 +138,7 @@ const translations: Record<string,readonly [string,string,string]> = {
   'Next step':['Следующий шаг','Étape suivante','Siguiente paso'],
   'History':['История','Historique','Historial'],
   'Retry starting wish':['Попробовать снова','Réessayer ce souhait','Reintentar el deseo'],
+  'Your Wish is unchanged. You can retry, or go back and add one concrete detail that helps Jinn prepare a grounded first result.':['Ваше желание не изменилось. Попробуйте ещё раз или вернитесь и добавьте одну конкретную деталь, чтобы Jinn смог подготовить обоснованный первый результат.','Votre souhait est inchangé. Réessayez ou revenez ajouter un détail concret pour aider Jinn à préparer un premier résultat fiable.','Tu deseo no ha cambiado. Vuelve a intentarlo o regresa y añade un detalle concreto para que Jinn prepare un primer resultado fundamentado.'],
   '{name}’s starting point':['Первый шаг с {name}','Le point de départ de {name}','El punto de partida de {name}'],
   'We can start with what you shared. I’ll prepare one useful first step.':['Можно начать с того, что вы рассказали. Я подготовлю один полезный первый шаг.','Nous pouvons commencer avec ce que vous avez partagé. Je vais préparer une première étape utile.','Podemos empezar con lo que me has contado. Prepararé un primer paso útil.'],
   'Prepare my first deed':['Подготовить первый шаг','Préparer mon premier acte','Preparar mi primera acción'],

@@ -106,7 +106,9 @@ describe('JINN-F03 generic first Deed',()=>{
     const result=await prepareDeed('I want to try gardening','',null,async messages=>{
       if (++generations===1) return unsafeGarden;
       assert.match(messages[0].content,/single repair attempt.*grounding_rejected/);
-      assert.doesNotMatch(JSON.stringify(messages),/six hours of sun/);
+      assert.match(messages[1].content,/REJECTED PRIOR DRAFT/);
+      assert.match(messages[1].content,/six hours of sun/);
+      assert.match(messages[0].content,/Remove unsupported factual assertions/);
       return openGarden;
     },async(_wish,_note,artifact)=>{
       reviewed.push(artifact.title);
