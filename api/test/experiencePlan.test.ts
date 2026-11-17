@@ -153,6 +153,55 @@ describe('F03-004 bounded Experience Plan v1',()=>{
    {code:'grounding_rejected',status:422});
    assert.equal(rejectedCalls,2);
  });
+ it('recovers a rejected Artifact by correcting its previous draft without logging personal content',async()=>{
+  const plan=valid({firstOutcome:'An original opening ready to review'});
+  const prior={
+   title:'Unverified story claim',
+   sections:[{type:'document',title:'Opening',body:'PRIVATE_CANARY_NOT_FOR_LOGS: I interviewed everyone and obtained consent. '.repeat(6)}],
+   unknowns:[],nextDeed:{title:'Continue',why:'More detail is useful',prompt:'Review next'},
+   boundary:'Private draft only',
+  };
+  const corrected={...prior,title:'Safe original opening',
+   sections:[{type:'document',title:'Opening',body:'This is an explicitly fictional sample to inspire a possible opening. '.repeat(7)}]};
+  let calls=0;
+  const warnings:string[]=[];
+  const originalWarn=console.warn;
+  try{
+   console.warn=(...args:unknown[])=>{warnings.push(JSON.stringify(args));};
+   const result=await prepareDeed('Create an illustrative opening','',null,async messages=>{
+    calls++;
+    if(calls===2){
+     assert.match(messages[1].content,/REJECTED PRIOR DRAFT/);
+     assert.match(messages[1].content,/PRIVATE_CANARY_NOT_FOR_LOGS/);
+     assert.match(messages[0].content,/REVISE its useful central content/);
+    }
+    return calls===1?prior:corrected;
+   },async(_wish,_note,artifact)=>artifact.title==='Unverified story claim'?
+    {safe:false,reason:'unsupported_fact'}:{safe:true},'en',plan);
+   assert.equal(calls,2);
+   assert.equal(result.receipt.draftSource,'repaired_model');
+   assert.equal(result.artifact.title,'Safe original opening');
+   assert.ok(warnings.some(value=>value.includes('unsupported_fact')));
+   assert.ok(warnings.every(value=>!value.includes('PRIVATE_CANARY_NOT_FOR_LOGS')));
+  }finally{console.warn=originalWarn;}
+ });
+ it('reports the failing plan stage without logging private Wish text',async()=>{
+  const infos:unknown[][]=[];
+  const originalInfo=console.info;
+  try{
+   console.info=(...args:unknown[])=>{infos.push(args);};
+   await assert.rejects(planFirstValue('My private unexpected wish','ru','Jinn','',
+    async()=>({arbitrary:'PRIVATE_CANARY_NOT_FOR_LOGS'})),{code:'experience_plan_invalid',status:422});
+   const item=infos.find(args=>String(args[0]).includes('first_value.plan_feasibility'));
+   assert.ok(item);
+   const diagnostic=item[1] as Record<string,unknown>;
+   assert.equal(diagnostic.status,'rejected');
+   assert.equal(diagnostic.lastRejection,'invalid_model');
+   assert.equal(diagnostic.lastFailureStage,'plan_schema');
+   assert.equal(diagnostic.modelCalls,2);
+   assert.ok(!JSON.stringify(infos).includes('PRIVATE_CANARY_NOT_FOR_LOGS'));
+  }finally{console.info=originalInfo;}
+ });
  it('retries one truncated real-provider JSON response without weakening the schema',async()=>{
   let calls=0;
   const output=await planFirstValue('A normal unseen Wish','en','Jinn','',
