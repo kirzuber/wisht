@@ -80,6 +80,26 @@ try{
  await page.setViewportSize({width:390,height:844});
  await page.screenshot({path:out+'/first-artifact-mobile.png',fullPage:true});
  await page.setViewportSize({width:1350,height:900});
+ // Regression: a prepared unsaved Artifact must survive a locale and auth
+ // refresh without re-entering planning or losing the work receipt.
+ const plannedCalls=requests.filter(req=>req.body?.mode==='plan').length;
+ await page.locator('#ui-language').selectOption('ru');
+ await page.locator('.first-value-reader h2').waitFor();
+ await sleep(500);
+ assert.equal(await page.locator('.first-value-reader h2').innerText(),'Your first usable draft');
+ assert.equal(await page.locator('.first-value-prose').innerText(),document);
+ assert.equal(requests.filter(req=>req.body?.mode==='plan').length,plannedCalls,
+   'Locale change must not restart planning after an unsaved First Artifact');
+ await page.locator('#ui-language').selectOption('en');
+ await page.evaluate(async()=>{
+   const {getSupabase}=await import('/src/supabaseClient.ts');
+   const {error}=await getSupabase().auth.refreshSession();
+   if(error)throw error;
+ });
+ await sleep(500);
+ assert.equal(await page.locator('.first-value-reader h2').innerText(),'Your first usable draft');
+ assert.equal(requests.filter(req=>req.body?.mode==='plan').length,plannedCalls,
+   'Auth refresh must not restart planning after an unsaved First Artifact');
  const savedResponse=page.waitForResponse(resp=>resp.url().includes('/api/first-deed')
    &&resp.request().postDataJSON()?.mode==='save_first_value');
  await page.getByRole('button',{name:/Keep this wish/}).click();
