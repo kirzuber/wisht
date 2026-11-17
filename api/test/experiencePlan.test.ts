@@ -254,6 +254,33 @@ describe('F03-004 bounded Experience Plan v1',()=>{
    assert.ok(!JSON.stringify(infos).includes('PRIVATE_CANARY_NOT_FOR_LOGS'));
   }finally{console.info=originalInfo;}
  });
+ it('gives the planner actual copy limits and requests a bounded repair of the exact offending fields',async()=>{
+  const oversized='PRIVATE_SYNTHETIC_CANARY '.repeat(14);
+  const initial={intent:base.intent,firstOutcome:oversized,
+    deed:{title:base.deed.title,result:oversized},questions:[]};
+  const shorter={...initial,firstOutcome:base.firstOutcome,
+    deed:{...initial.deed,result:base.deed.result}};
+  let generations=0,reviews=0;
+  const output=await planFirstValue('Try a new way to compare two options','en','Jinn','',async messages=>{
+    const prompt=messages[0].content;
+    if(prompt.includes('PLAN_FEASIBILITY_GATE')){
+      reviews++;
+      assert.equal(JSON.parse(messages[1].content).plan.deed.result,base.deed.result);
+      return {feasible:true,reason:'none'};
+    }
+    generations++;
+    assert.match(prompt,/intent 240, firstOutcome 200, deed\.title 110, deed\.result 220/);
+    if(generations===1)return initial;
+    assert.match(prompt,/firstOutcome \(over limit, maximum 200 characters\)/);
+    assert.match(prompt,/deed\.result \(over limit, maximum 220 characters\)/);
+    assert.doesNotMatch(prompt,/PRIVATE_SYNTHETIC_CANARY/);
+    return shorter;
+  });
+  assert.equal(generations,2);
+  assert.equal(reviews,1);
+  assert.equal(output.firstOutcome,base.firstOutcome);
+  assert.throws(()=>validateExperiencePlan({...base,firstOutcome:oversized}),/invalid/);
+ });
  it('retries one truncated real-provider JSON response without weakening the schema',async()=>{
   let calls=0;
   const output=await planFirstValue('A normal unseen Wish','en','Jinn','',
