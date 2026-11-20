@@ -4,7 +4,7 @@ import type { Artifact, DeedReceipt, Section } from '../../api/src/firstDeed';
 import { validateExperiencePlan, type ExperiencePlanV1, type PlanAnswers } from '../../api/src/experiencePlan';
 import { getAuthenticatedUser, getSupabase } from './supabaseClient';
 import { listJinns, type JinnIdentity } from './jinnStore';
-import { deleteFirstWish, loadFirstWish, saveFirstWish, savePreparedFirstValue, updateFirstWish, type FirstWishRow } from './firstWishStore';
+import { deleteFirstWish, loadFirstWish, saveFirstWish, savePreparedFirstValue, saveTrustedContext, updateFirstWish, type FirstWishRow } from './firstWishStore';
 import { correctSource, validateEditedArtifact } from './firstWishModel';
 import { browserDiagnostic, diagnosticCode } from './browserDiagnostics';
 import JinnAvatar from './JinnAvatar';
@@ -16,7 +16,8 @@ type Phase='clarify'|'answer'|'working'|'workspace'|'start-error';
 const API=import.meta.env.VITE_API_BASE_URL||'';
 const FOLLOW_UP_OPERATION='AI prepared a follow-up draft from the saved, corrected artifact';
 
-async function endpoint(body:{mode:'plan'|'clarify'|'prepare'|'continue'} & Record<string,unknown>, locale:Locale, token?:string){
+type ContinuationProposal={plan:ExperiencePlanV1;snapshot:{sourceId:string;sourceVersion:number;contextRevision:number;actorId:string;latestDeedId:string};editRequest:string;expires:number;proof:string};
+async function endpoint(body:{mode:string} & Record<string,unknown>, locale:Locale, token?:string){
   const event = `deed.${body.mode}`;
   browserDiagnostic('info', `${event}.started`);
   let response: Response;
@@ -50,6 +51,14 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
   const [issuedArtifact,setIssuedArtifact]=useState<Artifact|null>(null);
   const [preparationProof,setPreparationProof]=useState('');
   const [row,setRow]=useState<FirstWishRow|null>(null);
+  const [proposal,setProposal]=useState<ContinuationProposal|null>(null);
+  const [reviewing,setReviewing]=useState(false);
+  const [notNow,setNotNow]=useState(false);
+  const [editRequest,setEditRequest]=useState('');
+  const [contextFacts,setContextFacts]=useState('');
+  const [contextUnknowns,setContextUnknowns]=useState('');
+  const [contextDirty,setContextDirty]=useState(false);
+  const pendingRequestKey=useRef<string|null>(null);
   const [jinnChoices,setJinnChoices]=useState<JinnIdentity[]>([]);
   const [saveJinnId,setSaveJinnId]=useState<string>(preferredJinnId||'');
   const [jinnUnavailable,setJinnUnavailable]=useState(false);
@@ -67,6 +76,16 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
   const [error,setError]=useState('');
   const [retryAttempt,setRetryAttempt]=useState(0);
   const currentWish=row?.aspiration||wish;
+  const selectSaved=(saved:FirstWishRow,id?:string)=>{
+    const selected=saved.artifacts.find(item=>item.id===id)||saved.artifacts.at(-1)!;
+    setRow({...saved,first_artifact:selected.artifact,first_deed:selected.receipt,
+      revision:selected.revision,artifact_id:selected.id});
+    setArtifact(selected.artifact);setReceipt(selected.receipt);
+    sourceBaseline.current=selected.artifact.sourceNote;
+    setContextFacts(saved.context.confirmedFacts.join('\n'));
+    setContextUnknowns(saved.context.unknowns.join('\n'));
+    setContextDirty(false);setDirty(false);setPhase('workspace');
+  };
   // A late planning callback cannot conceal a verified prepared draft.
   const viewPhase:Phase=!savedId&&artifact&&receipt?'workspace':phase;
   const companionName=row?.jinn_name||jinnChoices.find(jinn=>jinn.id===saveJinnId)?.name||preferredJinnName||'Jinn';
@@ -127,7 +146,7 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
     if(!savedId&&preferredJinnId&&!jinnValidated)return()=>{live=false;};
     setPhase('working');
     if(savedId){
-      void loadFirstWish(savedId).then(saved=>{if(!live)return;setRow(saved);setArtifact(saved.first_artifact);sourceBaseline.current=saved.first_artifact.sourceNote;setReceipt(saved.first_deed);setPhase('workspace');})
+      void loadFirstWish(savedId).then(saved=>{if(!live)return;selectSaved(saved);setProposal(null);})
         .catch(e=>{if(live){setError(localizeError(e,locale,'Could not load wish.'));setPhase('workspace');}});
     }else{
       const purpose=jinnChoices.find(jinn=>jinn.id===saveJinnId)?.purpose||'';
@@ -202,21 +221,59 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
         return;
       }
       const saved=await updateFirstWish(row,artifact);
-      setRow(saved);setArtifact(saved.first_artifact);sourceBaseline.current=saved.first_artifact.sourceNote;setReceipt(saved.first_deed);setDirty(false);
+      selectSaved(saved,row.artifact_id);setProposal(null);pendingRequestKey.current=null;
     }catch(e){
       if(e instanceof Error && e.name==='WishSignInRequired')onRequireAuth();else setError(localizeError(e,locale,'Could not save your wish.'));
     }finally{setBusy(false);}
   };
-  const continueWish=async()=>{
+  const token=async()=>{
+    const {data:{session},error:sessionError}=await getSupabase().auth.getSession();
+    if(sessionError||!session?.access_token)throw new Error('Sign in to continue this wish.');
+    return session.access_token;
+  };
+  const reviewContinuation=async(request='')=>{
+    if(!row||dirty||contextDirty)return;
+    setBusy(true);setError('');setNotNow(false);
+    try{
+      const result=await endpoint({mode:'propose_continuation',wishId:row.id,
+        sourceId:row.artifacts.at(-1)!.id,editRequest:request.trim()},locale,await token());
+      setProposal({...result,plan:validateExperiencePlan(result.plan,locale)});
+      setReviewing(true);setEditRequest(request.trim());pendingRequestKey.current=null;
+    }catch(e){setError(localizeError(e,locale,'Could not review the next Deed.'));}
+    finally{setBusy(false);}
+  };
+  const startContinuation=async()=>{
+    if(!row||!proposal||dirty||contextDirty||editRequest.trim()!==proposal.editRequest)return;
+    setBusy(true);setError('');
+    const requestKey=pendingRequestKey.current||crypto.randomUUID();
+    pendingRequestKey.current=requestKey;
+    try{
+      const bearer=await token();
+      let result;
+      try{result=await endpoint({mode:'execute_continuation',wishId:row.id,
+        sourceId:proposal.snapshot.sourceId,requestKey,proposal,editRequest},locale,bearer);}
+      catch(error){
+        try{result=await endpoint({mode:'resolve_continuation',wishId:row.id,requestKey,
+          proposal,editRequest},locale,bearer);}
+        catch{throw error;}
+      }
+      const saved=await loadFirstWish(row.id);
+      selectSaved(saved,result.artifactId);setProposal(null);setReviewing(false);
+      pendingRequestKey.current=null;
+    }catch(e){setError(localizeError(e,locale,'The next Deed could not be confirmed. Retry with the same request.'));}
+    finally{setBusy(false);}
+  };
+  const saveContext=async()=>{
     if(!row||dirty)return;
     setBusy(true);setError('');
     try{
-      const {data:{session},error:sessionError}=await getSupabase().auth.getSession();
-      if(sessionError||!session?.access_token)throw new Error('Sign in to continue this wish.');
-      const result=await endpoint({mode:'continue',wishId:row.id},locale,session.access_token);
-      const saved=await updateFirstWish(row,result.artifact,result.receipt);
-      setRow(saved);setArtifact(saved.first_artifact);sourceBaseline.current=saved.first_artifact.sourceNote;setReceipt(saved.first_deed);setDirty(false);
-    }catch(e){setError(localizeError(e,locale,'Could not continue this wish.'));}
+      const facts=contextFacts.split('\n').map(x=>x.trim()).filter(Boolean);
+      const unknowns=contextUnknowns.split('\n').map(x=>x.trim()).filter(Boolean);
+      if(facts.length>6||unknowns.length>6||[...facts,...unknowns].some(x=>x.length>180))
+        throw new Error('Keep at most six short confirmed details and six unknowns.');
+      const saved=await saveTrustedContext(row,facts,unknowns);
+      selectSaved(saved,row.artifact_id);setProposal(null);pendingRequestKey.current=null;
+    }catch(e){setError(localizeError(e,locale,'Could not save confirmed context.'));}
     finally{setBusy(false);}
   };
   const remove=async()=>{
@@ -235,7 +292,7 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
     <div className="first-jinn"><JinnAvatar size={viewPhase==='workspace'?'small':'large'}/><span><strong>{companionName}</strong><small>{row?label('Currently assigned to this Wish · Wish-local context','Сейчас помогает с этим желанием · отдельный контекст'):label('Making this Wish with you · Wish-local context','Помогу с этим желанием · отдельный контекст')}</small></span>
       {row&&<button type="button" className="first-jinn-switch" onClick={onBack}>{label('Switch Jinn / My Jinns','Сменить Jinn / Мои Jinn')}</button>}</div>
     {viewPhase==='workspace'&&artifact&&<nav className="workspace-nav" aria-label={label('Wish workspace','Работа с желанием')}>
-      <a href="#wish-current">{label('Current wish','Желание')}</a><a href="#wish-artifacts">{label('Artifacts','Документы')}</a><a href="#wish-next">{label('Next step','Следующий шаг')}</a><a href="#wish-history">{label('History','История')}</a>
+      <a href="#wish-current">{label('Current wish','Желание')}</a><a href="#wish-artifacts">{label('Artifacts','Документы')}</a><a href={row?'#wish-continuation':'#wish-next'}>{label('Next step','Следующий шаг')}</a><a href={row?.artifacts.length&&row.artifacts.length>1?'#saved-artifacts':'#wish-history'}>{label('History','История')}</a>
     </nav>}
     <p className="eyebrow">{label('YOUR WISH','ВАШЕ ЖЕЛАНИЕ')}</p><h1>{currentWish}</h1>
     {viewPhase==='start-error'&&<div className="first-panel">
@@ -285,10 +342,60 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
     {viewPhase==='working'&&<div className="first-panel" role="status"><p className="first-panel-kicker"><Sparkles size={16}/> {t('{name} is with you',{name:companionName})}</p>{savedId?label('Welcome back. Opening your saved work…','С возвращением. Открываю сохранённую работу…'):busy?label('Preparing your first Deed…','Готовлю ваш первый шаг…'):label('Finding one good place to start…','Ищу хороший первый шаг…')}</div>}
     {viewPhase==='workspace'&&artifact&&receipt&&<>
       <div className="workspace-intro"><div><p className="eyebrow">{row?label('WELCOME BACK','С ВОЗВРАЩЕНИЕМ'):label('YOUR FIRST DEED','ВАШ ПЕРВЫЙ ШАГ')}</p><h2>{row?label('Continue your wish.','Продолжим ваше желание.'):label('Your first Deed.','Ваш первый шаг.')}</h2></div><JinnAvatar size="medium"/></div>
-      <div className="first-state"><span className="first-pill">{row?label('SAVED WISH','ЖЕЛАНИЕ СОХРАНЕНО'):label('UNSAVED DRAFT','ЧЕРНОВИК НЕ СОХРАНЁН')}</span><span className="first-pill first-prepared">{label('DEED PREPARED','ПЕРВЫЙ ШАГ ПОДГОТОВЛЕН')}</span></div>
+      <div className="first-state"><span className="first-pill">{row?label('SAVED WISH','ЖЕЛАНИЕ СОХРАНЕНО'):label('UNSAVED DRAFT','ЧЕРНОВИК НЕ СОХРАНЁН')}</span><span className="first-pill first-prepared">{row&&row.artifacts.find(item=>item.id===row.artifact_id)?.verified!==true?t('Legacy receipt unverified'):label('DEED PREPARED','ПЕРВЫЙ ШАГ ПОДГОТОВЛЕН')}</span></div>
       <p className="first-intro">{row?label('Welcome back. Your saved Wish and latest corrections are ready for the next Deed.','С возвращением. Jinn видит это желание и ваши последние исправления.'):label('Your first Deed is ready to inspect and edit.','Первый шаг готов: его можно просмотреть и исправить.')}</p>
-      {artifact.experience?<FirstValueExperience artifact={artifact} receipt={receipt} saved={!!row}
-        wish={currentWish} companionName={companionName} onChange={edit}/>:
+      {row&&<section className="continuation-panel" id="wish-continuation" aria-label={t('Next Deed review')}>
+        <p className="eyebrow">{t('ONE NEXT DEED')}</p>
+        {!notNow&&<><h3>{proposal?proposal.plan.deed.title:row.artifacts.at(-1)!.artifact.nextDeed.title}</h3>
+          <p>{proposal?proposal.plan.firstOutcome:row.artifacts.at(-1)!.artifact.nextDeed.why}</p>
+          <small>{t('Private draft only. Nothing sent or verified.')}</small></>}
+        <details className="continuation-context" open={contextDirty||undefined}>
+          <summary>{t('Using what you told me')}</summary>
+          <p>{row.context.sourceNote||t('No personal details supplied.')}</p>
+          {row.context.sourceNote&&!row.context.sourceNoteConfirmed&&<p className="first-hint">{t('Confirm this source note before continuing.')}</p>}
+          <p>{row.context.confirmedFacts.length?row.context.confirmedFacts.join(' · '):t('No confirmed details yet.')}</p>
+          <p>{t('Unknowns')}: {row.context.unknowns.join(' · ')||t('None listed')}</p>
+          <p className="first-hint">{t('Correct the source note in the Artifact editor. Draft text alone is not a confirmed fact.')}</p>
+          <label htmlFor="confirmed-facts">{t('Confirmed details, one per line')}</label>
+          <textarea id="confirmed-facts" rows={3} maxLength={1100} value={contextFacts}
+            onChange={event=>{setContextFacts(event.target.value);setContextDirty(true);}}/>
+          <label htmlFor="confirmed-unknowns">{t('Still unknown, one per line')}</label>
+          <textarea id="confirmed-unknowns" rows={2} maxLength={1100} value={contextUnknowns}
+            onChange={event=>{setContextUnknowns(event.target.value);setContextDirty(true);}}/>
+          <button type="button" className="first-secondary" disabled={busy||dirty||(!contextDirty&&(!row.context.sourceNote||row.context.sourceNoteConfirmed))}
+            onClick={()=>void saveContext()}>{t('Save confirmed context')}</button>
+        </details>
+        {reviewing&&proposal&&<div className="continuation-review">
+          <p><strong>{proposal.plan.deed.title}</strong> — {proposal.plan.deed.result}</p>
+          <p>{t('Using what you told me')}: {row.context.sourceNote||row.context.confirmedFacts.join(' · ')||t('No personal details supplied.')}</p>
+          <label htmlFor="continuation-edit-request">{t('Edit request')}</label>
+          <textarea id="continuation-edit-request" maxLength={280} rows={2} value={editRequest}
+            onChange={event=>setEditRequest(event.target.value)}/>
+          <div className="first-actions"><button type="button" className="primary" disabled={busy||dirty||contextDirty||editRequest.trim()!==proposal.editRequest}
+            onClick={()=>void startContinuation()}>{busy?t('Preparing…'):t('Start Deed')}</button>
+            {editRequest.trim()!==proposal.editRequest&&<button type="button" className="first-secondary" disabled={busy}
+              onClick={()=>void reviewContinuation(editRequest)}>{t('Update proposal')}</button>}
+            <button type="button" className="first-secondary" disabled={busy} onClick={()=>{setProposal(null);setReviewing(false);setNotNow(true);pendingRequestKey.current=null;}}>{t('Not now')}</button></div>
+        </div>}
+        {!reviewing&&<div className="first-actions">
+          <button type="button" className="primary" disabled={busy||dirty||contextDirty||!!(row.context.sourceNote&&!row.context.sourceNoteConfirmed)}
+            onClick={()=>void reviewContinuation()}>{busy?t('Preparing…'):t('Review next Deed')}</button>
+          {!notNow&&<button type="button" className="first-secondary" disabled={busy}
+            onClick={()=>setNotNow(true)}>{t('Not now')}</button>}
+        </div>}
+      </section>}
+      {row&&row.artifacts.length>1&&<details className="continuation-history" id="saved-artifacts">
+        <summary>{t('Saved Artifacts')} ({row.artifacts.length})</summary>
+        <div className="continuation-artifact-list">{row.artifacts.map((item,index)=><button type="button" key={item.id}
+          aria-current={item.id===row.artifact_id?'true':undefined} disabled={busy||dirty||contextDirty}
+          onClick={()=>{selectSaved(row,item.id);setProposal(null);setReviewing(false);pendingRequestKey.current=null;}}>
+          {index+1}. {item.artifact.title} · {item.actorName??t('Unknown Jinn')}</button>)}</div>
+      </details>}
+      {artifact.experience?<FirstValueExperience key={row?.artifact_id||'unsaved'} artifact={artifact} receipt={receipt} saved={!!row}
+        wish={currentWish} companionName={companionName} isFirst={!row||row.artifacts[0]?.id===row.artifact_id}
+        actorName={row?.artifacts.find(item=>item.id===row.artifact_id)?.actorName}
+        verified={!row||row.artifacts.find(item=>item.id===row.artifact_id)?.verified===true}
+        showNext={!row} onChange={edit}/>:
       <div className="first-layout">
         <article className="first-canvas" id="wish-artifacts"><header><p className="eyebrow">{label('DRAFT · EDITABLE','ЧЕРНОВИК · МОЖНО ИЗМЕНИТЬ')}</p><h2>{artifact.title}</h2></header>
           <div className="first-source"><label htmlFor="first-source-note">{label('From you · source note','Ваши слова · исходная заметка')}</label>
@@ -318,9 +425,9 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
         </article>
         <aside className="first-side"><div className="first-current" id="wish-current"><p className="eyebrow">{label('CURRENT WISH','ВАШЕ ЖЕЛАНИЕ')}</p><h3>{currentWish}</h3><p className="first-current-jinn">{label('With','Помогает')}: {companionName}</p><JinnAvatar size="medium"/></div><div className="first-next" id="wish-next"><p className="eyebrow">{label('ONE NEXT DEED','СЛЕДУЮЩИЙ ШАГ')}</p><h3>{artifact.nextDeed.title}</h3>
           <p>{artifact.nextDeed.why}</p><small>{artifact.nextDeed.prompt}</small></div>
-          <div className="first-receipt" id="wish-history"><p className="eyebrow">{label('HISTORY · WORK RECEIPT','ИСТОРИЯ · ЗАПИСЬ О РАБОТЕ')}</p><strong>{label('PREPARED','ПОДГОТОВЛЕНО')}</strong><p>{receiptDescription(receipt)}</p><small>{label('Private draft only. Nothing sent, published, or independently fact-checked.','Личный черновик. Ничего не отправлено, не опубликовано и не проверено во внешних источниках.')}</small></div>
+          <div className="first-receipt" id="wish-history"><p className="eyebrow">{label('HISTORY · WORK RECEIPT','ИСТОРИЯ · ЗАПИСЬ О РАБОТЕ')}</p><strong>{row&&row.artifacts.find(item=>item.id===row.artifact_id)?.verified!==true?t('Legacy receipt unverified'):label('PREPARED','ПОДГОТОВЛЕНО')}</strong><p>{receiptDescription(receipt)}</p><small>{label('Private draft only. Nothing sent, published, or independently fact-checked.','Личный черновик. Ничего не отправлено, не опубликовано и не проверено во внешних источниках.')}</small></div>
           {row&&row.deed_history.length>1&&<details className="first-history"><summary>{label('Earlier Deeds','Предыдущие шаги')} ({row.deed_history.length-1})</summary>
-            <ol>{row.deed_history.slice(0,-1).map((item,index)=><li key={`${item.recordedAt}-${index}`}><strong>{label('PREPARED','ПОДГОТОВЛЕНО')}</strong><span>{receiptDescription(item)}</span><time>{formatLocalDateTime(item.recordedAt,locale)}</time></li>)}</ol>
+            <ol>{row.deed_history.slice(0,-1).map((item,index)=><li key={`${item.recordedAt}-${index}`}><strong>{item.verifiedRecord?label('PREPARED','ПОДГОТОВЛЕНО'):t('Legacy receipt unverified')}</strong><span>{receiptDescription(item)}</span><time>{formatLocalDateTime(item.recordedAt,locale)}</time></li>)}</ol>
           </details>}
           <div className="first-privacy"><LockKeyhole size={17}/><p>{row?label('Saved privately under your account.','Сохранено только в вашем аккаунте.'):label('This draft is only in this open session until you keep it.','Черновик останется только в этой сессии, пока вы его не сохраните.')} {label('No cross-wish memory or external action.','Нет общей памяти между желаниями и внешних действий.')}</p></div>
         </aside>
@@ -341,7 +448,6 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
       </div>}
       <div className="first-footer-actions">
         <button className="primary" disabled={busy||jinnUnavailable||!jinnValidated||(!dirty&&!!row)} onClick={()=>void save()}>{busy?label('Working…','Подождите…'):row?(dirty?label('Save corrections','Сохранить исправления'):label('Corrections saved','Исправления сохранены')):label('Keep this wish','Сохранить желание')} {row&&!dirty?<Check size={16}/>:<ArrowRight size={16}/>}</button>
-        {row&&!artifact.experience&&<button className="first-secondary" disabled={busy||dirty} onClick={()=>void continueWish()}><RotateCcw size={16}/> {label('Prepare next Deed','Подготовить следующий шаг')}</button>}
       </div>
       {dirty&&row&&<p className="first-hint">{label('Save your corrections before preparing the next Deed.','Сохраните исправления перед следующим шагом.')}</p>}
       {row&&<button className="first-delete" disabled={busy} onClick={()=>void remove()}><Trash2 size={15}/> {label('Delete wish and artifact','Удалить желание и документ')}</button>}

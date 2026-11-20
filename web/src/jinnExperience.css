@@ -498,3 +498,17 @@ html[lang="es"] .first-section:last-of-type::before { content:'?  PREGUNTAS PEND
  .app.jinn-experience .is-conversation .first-value-entry h2.first-value-question {font-size:27px;}
  .first-value-provenance span {font-size:10px;}
 }
+.continuation-panel,.continuation-history{border:1px solid rgba(96,78,142,.25);border-radius:20px;background:#f9f7ff;padding:1.25rem;margin:1rem 0;color:#20213d}
+.continuation-panel h3{font-size:1.4rem;margin:.35rem 0}
+.continuation-panel small{display:block;margin:.6rem 0;color:#54536d}
+.continuation-context{margin:1rem 0;padding:.85rem;border:1px solid rgba(96,78,142,.18);border-radius:12px;background:#fff}
+.continuation-context summary,.continuation-history summary{cursor:pointer;font-weight:650}
+.continuation-context label,.continuation-review label{display:block;margin:.8rem 0 .3rem;font-weight:600}
+.continuation-context textarea,.continuation-review textarea{display:block;width:100%;box-sizing:border-box;border:1px solid #aaa4be;border-radius:10px;padding:.7rem;font:inherit;background:#fff;color:#20213d}
+.continuation-review{padding-top:.8rem;border-top:1px solid rgba(96,78,142,.18)}
+.continuation-artifact-list{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.8rem}
+.continuation-artifact-list button{border:1px solid #aaa4be;border-radius:10px;background:#fff;color:#20213d;padding:.6rem .8rem;cursor:pointer;text-align:left}
+.continuation-artifact-list button[aria-current="true"]{background:#ddd4fb;border-color:#67549a}
+.continuation-panel .first-secondary{color:#35285f;background:#f4f0ff;border-color:#9685c9}
+.continuation-artifact-list button:focus-visible,.continuation-panel button:focus-visible,.continuation-panel summary:focus-visible{outline:3px solid #6952a5;outline-offset:3px}
+@media(max-width:640px){.continuation-panel,.continuation-history{padding:1rem}.continuation-artifact-list{flex-direction:column}.continuation-artifact-list button{width:100%}}

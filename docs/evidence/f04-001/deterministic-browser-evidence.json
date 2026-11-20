@@ -1,0 +1,73 @@
+{
+  "kind": "F04 deterministic local Auth, SQL and browser acceptance",
+  "provider": "loopback fixture only",
+  "checks": [
+    "First Deed saves actual Jinn ID and name",
+    "source correction retained",
+    "reviewed private plan",
+    "distinct Artifact ID",
+    "server PREPARED receipt after save",
+    "no superseded Grandma claim",
+    "deterministic chapter length",
+    "deterministic chapter uses Aunt only",
+    "third suggestion advances",
+    "replay returns same IDs",
+    "lost HTTP response recovery returns original IDs",
+    "same key with different signed action returns 409",
+    "forged client receipt, actor and time rejected",
+    "stale proposal conflicts after context correction",
+    "Wish assigned to a different Jinn",
+    "history control receives keyboard focus",
+    "history opens by keyboard",
+    "first Artifact independently reopened",
+    "First and second historical names survive reassignment and rename",
+    "first Artifact after refresh",
+    "second Artifact after refresh",
+    "second edit persisted",
+    "locale ru",
+    "locale fr",
+    "locale es",
+    "locale en",
+    "two Artifact and Deed rows",
+    "context correction wins",
+    "historical first unchanged",
+    "second verified marker",
+    "both Deeds retain original Jinn ID and name",
+    "follow-up fingerprint persisted",
+    "reauthentication reopened second Artifact",
+    "historical attribution survives sign out and sign in",
+    "request key cannot resolve into another Wish",
+    "reviewed private plan",
+    "edited request bound to reviewed plan",
+    "garden has unsent enquiry draft",
+    "garden makes no permission or sending claim",
+    "reviewed private plan",
+    "unseen Wish uses same second-Deed pipeline",
+    "concurrent identical API requests return one Deed and Artifact"
+  ],
+  "ids": {
+    "wishId": "821099b8-ce13-4dc1-8f4d-1137cb19dc70",
+    "firstArtifactId": "83577cbd-295c-4960-9941-606e50e3eed0",
+    "secondArtifactId": "4bddbec5-c956-451f-8703-925ec69aff9f",
+    "secondDeedId": "824cc3a7-453b-4d0a-803a-a1c1886c4ccc",
+    "gardenWishId": "9a147826-259c-472e-91b8-6d49f463100d",
+    "gardenArtifactId": "3fca759b-5acc-4ca7-92e4-2862b8fde1d9",
+    "unseenWishId": "c7c21191-4ce7-4baf-8d19-331f1d258df5",
+    "unseenArtifactId": "7b4db67c-ccb3-4c71-8110-f26597f6defd"
+  },
+  "screenshots": [
+    "desktop-history.png",
+    "mobile-history.png",
+    "mobile-artifact.png",
+    "garden-unsent-draft.png"
+  ],
+  "limitations": [
+    "Deterministic fixture output is not real-model usefulness evidence"
+  ],
+  "database": {
+    "artifactCount": 2,
+    "deedCount": 2,
+    "contextRevision": 3,
+    "verifiedFollowups": 1
+  }
+}
