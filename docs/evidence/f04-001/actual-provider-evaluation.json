@@ -1,0 +1,250 @@
+{
+  "kind": "F04 approved synthetic Aunt real-provider local evaluation",
+  "timestamp": "2026-11-20T20:01:12.593Z",
+  "provider": "DeepSeek deepseek-flash",
+  "payloadScope": "Only synthetic Sunday pancakes with Aunt life-story case",
+  "stack": "Isolated local Supabase 55321/55322",
+  "durationsMs": {
+    "initialPlan": 3775,
+    "initialPrepare": 8010,
+    "continuationProposal": 2967,
+    "editedProposal": 5214,
+    "continuationExecute": 6627
+  },
+  "checks": [
+    "real provider prepared first private Artifact",
+    "reviewed plan is private",
+    "verified PREPARED second Deed",
+    "two independent Artifact and Deed rows",
+    "second Artifact is distinct",
+    "second Deed has server marker",
+    "second Artifact reopens after refresh",
+    "requested 150–250 word chapter opening",
+    "no unsupported maker, kitchen or ritual claim"
+  ],
+  "ids": {
+    "wishId": "aa2b6899-e39d-40cc-8fb0-e389e63fb289",
+    "secondDeedId": "1fe3aad8-4a64-42d8-93b0-decc07df430a",
+    "secondArtifactId": "e6a2a8a4-9c36-4d1e-b95a-ed685d155299"
+  },
+  "error": null,
+  "initialPlan": {
+    "version": 1,
+    "locale": "en",
+    "intent": "Write a life story starting from the one confirmed memory of Sunday pancakes with Aunt, despite almost no recalled history.",
+    "firstOutcome": "An authored opening scene of the Sunday-pancakes memory plus a short memory-anchoring method to grow the rest of the life story.",
+    "deed": {
+      "title": "Draft the pancake-memory opening scene and a memory-anchoring guide",
+      "scope": "PRIVATE_DRAFT",
+      "result": "A written opening scene of Sunday pancakes with Aunt, clearly flagged as creative reconstruction where facts are unknown, plus a brief method for uncovering further memories."
+    },
+    "questions": [
+      {
+        "id": "q1",
+        "prompt": "What do you want the life story to do for readers?",
+        "why": "The purpose shapes whether the opening scene reads as a warm tribute, an honest reckoning, or a vivid story.",
+        "choices": [
+          "Preserve memories for family",
+          "Explore and understand myself",
+          "Read like a vivid story"
+        ]
+      }
+    ],
+    "components": [
+      "jinn_identity",
+      "choice_chips",
+      "deed_proposal",
+      "artifact_reader",
+      "source_status",
+      "supporting_section",
+      "work_receipt",
+      "next_deed"
+    ]
+  },
+  "initialArtifact": {
+    "title": "Sunday Pancakes: An Opening Scene and a Method for Remembering",
+    "sourceNote": "",
+    "sections": [
+      {
+        "type": "document",
+        "title": "Opening Scene (Creative Reconstruction — Clearly Labeled Fiction Where Facts Are Unknown)",
+        "body": "[Note: this is an authored, imaginative reconstruction built only on the one confirmed fact — Sunday pancakes with Aunt. Every sensory or anecdotal detail below is invented and marked as such. Keep what feels true; replace or delete the rest with real details as they surface.]\n\nSunday mornings had their own clock. Not the alarm — something softer. The tick of a heating pan, a cupboard opening, the particular quiet of a kitchen before the household wakes.\n\nThe batter was always the first thing. Aunt's hand tipped the jug, flour fell in a slow white curtain, and I remember (or invent — I can no longer tell) her saying we were watching for the right bubbles. Not too many. Not too few. Sunday pancakes, she may have said, are the only recipe measured by patience.\n\nThe stove did what stoves do. The first pancake often went wrong; I believe that was treated as ordinary, almost a rule of its own. Then the rest of the stack, warm, slightly uneven, and a plate that seemed small to begin with and never emptied.\n\nWhat I actually have is the knowing: that Sunday meant pancakes, and pancakes meant Aunt. Everything else — the room, the weather, what we talked about or didn't — is a frame I am still building around that one bright fact."
+      },
+      {
+        "type": "checklist",
+        "title": "Memory-Anchoring Method: Growing the Story From One Fact",
+        "items": [
+          {
+            "text": "Write one sentence per sense about the pancake memory: what it looked like, smelled, sounded, tasted, felt. Mark each as 'remembered' or 'guessed.'"
+          },
+          {
+            "text": "List every other person, place or object that touches the pancake memory (the pan, the plate, the kitchen, whoever else was awake). Each one is a doorway to a second memory."
+          },
+          {
+            "text": "Open a capture file today: date, prompt word, then five minutes of free writing per prompt — no editing, no judging whether it is true."
+          },
+          {
+            "text": "Use a rotating object sequence — kitchen, house, neighborhood, school, work, travel — writing whatever surfaces, even fragments."
+          },
+          {
+            "text": "At each session's end, add one line stating which details you would want to verify with someone, and who might know."
+          }
+        ]
+      },
+      {
+        "type": "questions",
+        "title": "Before the Next Draft",
+        "items": [
+          "What is the one thing you most want a reader to feel by the end of the pancake scene?",
+          "Who, if anyone, could confirm or correct one practical detail about the pancake memory — and might you ask them?",
+          "Should recurring anchors like 'the knowing' be kept as the story's voice between scenes?"
+        ]
+      }
+    ],
+    "unknowns": [
+      "Aunt's name, relationship details and whether she is living, available or willing to be mentioned",
+      "Exact setting, time period and who else was present",
+      "Whether other memories exist and can be recovered",
+      "Intended audience and length of the life story",
+      "Details from the pancake memory that could be verified and by whom"
+    ],
+    "nextDeed": {
+      "title": "Write five senses, one line each, of the pancake memory",
+      "why": "It converts the single confirmed fact into raw material the opening scene can be built from.",
+      "prompt": "Set a five-minute timer and finish this five times: 'Pancakes with Aunt — I remember (or imagine) ___, and mark each line R or G.'"
+    },
+    "boundary": "This is a private draft only. The scene is clearly labeled creative reconstruction; invented details are not your biography. Nothing was sent, published or verified.",
+    "experience": {
+      "version": 1,
+      "locale": "en",
+      "intent": "Write a life story starting from the one confirmed memory of Sunday pancakes with Aunt, despite almost no recalled history.",
+      "firstOutcome": "An authored opening scene of the Sunday-pancakes memory plus a short memory-anchoring method to grow the rest of the life story.",
+      "deed": {
+        "title": "Draft the pancake-memory opening scene and a memory-anchoring guide",
+        "scope": "PRIVATE_DRAFT",
+        "result": "A written opening scene of Sunday pancakes with Aunt, clearly flagged as creative reconstruction where facts are unknown, plus a brief method for uncovering further memories."
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "prompt": "What do you want the life story to do for readers?",
+          "why": "The purpose shapes whether the opening scene reads as a warm tribute, an honest reckoning, or a vivid story.",
+          "choices": [
+            "Preserve memories for family",
+            "Explore and understand myself",
+            "Read like a vivid story"
+          ]
+        }
+      ],
+      "components": [
+        "jinn_identity",
+        "choice_chips",
+        "deed_proposal",
+        "artifact_reader",
+        "source_status",
+        "supporting_section",
+        "work_receipt",
+        "next_deed"
+      ]
+    }
+  },
+  "initialReceipt": {
+    "status": "PREPARED",
+    "draftSource": "model",
+    "operation": "AI composed a private First Artifact from your Wish and selected answers",
+    "recordedAt": "2026-11-20T20:01:26.219Z",
+    "scope": "Private draft only. No external action, source verification or cross-wish memory."
+  },
+  "reviewedProposal": {
+    "version": 1,
+    "locale": "en",
+    "intent": "Begin a life story from one confirmed memory — Sunday pancakes with Aunt — without inventing personal facts or assigning the user homework.",
+    "firstOutcome": "A short, spare opening passage of a life-story manuscript, clearly framed as authored scene-writing with unknowns kept open, plus a compact note on how to extend it.",
+    "deed": {
+      "title": "Draft a spare opening chapter from the Sunday pancakes memory, with unknowns left open",
+      "scope": "PRIVATE_DRAFT",
+      "result": "An authored opening passage, about 150–250 words, built only on Sunday pancakes with Aunt, with a brief closing note naming what stays blank for the user to fill."
+    },
+    "questions": [],
+    "components": [
+      "jinn_identity",
+      "deed_proposal",
+      "artifact_reader",
+      "source_status",
+      "work_receipt",
+      "next_deed"
+    ]
+  },
+  "continuationReceipt": {
+    "scope": "Private draft only. Nothing sent or externally verified.",
+    "status": "PREPARED",
+    "verified": true,
+    "operation": "AI prepared a private follow-up draft",
+    "recordedAt": "2026-11-20T20:01:41.605786+00:00",
+    "draftSource": "model"
+  },
+  "secondArtifact": {
+    "title": "Opening Chapter: Sunday Pancakes",
+    "boundary": "This is a private authored draft, not your biography or a verified record. No messages were sent; any real detail must come from you. If you want to involve another person later, seek their permission first.",
+    "nextDeed": {
+      "why": "Each line you can honestly write turns a documented gap into real story without invented detail",
+      "title": "Write one factual line per blank you can honestly fill",
+      "prompt": "List each blank (place, who cooked, once or repeated, other people, feelings); beside it write either a real detail you actually recall or the word 'unknown' — no guessing."
+    },
+    "sections": [
+      {
+        "body": "[This is authored imaginative prose, not a record of your memory. The only facts used are the two you confirmed: Sunday, and pancakes with Aunt. Everything else — the kitchen, who cooked, how it tasted, what was said, whether it happened once or many times — is written as deliberately blank and may be replaced with real detail as it surfaces.]\n\nSunday. Pancakes. Aunt.\n\nI could begin anywhere, and everything else is still dark. Was there a kitchen, and whose? Did the light come in, or was it a gray morning? I do not know. I know only that the day was Sunday and that pancakes were there, and that Aunt was there with them.\n\nSo I will let this first page be spare. A day named. A food. A person. Three facts standing in a row, and around them a silence I am not yet able to fill without making things up.\n\nWho poured the batter — I do not know. Who turned the pancakes, who set them down — I do not know. Whether Aunt spoke, or was quiet, or handed me a plate — unknown. Whether this happened every Sunday or one Sunday — unknown. Whether I was small — unknown. Whether I liked them — unknown. I will not guess.\n\nThe rest of my life can wait. This chapter begins where the record begins: a Sunday, pancakes, and Aunt. The blanks are not failures. They are the shape of what I am still learning to remember.",
+        "type": "document",
+        "title": "Chapter One — Sunday Pancakes (authored prose, unknowns kept open)"
+      },
+      {
+        "body": "When a detail returns on its own, write it in one sentence and mark where it came from (your own recall, a photo, a letter, a relative's account). Keep every category you are unsure of explicitly open: setting, who made the pancakes, the recipe, other people present, feelings, dates, and any recurring pattern. If you later interview someone, treat their account as their memory, not as yours, and label it that way in the manuscript. The chapter can grow by adding one verified line at a time rather than filling the blanks by speculation.",
+        "type": "document",
+        "title": "How to extend this chapter later"
+      }
+    ],
+    "unknowns": [
+      "Where the Sunday pancakes took place",
+      "Who made the pancakes and what role Aunt played",
+      "Whether this was one Sunday or a recurring Sunday",
+      "Other people who may have been present",
+      "Sensory details, spoken words, feelings, and dates"
+    ],
+    "experience": {
+      "deed": {
+        "scope": "PRIVATE_DRAFT",
+        "title": "Draft a spare opening chapter from the Sunday pancakes memory, with unknowns left open",
+        "result": "An authored opening passage, about 150–250 words, built only on Sunday pancakes with Aunt, with a brief closing note naming what stays blank for the user to fill."
+      },
+      "intent": "Begin a life story from one confirmed memory — Sunday pancakes with Aunt — without inventing personal facts or assigning the user homework.",
+      "locale": "en",
+      "version": 1,
+      "questions": [],
+      "components": [
+        "jinn_identity",
+        "deed_proposal",
+        "artifact_reader",
+        "source_status",
+        "work_receipt",
+        "next_deed"
+      ],
+      "firstOutcome": "A short, spare opening passage of a life-story manuscript, clearly framed as authored scene-writing with unknowns kept open, plus a compact note on how to extend it."
+    },
+    "sourceNote": ""
+  },
+  "database": {
+    "artifactCount": 2,
+    "deedCount": 2,
+    "verifiedFollowups": 1
+  },
+  "documentWordCount": 250,
+  "providerUsage": {
+    "calls": 12,
+    "promptTokens": 16350,
+    "completionTokens": 2160,
+    "cacheHitTokens": 8704,
+    "cacheMissTokens": 7646,
+    "estimatedOffPeakUSD": 0.002469,
+    "pricing": "DeepSeek official flash off-peak price as checked 2026-11-20; excludes taxes/account adjustments"
+  }
+}

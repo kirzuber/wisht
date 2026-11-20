@@ -4,17 +4,23 @@ import type { Artifact, DeedReceipt } from '../../api/src/firstDeed';
 import { ensurePrimaryJinn } from './jinnStore';
 
 export type WishSummary = { id: string; aspiration: string; updated_at: string; state: string; jinn_id: string };
+export type SavedArtifact={id:string;artifact:Artifact;receipt:DeedReceipt;revision:number;
+  deedId:string;actorName:string;verified:boolean};
+export type WishContext={sourceNote:string;sourceNoteConfirmed:boolean;confirmedFacts:string[];unknowns:string[];revision:number};
 export type FirstWishRow = {
   id: string;
   aspiration: string;
   first_artifact: Artifact;
   first_deed: DeedReceipt;
-  deed_history: DeedReceipt[];
+  deed_history: Array<DeedReceipt & {verifiedRecord:boolean}>;
   revision: number;
   artifact_id: string;
   jinn_id: string;
   jinn_name: string;
   jinn_purpose: string;
+  artifacts:SavedArtifact[];
+  context:WishContext;
+  latest_deed_id:string;
 };
 
 export function listFirstWishes(): Promise<WishSummary[]> {
@@ -34,7 +40,7 @@ export function loadFirstWish(id: string): Promise<FirstWishRow> {
   return logWishOperation('open', async () => {
     const user = await getAuthenticatedUser();
     const db = getSupabase();
-    const wish = await db.from('wish_records').select('id,original_intent,primary_jinn_id')
+    const wish = await db.from('wish_records').select('id,original_intent,primary_jinn_id,wish_context')
       .eq('id', id).eq('user_id', user.id).maybeSingle();
     if (wish.error) throw new WishPersistenceError('read wish', wish.error, wish.status);
     if (!wish.data) throw new Error('This saved wish is unavailable.');
@@ -46,31 +52,45 @@ export function loadFirstWish(id: string): Promise<FirstWishRow> {
     if (!assigned.data) throw new Error('The Jinn assigned to this Wish is unavailable. Open My Jinns and retry.');
 
     const [artifacts, deeds] = await Promise.all([
-      db.from('artifacts').select('id,content,version,origin_deed_id').eq('wish_id', id).eq('user_id', user.id)
-        .order('updated_at', { ascending: false }).limit(1),
-      db.from('deeds').select('id,receipt').eq('wish_id', id).eq('user_id', user.id)
+      db.from('artifacts').select('id,content,version,origin_deed_id,created_at').eq('wish_id', id).eq('user_id', user.id)
+        .order('created_at', { ascending: true }).order('id',{ascending:true}),
+      db.from('deeds').select('id,receipt,actor_jinn_name,verified_followup,verified_first').eq('wish_id', id).eq('user_id', user.id)
         .order('created_at', { ascending: true }).order('id', { ascending: true }),
     ]);
     if (artifacts.error) throw new WishPersistenceError('read artifacts', artifacts.error, artifacts.status);
     if (deeds.error) throw new WishPersistenceError('read deeds', deeds.error, deeds.status);
-    const artifact = artifacts.data[0];
+    const artifact = artifacts.data.at(-1);
     const current = deeds.data.find(deed => deed.id === artifact?.origin_deed_id) ?? deeds.data.at(-1);
     if (!artifact || !current) throw new Error('This saved wish has no prepared Deed.');
+    const fallbackActor=assigned.data.name;
+    const savedArtifacts:SavedArtifact[]=artifacts.data.map(item=>{
+      const deed=deeds.data.find(value=>value.id===item.origin_deed_id);
+      if(!deed)throw new Error('An Artifact has no matching Deed receipt.');
+      return {id:item.id,artifact:item.content as Artifact,receipt:deed.receipt as DeedReceipt,
+        revision:item.version,deedId:deed.id,actorName:deed.actor_jinn_name||fallbackActor,
+        verified:deed.verified_followup===true||deed.verified_first===true};
+    });
+    const raw=wish.data.wish_context as Record<string,unknown>||{};
+    const bounded=(value:unknown)=>Array.isArray(value)?value.filter((x):x is string=>typeof x==='string').slice(0,6):[];
 
     return {
       id: wish.data.id,
       aspiration: wish.data.original_intent,
       first_artifact: artifact.content as Artifact,
       first_deed: current.receipt as DeedReceipt,
-      deed_history: [
-        ...deeds.data.filter(deed => deed.id !== current.id).map(deed => deed.receipt as DeedReceipt),
-        current.receipt as DeedReceipt,
-      ],
+      deed_history: deeds.data.map(deed=>({...deed.receipt as DeedReceipt,
+        verifiedRecord:deed.verified_first===true||deed.verified_followup===true})),
       revision: artifact.version,
       artifact_id: artifact.id,
       jinn_id: assigned.data.id,
       jinn_name: assigned.data.name,
       jinn_purpose: typeof assigned.data.settings?.purpose === 'string' ? assigned.data.settings.purpose : '',
+      artifacts:savedArtifacts,
+      context:{sourceNote:typeof raw.sourceNote==='string'?raw.sourceNote:'',
+        sourceNoteConfirmed:raw.sourceNoteConfirmed===true,
+        confirmedFacts:bounded(raw.confirmedFacts),unknowns:bounded(raw.unknowns),
+        revision:Number.isInteger(raw.revision)?Number(raw.revision):0},
+      latest_deed_id:deeds.data.at(-1)!.id,
     };
   });
 }
@@ -118,16 +138,13 @@ export function savePreparedFirstValue(
   });
 }
 
-/** The database checks the artifact version and records a follow-up Deed atomically. */
-export async function updateFirstWish(row: FirstWishRow, artifact: Artifact, receipt?: DeedReceipt): Promise<FirstWishRow> {
-  await logWishOperation(receipt ? 'continue' : 'edit', async () => {
+/** A correction changes only the selected Artifact; source-note edits also advance Wish context. */
+export async function updateFirstWish(row: FirstWishRow, artifact: Artifact): Promise<FirstWishRow> {
+  await logWishOperation('edit', async () => {
     await getAuthenticatedUser();
     const db = getSupabase();
-    const step = receipt ? 'append_prepared_deed' : 'correct_artifact';
-    const { error, status } = receipt ? await db.rpc(step, {
-      p_wish_id: row.id, p_artifact_id: row.artifact_id, p_expected_version: row.revision,
-      p_artifact: artifact, p_receipt: receipt,
-    }) : await db.rpc(step, {
+    const step = 'correct_artifact';
+    const { error, status } = await db.rpc(step, {
       p_artifact_id: row.artifact_id, p_expected_version: row.revision, p_content: artifact,
     });
     if (error) {
@@ -137,6 +154,19 @@ export async function updateFirstWish(row: FirstWishRow, artifact: Artifact, rec
       throw new WishPersistenceError(step, error, status);
     }
   });
+  return loadFirstWish(row.id);
+}
+
+export async function saveTrustedContext(row:FirstWishRow,facts:string[],unknowns:string[]):Promise<FirstWishRow>{
+  await getAuthenticatedUser();
+  const {error,status}=await getSupabase().rpc('set_trusted_wish_context',{
+    p_wish_id:row.id,p_expected_revision:row.context.revision,
+    p_facts:facts,p_unknowns:unknowns,p_confirm_source:true,
+  });
+  if(error){
+    if(error.code==='40001')throw new Error('Wish context changed in another session. Reload and review again.');
+    throw new WishPersistenceError('set_trusted_wish_context',error,status);
+  }
   return loadFirstWish(row.id);
 }
 

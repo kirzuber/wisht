@@ -308,3 +308,170 @@ do $$ begin
 end $$;
 SQL
 echo 'F03-004 later contract & rollback are independently verified (NOT hosted or automatically applied): PASS'
+
+# F04 remains isolated in this disposable Postgres instance. Existing F03 rows
+# are left in place so the test also catches destructive migration behavior.
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q < supabase/migrations/20261120192233_f04_001_trusted_continuation.sql
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);
+select set_config('request.jwt.claims','{"is_anonymous":false}',false);
+do $$ declare v_wish uuid; v_revision integer; begin
+  select id into v_wish from public.wish_records where original_intent='Create an independent first value result';
+  v_revision:=public.set_trusted_wish_context(v_wish,0,'["Sunday pancakes with Aunt"]'::jsonb,
+    '["Other biographical details remain unknown"]'::jsonb,true);
+  if v_revision<>1 then raise exception 'Context revision did not advance'; end if;
+  begin
+    perform public.set_trusted_wish_context(v_wish,0,'["Sunday pancakes with Grandma"]'::jsonb,'[]'::jsonb,true);
+    raise exception 'Stale context correction was accepted';
+  exception when serialization_failure then null; end;
+  if (select wish_context->'confirmedFacts' from public.wish_records where id=v_wish)<>'["Sunday pancakes with Aunt"]'::jsonb
+    then raise exception 'Correction precedence failed'; end if;
+  begin
+    update public.artifacts set version=version+1 where wish_id=v_wish;
+    raise exception 'Direct Artifact update bypassed correction RPC';
+  exception when others then
+    if sqlerrm='Direct Artifact update bypassed correction RPC' then raise; end if;
+  end;
+  begin
+    insert into public.deeds(wish_id,user_id,operation,input,receipt,status,verified_followup,actor_jinn_id)
+      values(v_wish,'00000000-0000-0000-0000-000000000001','forged','{}',
+        '{"status":"PREPARED","verified":true}'::jsonb,'PREPARED',true,
+        (select primary_jinn_id from public.wish_records where id=v_wish));
+    raise exception 'Client forged verified attribution';
+  exception when others then
+    if sqlerrm='Client forged verified attribution' then raise; end if;
+  end;
+  begin
+    perform public.create_verified_continuation('00000000-0000-0000-0000-000000000001',v_wish,
+      (select id from public.artifacts where wish_id=v_wish limit 1),1,1,
+      (select primary_jinn_id from public.wish_records where id=v_wish),
+      (select id from public.deeds where wish_id=v_wish limit 1),
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '{}'::jsonb,'model');
+    raise exception 'Client called server-only RPC';
+  exception when others then
+    if sqlerrm='Client called server-only RPC' then raise; end if;
+  end;
+end $$;
+reset role;
+set role service_role;
+do $$ declare v_wish uuid; v_source uuid; v_deed uuid; v_result jsonb; v_replay jsonb;
+  v_first jsonb; v_actor text; v_key uuid:='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  v_artifact jsonb:='{"title":"Chapter opening","sourceNote":"","sections":[{"type":"document","title":"Opening","body":"Sunday pancakes with Aunt. This is a grounded private opening, with other details intentionally left unknown."}],"unknowns":[],"nextDeed":{"title":"Next scene","why":"Advance the story","prompt":"Choose another confirmed memory"},"boundary":"Private draft","experience":{"version":1,"locale":"en","intent":"Continue the book","firstOutcome":"A chapter opening","deed":{"title":"Write opening","scope":"PRIVATE_DRAFT","result":"A chapter opening"},"questions":[],"components":["jinn_identity","deed_proposal","artifact_reader","source_status","work_receipt","next_deed"]}}'::jsonb;
+begin
+  select id into v_wish from public.wish_records where original_intent='Create an independent first value result';
+  select id,content into v_source,v_first from public.artifacts where wish_id=v_wish limit 1;
+  select id into v_deed from public.deeds where wish_id=v_wish order by created_at desc,id desc limit 1;
+  select name into v_actor from public.jinns where id=(select primary_jinn_id from public.wish_records where id=v_wish);
+  v_result:=public.create_verified_continuation('00000000-0000-0000-0000-000000000001',v_wish,
+    v_source,1,1,(select primary_jinn_id from public.wish_records where id=v_wish),v_deed,v_key,v_artifact,'model');
+  v_replay:=public.create_verified_continuation('00000000-0000-0000-0000-000000000001',v_wish,
+    v_source,1,1,(select primary_jinn_id from public.wish_records where id=v_wish),v_deed,v_key,v_artifact,'model');
+  if v_result->>'deedId' is distinct from v_replay->>'deedId'
+    or v_result->>'artifactId' is distinct from v_replay->>'artifactId'
+    or (select count(*) from public.artifacts where wish_id=v_wish)<>2
+    or (select count(*) from public.deeds where wish_id=v_wish)<>2
+    or (select content from public.artifacts where id=v_source)<>v_first then
+    raise exception 'Independent save, idempotency, or First Artifact preservation failed'; end if;
+  if (select actor_jinn_name from public.deeds where id=(v_result->>'deedId')::uuid)<>v_actor
+    or (select verified_followup from public.deeds where id=(v_result->>'deedId')::uuid) is not true then
+    raise exception 'Historical actor or verified marker missing'; end if;
+  begin
+    perform public.create_verified_continuation('00000000-0000-0000-0000-000000000001',v_wish,
+      v_source,1,0,(select primary_jinn_id from public.wish_records where id=v_wish),v_deed,gen_random_uuid(),v_artifact,'model');
+    raise exception 'Stale context accepted';
+  exception when serialization_failure then null; end;
+  if (select count(*) from public.artifacts where wish_id=v_wish)<>2 then
+    raise exception 'Failed write left an Artifact'; end if;
+end $$;
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);
+select set_config('request.jwt.claims','{"is_anonymous":false}',false);
+do $$ declare v_wish uuid; v_new uuid; begin
+  select id into v_wish from public.wish_records where original_intent='Create an independent first value result';
+  insert into public.jinns(user_id,name,is_primary)
+    values('00000000-0000-0000-0000-000000000001','Later Jinn',false) returning id into v_new;
+  update public.wish_records set primary_jinn_id=v_new where id=v_wish;
+end $$;
+reset role;
+set role service_role;
+do $$ declare v_wish uuid; v_old_actor uuid; begin
+  select id into v_wish from public.wish_records where original_intent='Create an independent first value result';
+  select actor_jinn_id into v_old_actor from public.deeds where wish_id=v_wish and verified_followup;
+  if (select actor_jinn_name from public.deeds where wish_id=v_wish and verified_followup)='Later Jinn'
+    then raise exception 'Reassignment rewrote historical actor'; end if;
+  begin
+    perform public.create_verified_continuation('00000000-0000-0000-0000-000000000001',v_wish,
+      (select id from public.artifacts where wish_id=v_wish order by created_at limit 1),1,1,
+      v_old_actor,(select id from public.deeds where wish_id=v_wish order by created_at desc,id desc limit 1),
+      gen_random_uuid(),(select content from public.artifacts where wish_id=v_wish order by created_at desc limit 1),'model');
+    raise exception 'Stale Jinn assignment accepted';
+  exception when serialization_failure then null; end;
+end $$;
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000002',false);
+select set_config('request.jwt.claims','{"is_anonymous":false}',false);
+do $$ begin
+  if (select count(*) from public.wish_records)<>0
+    or (select count(*) from public.deeds)<>0 or (select count(*) from public.artifacts)<>0 then
+    raise exception 'Second account can inspect first account work'; end if;
+end $$;
+SQL
+echo 'F04 context, forged marker denial, atomic independent save, replay, stale conflict and two-owner RLS: PASS'
+
+# Two independent service requests with the SAME stable key race on the Wish
+# row lock. Both must resolve to one Deed and one new Artifact.
+race_sql=$(mktemp)
+race_a=$(mktemp)
+race_b=$(mktemp)
+trap 'rm -f "$race_sql" "$race_a" "$race_b"; docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
+cat > "$race_sql" <<'SQL'
+set role service_role;
+select (result->>'deedId') || '|' || (result->>'artifactId') from (
+  select public.create_verified_continuation(
+    '00000000-0000-0000-0000-000000000001'::uuid,
+    w.id,
+    (select id from public.artifacts where wish_id=w.id order by created_at,id limit 1),
+    1,1,w.primary_jinn_id,
+    (select id from public.deeds where wish_id=w.id order by created_at desc,id desc limit 1),
+    'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'::uuid,
+    (select content from public.artifacts where wish_id=w.id order by created_at desc,id desc limit 1),
+    'model') as result
+  from public.wish_records w where w.original_intent='Create an independent first value result'
+) x;
+SQL
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -t -A < "$race_sql" > "$race_a" &
+race_pid_a=$!
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -t -A < "$race_sql" > "$race_b" &
+race_pid_b=$!
+wait "$race_pid_a"
+wait "$race_pid_b"
+test "$(tail -1 "$race_a")" = "$(tail -1 "$race_b")"
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
+do $$ declare v_wish uuid; begin
+  select id into v_wish from public.wish_records where original_intent='Create an independent first value result';
+  if (select count(*) from public.deeds where wish_id=v_wish)<>3
+    or (select count(*) from public.artifacts where wish_id=v_wish)<>3
+    or (select count(*) from public.deeds where wish_id=v_wish and request_key='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb')<>1
+    then raise exception 'Concurrent idempotency created duplicate work'; end if;
+end $$;
+SQL
+echo 'F04 concurrent identical requests persisted one Deed and one Artifact: PASS'
+docker exec -i "$container" psql -U postgres -v ON_ERROR_STOP=1 -q <<'SQL'
+set role authenticated;
+select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',false);
+select set_config('request.jwt.claims','{"is_anonymous":false}',false);
+do $$ declare v_wish uuid; v_source uuid; begin
+  select id into v_wish from public.wish_records where original_intent='Create an independent first value result';
+  select id into v_source from public.artifacts where wish_id=v_wish order by created_at,id limit 1;
+  perform public.correct_artifact(v_source,1,jsonb_set(
+    (select content from public.artifacts where id=v_source),'{sourceNote}',
+    '"Sunday pancakes with Aunt"'::jsonb));
+  if (select wish_context->'confirmedFacts' from public.wish_records where id=v_wish)<>'["Sunday pancakes with Aunt"]'::jsonb
+    or (select wish_context->>'revision' from public.wish_records where id=v_wish)<>'2'
+    then raise exception 'Source correction erased trusted context or failed to advance revision'; end if;
+end $$;
+SQL
+echo 'F04 versioned source correction preserved confirmed facts: PASS'

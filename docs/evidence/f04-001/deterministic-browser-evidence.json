@@ -1,0 +1,64 @@
+{
+  "kind": "F04 deterministic local Auth, SQL and browser acceptance",
+  "provider": "loopback fixture only",
+  "checks": [
+    "source correction retained",
+    "reviewed private plan",
+    "distinct Artifact ID",
+    "server PREPARED receipt after save",
+    "no superseded Grandma claim",
+    "deterministic chapter length",
+    "deterministic chapter uses Aunt only",
+    "third suggestion advances",
+    "replay returns same IDs",
+    "forged client receipt, actor and time rejected",
+    "stale proposal conflicts after context correction",
+    "history control receives keyboard focus",
+    "history opens by keyboard",
+    "first Artifact independently reopened",
+    "first Artifact after refresh",
+    "second Artifact after refresh",
+    "second edit persisted",
+    "locale ru",
+    "locale fr",
+    "locale es",
+    "locale en",
+    "two Artifact and Deed rows",
+    "context correction wins",
+    "historical first unchanged",
+    "second verified marker",
+    "reauthentication reopened second Artifact",
+    "request key cannot resolve into another Wish",
+    "reviewed private plan",
+    "edited request bound to reviewed plan",
+    "garden has unsent enquiry draft",
+    "garden makes no permission or sending claim",
+    "reviewed private plan",
+    "unseen Wish uses same second-Deed pipeline"
+  ],
+  "ids": {
+    "wishId": "b59b905c-c97f-4c82-904f-a204fe7e64fb",
+    "firstArtifactId": "9f2a3400-8f54-4268-b925-effee57f633b",
+    "secondArtifactId": "3681b23c-c856-4ee1-bb03-8979a12e390e",
+    "secondDeedId": "bd5ee36e-7923-462b-9cfd-31b7a50b6d29",
+    "gardenWishId": "c91112eb-f8ef-496f-a1d2-50c2ffdb1f47",
+    "gardenArtifactId": "41a33ff8-bebb-4cf9-996c-b87fd2ccebc0",
+    "unseenWishId": "3747931e-9a92-479d-9c26-5612fd243622",
+    "unseenArtifactId": "e6da5f97-be5e-4502-9a38-10064a8c3ac7"
+  },
+  "screenshots": [
+    "desktop-history.png",
+    "mobile-history.png",
+    "mobile-artifact.png",
+    "garden-unsent-draft.png"
+  ],
+  "limitations": [
+    "Deterministic fixture output is not real-model usefulness evidence"
+  ],
+  "database": {
+    "artifactCount": 2,
+    "deedCount": 2,
+    "contextRevision": 3,
+    "verifiedFollowups": 1
+  }
+}

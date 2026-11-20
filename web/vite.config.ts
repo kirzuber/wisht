@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 const diagnosticEvents: Plugin = {
   name: 'wisht-terminal-diagnostics',
   configureServer(server) {
-    if (server.config.env.VITE_SUPABASE_URL !== 'http://127.0.0.1:54321') {
+    if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(server.config.env.VITE_SUPABASE_URL||'')) {
       throw new Error('[Wisht] Vite dev requires local Supabase. Run npm run dev from the repository root.');
     }
     server.ws.on('wisht:diagnostic', payload => {
@@ -25,5 +25,6 @@ const diagnosticEvents: Plugin = {
 
 export default defineConfig({
   plugins: [react(), diagnosticEvents],
-  server: { port: 5173, strictPort: true, proxy: { '/api': 'http://localhost:3001' } },
+  server: { port: Number(process.env.VITE_DEV_PORT||5173), strictPort: true,
+    proxy: { '/api': `http://localhost:${process.env.VITE_API_PORT||3001}` } },
 });

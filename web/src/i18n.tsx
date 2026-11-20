@@ -6,6 +6,28 @@ export type { Locale };
 
 const KEY = 'wisht:ui-language:v1';
 const translations: Record<string,readonly [string,string,string]> = {
+  'Next Deed review':['Проверка следующего шага','Révision du prochain acte','Revisión de la siguiente acción'],
+  'Private draft only. Nothing sent or verified.':['Только личный черновик. Ничего не отправлено и не проверено.','Brouillon privé uniquement. Rien n’a été envoyé ni vérifié.','Solo un borrador privado. No se ha enviado ni verificado nada.'],
+  'Using what you told me':['Использую то, что вы рассказали','D’après ce que vous m’avez dit','Según lo que me contaste'],
+  'No confirmed details yet.':['Пока нет подтверждённых деталей.','Aucun détail confirmé pour le moment.','Todavía no hay detalles confirmados.'],
+  'Unknowns':['Неизвестно','Inconnues','Datos pendientes'],
+  'None listed':['Ничего не указано','Aucune','Ninguno'],
+  'Correct the source note in the Artifact editor. Draft text alone is not a confirmed fact.':['Исправьте исходную заметку в редакторе документа. Текст черновика сам по себе не подтверждённый факт.','Corrigez la note source dans l’éditeur du document. Le brouillon seul ne confirme aucun fait.','Corrige la nota original en el editor del documento. El borrador por sí solo no confirma ningún hecho.'],
+  'Confirmed details, one per line':['Подтверждённые детали, по одной в строке','Détails confirmés, un par ligne','Detalles confirmados, uno por línea'],
+  'Still unknown, one per line':['Что пока неизвестно, по одному в строке','Points encore inconnus, un par ligne','Datos aún desconocidos, uno por línea'],
+  'Save confirmed context':['Сохранить подтверждённые сведения','Enregistrer les détails confirmés','Guardar los datos confirmados'],
+  'Edit request':['Изменить запрос','Modifier la demande','Editar la solicitud'],
+  'Update proposal':['Обновить предложение','Actualiser la proposition','Actualizar la propuesta'],
+  'Preparing…':['Подготавливаем…','Préparation…','Preparando…'],
+  'Start Deed':['Начать шаг','Lancer l’acte','Iniciar la acción'],
+  'Not now':['Не сейчас','Pas maintenant','Ahora no'],
+  'Review next Deed':['Проверить следующий шаг','Réviser le prochain acte','Revisar la siguiente acción'],
+  'Saved Artifacts':['Сохранённые документы','Documents enregistrés','Documentos guardados'],
+  'Confirm this source note before continuing.':['Подтвердите исходную заметку перед продолжением.','Confirmez cette note source avant de continuer.','Confirma esta nota original antes de continuar.'],
+  'Prepared next Deed':['Следующий шаг подготовлен','Prochain acte préparé','Siguiente acción preparada'],
+  'YOUR NEXT ARTIFACT':['ВАШ СЛЕДУЮЩИЙ ДОКУМЕНТ','VOTRE PROCHAIN DOCUMENT','TU SIGUIENTE DOCUMENTO'],
+  'Legacy receipt unverified':['Старая запись не проверена сервером','Ancien reçu non vérifié par le serveur','Recibo anterior sin verificar por el servidor'],
+  'This saved draft has no server-verified work receipt.':['У этого сохранённого черновика нет записи о работе, проверенной сервером.','Ce brouillon enregistré n’a pas de reçu de travail vérifié par le serveur.','Este borrador guardado no tiene un recibo de trabajo verificado por el servidor.'],
   // Navigation and guest / adaptive home
   'Jinn home':['Главная Jinn','Accueil Jinn','Inicio de Jinn'],
   'Language':['Язык','Langue','Idioma'],

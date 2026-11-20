@@ -1,0 +1,226 @@
+{
+  "kind": "F04 approved synthetic Aunt real-provider local evaluation",
+  "timestamp": "2026-11-20T19:49:08.815Z",
+  "provider": "DeepSeek deepseek-flash",
+  "payloadScope": "Only synthetic Sunday pancakes with Aunt life-story case",
+  "stack": "Isolated local Supabase 55321/55322",
+  "durationsMs": {
+    "initialPlan": 3718,
+    "initialPrepare": 7101,
+    "continuationProposal": 4181,
+    "editedProposal": 2323,
+    "continuationExecute": 5225
+  },
+  "checks": [
+    "real provider prepared first private Artifact",
+    "reviewed plan is private",
+    "verified PREPARED second Deed",
+    "two independent Artifact and Deed rows",
+    "second Artifact is distinct",
+    "second Deed has server marker",
+    "Aunt fact present",
+    "no invented relatives or interviews",
+    "second Artifact reopens after refresh"
+  ],
+  "ids": {
+    "wishId": "c1cc2e51-777a-43a5-a260-33c1e605f269",
+    "secondDeedId": "c58b4cdd-823d-415e-b85c-6a60297fd344",
+    "secondArtifactId": "c2a322be-d443-4034-96c2-d6600008007c"
+  },
+  "error": null,
+  "initialPlan": {
+    "version": 1,
+    "locale": "en",
+    "intent": "Begin a life story from a single confirmed memory of Sunday pancakes with Aunt, without inventing personal facts.",
+    "firstOutcome": "A short, finished opening scene of the memoir built only around the Sunday pancakes memory, with invented details clearly framed as imaginative draft language the writer can accept or replace.",
+    "deed": {
+      "title": "Draft an opening memoir scene from the Sunday pancakes memory",
+      "scope": "PRIVATE_DRAFT",
+      "result": "A private, editable 700-word-style opening passage of the life story, written as vivid but honestly provisional prose around the pancakes memory, with anything unconfirmed openly marked as imagination."
+    },
+    "questions": [],
+    "components": [
+      "jinn_identity",
+      "deed_proposal",
+      "artifact_reader",
+      "source_status",
+      "supporting_section",
+      "work_receipt",
+      "next_deed"
+    ]
+  },
+  "initialArtifact": {
+    "title": "Opening Scene Draft: Sunday Pancakes",
+    "sourceNote": "",
+    "sections": [
+      {
+        "type": "document",
+        "title": "Sunday Pancakes — Opening Passage (Private Draft)",
+        "body": "The one thing I know for certain is this: Sunday mornings belonged to pancakes, and pancakes belonged to Aunt. Everything after that first certainty is mine to build slowly, one remembered detail at a time, without filling the gaps with things I cannot honestly claim.\n\nSo I begin where the ground is firm. The griddle, warm before the house was fully awake. The smell that traveled ahead of any invitation, calling me from whatever room I slept in. Aunt at the counter, quiet and steady, doing something ordinary that somehow made the whole week stand up straight.\n\nWhat I cannot confirm, I will not pretend to know. I do not remember the color of the kitchen walls, or the exact words she said when the first pancake came off the griddle. I do not remember whether it was summer or winter, whether anyone else sat at the table, or how old I was. Those things are open — not lost, but waiting for the moment a real detail returns and answers them.\n\nHere is what the memory gives me without asking anything back: the certainty of being expected. The ritual of a Sunday that repeated itself gently. The knowledge that Aunt was there, and that pancakes were the way she said so.\n\nFor now, that is the scene. Three sentences of it are true in a way I can defend. The rest — the exact temperature of the room, the shape of the plate, the sound of the syrup — I am marking plainly as imagination, offered only as scaffolding to be kept, corrected, or thrown away as the real story surfaces.\n\nI will write the next page the same way: beginning with the confirmed, leaving the unknown visibly open, and letting Aunt's real presence return to the page only as much as memory actually allows."
+      },
+      {
+        "type": "checklist",
+        "title": "Keep the Draft Honest",
+        "items": [
+          {
+            "text": "Mark every unconfirmed sensory detail (colors, weather, sounds, other people) as imagination before sharing or expanding it."
+          },
+          {
+            "text": "Keep the confirmed core to what you can defend: Sunday pancakes, and Aunt as the person who made them."
+          },
+          {
+            "text": "When a real detail returns, replace the invented placeholder rather than adding on top of it."
+          },
+          {
+            "text": "Decide later how openly you want to label the provisional sections in the final version."
+          },
+          {
+            "text": "Leave the question of Aunt's current situation, and any family permission to write about her, open until you have checked it yourself."
+          }
+        ]
+      }
+    ],
+    "unknowns": [
+      "Aunt's full name, the location of the kitchen, and the time period of the memory are not supplied.",
+      "Whether Aunt is alive, reachable, or willing to be written about is unknown and must be checked before any sharing.",
+      "Your age, the season, and who else was present are unconfirmed.",
+      "What happened before or after the pancake mornings is not established.",
+      "How much of this memoir you want to be memory versus admitted imagination remains your decision."
+    ],
+    "nextDeed": {
+      "title": "Write one confirmed sentence about the pancakes ritual",
+      "why": "Adding a single defensible true line keeps the memoir anchored and shows the method works before you expand.",
+      "prompt": "Write one sentence about Sunday pancakes that you could defend as true without adding any unconfirmed detail. Keep it beside this draft."
+    },
+    "boundary": "This is a private draft. Nothing was sent, published, or verified. Unknown details stay open; anything needing Aunt's or family permission must wait for that permission.",
+    "experience": {
+      "version": 1,
+      "locale": "en",
+      "intent": "Begin a life story from a single confirmed memory of Sunday pancakes with Aunt, without inventing personal facts.",
+      "firstOutcome": "A short, finished opening scene of the memoir built only around the Sunday pancakes memory, with invented details clearly framed as imaginative draft language the writer can accept or replace.",
+      "deed": {
+        "title": "Draft an opening memoir scene from the Sunday pancakes memory",
+        "scope": "PRIVATE_DRAFT",
+        "result": "A private, editable 700-word-style opening passage of the life story, written as vivid but honestly provisional prose around the pancakes memory, with anything unconfirmed openly marked as imagination."
+      },
+      "questions": [],
+      "components": [
+        "jinn_identity",
+        "deed_proposal",
+        "artifact_reader",
+        "source_status",
+        "supporting_section",
+        "work_receipt",
+        "next_deed"
+      ]
+    }
+  },
+  "initialReceipt": {
+    "status": "PREPARED",
+    "draftSource": "model",
+    "operation": "AI composed a private First Artifact from your Wish and selected answers",
+    "recordedAt": "2026-11-20T19:49:21.268Z",
+    "scope": "Private draft only. No external action, source verification or cross-wish memory."
+  },
+  "reviewedProposal": {
+    "version": 1,
+    "locale": "en",
+    "intent": "Begin a life story from one confirmed memory, keeping everything unconfirmed honestly open.",
+    "firstOutcome": "A spare 150–250 word chapter-opening scene built only on Sunday pancakes with Aunt, with unknowns marked.",
+    "deed": {
+      "title": "Draft the spare pancakes opening as a clean 150–250 word scene",
+      "scope": "PRIVATE_DRAFT",
+      "result": "A self-contained opening scene drafted solely from the confirmed pancakes memory, with unconfirmed details left visibly open in the text."
+    },
+    "questions": [],
+    "components": [
+      "jinn_identity",
+      "deed_proposal",
+      "artifact_reader",
+      "source_status",
+      "work_receipt",
+      "next_deed"
+    ]
+  },
+  "continuationReceipt": {
+    "scope": "Private draft only. Nothing sent or externally verified.",
+    "status": "PREPARED",
+    "verified": true,
+    "operation": "AI prepared a private follow-up draft",
+    "recordedAt": "2026-11-20T19:59:25.433346+00:00",
+    "draftSource": "model"
+  },
+  "secondArtifact": {
+    "title": "Chapter One: Sunday Pancakes",
+    "boundary": "This is a private authored draft, not verified biography. No real names, places or dates have been added; gaps remain open.",
+    "nextDeed": {
+      "why": "Each verified sentence is a foundation stone; without it, later detail risks becoming invention.",
+      "title": "Write one sentence naming what you are sure of beyond the pancakes",
+      "prompt": "Complete this line in one sentence: 'Besides the Sunday pancakes with Aunt, the one thing I am sure of is...'"
+    },
+    "sections": [
+      {
+        "body": "The one thing I know is this: Sunday meant pancakes, and pancakes meant Aunt.\n\nI start there because it is the only ground I can stand on without guessing. Aunt, in her kitchen — I cannot tell you which kitchen, or which year, or whether the windows looked onto a street or a garden. I do not remember what she wore, or whether she hummed, or whether she spoke at all. I do not remember if anyone else was there. Those are blanks, and I am leaving them blank.\n\nWhat I have is the fact of her, and the fact of pancakes, and a word I can only call ritual. Sunday came, and Aunt made them. That is the whole of it. No smell, no colour, no sound — I will not dress the scene in details that belong to someone else's memory and call them mine.\n\nThe rest of this story will have to be built the way a life is actually recovered: slowly, and only where the record holds. I begin with the one thing I am sure of. Aunt. Sunday. Pancakes.\n\nThat is enough to start.",
+        "type": "document",
+        "title": "Opening Scene: Sunday Pancakes with Aunt"
+      },
+      {
+        "type": "checklist",
+        "items": [
+          {
+            "text": "Place and setting: which kitchen, which home, which country — unknown."
+          },
+          {
+            "text": "Time: dates, seasons, your age at the time — unknown."
+          },
+          {
+            "text": "Other people present at the table — unknown."
+          },
+          {
+            "text": "Sensory details beyond the plain facts (smell, taste, sound, appearance) — unknown, not invented."
+          },
+          {
+            "text": "Any conversation or quoted words from Aunt — unknown; no interviews were conducted."
+          }
+        ],
+        "title": "Gaps kept open in this draft"
+      }
+    ],
+    "unknowns": [
+      "Aunt's full name, relationship details and current status",
+      "Location of the kitchen where the pancakes were made",
+      "Dates and your age during these Sundays",
+      "Whether others joined at the table",
+      "Any sensory or spoken details of the ritual"
+    ],
+    "experience": {
+      "deed": {
+        "scope": "PRIVATE_DRAFT",
+        "title": "Draft the spare pancakes opening as a clean 150–250 word scene",
+        "result": "A self-contained opening scene drafted solely from the confirmed pancakes memory, with unconfirmed details left visibly open in the text."
+      },
+      "intent": "Begin a life story from one confirmed memory, keeping everything unconfirmed honestly open.",
+      "locale": "en",
+      "version": 1,
+      "questions": [],
+      "components": [
+        "jinn_identity",
+        "deed_proposal",
+        "artifact_reader",
+        "source_status",
+        "work_receipt",
+        "next_deed"
+      ],
+      "firstOutcome": "A spare 150–250 word chapter-opening scene built only on Sunday pancakes with Aunt, with unknowns marked."
+    },
+    "sourceNote": ""
+  },
+  "database": {
+    "artifactCount": 2,
+    "deedCount": 2,
+    "verifiedFollowups": 1
+  },
+  "documentWordCount": 189,
+  "qualityFinding": "Rejected in human content review: draft inferred Aunt made pancakes, a kitchen, and a ritual from only Sunday pancakes with Aunt.",
+  "runnerNote": "Browser runner had hidden textarea and local OTP timing errors; persistence and provider response were observed."
+}
