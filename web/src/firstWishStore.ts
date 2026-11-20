@@ -5,7 +5,7 @@ import { ensurePrimaryJinn } from './jinnStore';
 
 export type WishSummary = { id: string; aspiration: string; updated_at: string; state: string; jinn_id: string };
 export type SavedArtifact={id:string;artifact:Artifact;receipt:DeedReceipt;revision:number;
-  deedId:string;actorName:string;verified:boolean};
+  deedId:string;actorName:string|null;verified:boolean};
 export type WishContext={sourceNote:string;sourceNoteConfirmed:boolean;confirmedFacts:string[];unknowns:string[];revision:number};
 export type FirstWishRow = {
   id: string;
@@ -62,12 +62,11 @@ export function loadFirstWish(id: string): Promise<FirstWishRow> {
     const artifact = artifacts.data.at(-1);
     const current = deeds.data.find(deed => deed.id === artifact?.origin_deed_id) ?? deeds.data.at(-1);
     if (!artifact || !current) throw new Error('This saved wish has no prepared Deed.');
-    const fallbackActor=assigned.data.name;
     const savedArtifacts:SavedArtifact[]=artifacts.data.map(item=>{
       const deed=deeds.data.find(value=>value.id===item.origin_deed_id);
       if(!deed)throw new Error('An Artifact has no matching Deed receipt.');
       return {id:item.id,artifact:item.content as Artifact,receipt:deed.receipt as DeedReceipt,
-        revision:item.version,deedId:deed.id,actorName:deed.actor_jinn_name||fallbackActor,
+        revision:item.version,deedId:deed.id,actorName:deed.actor_jinn_name||null,
         verified:deed.verified_followup===true||deed.verified_first===true};
     });
     const raw=wish.data.wish_context as Record<string,unknown>||{};

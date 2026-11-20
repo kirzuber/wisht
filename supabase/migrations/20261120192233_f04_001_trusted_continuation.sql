@@ -1,6 +1,7 @@
 -- F04-001: Wish-local confirmed context and server-verified, independent work.
 -- Additive only. Hosted application requires separate approval and Issue #27 reconciliation.
 alter table public.deeds add column request_key uuid;
+alter table public.deeds add column request_fingerprint text;
 alter table public.deeds add column verified_followup boolean not null default false;
 alter table public.deeds add column verified_first boolean not null default false;
 alter table public.deeds add column actor_jinn_id uuid;
@@ -36,20 +37,28 @@ create trigger guard_wish_context_revision before update on public.wish_records
 create function public.guard_verified_followup() returns trigger
 language plpgsql security invoker set search_path = '' as $$
 begin
-  if tg_op = 'UPDATE' and (old.verified_followup, old.request_key, old.actor_jinn_id, old.actor_jinn_name)
-    is distinct from (new.verified_followup, new.request_key, new.actor_jinn_id, new.actor_jinn_name) then
+  if tg_op = 'UPDATE' and (old.verified_followup, old.request_key, old.request_fingerprint, old.actor_jinn_id, old.actor_jinn_name)
+    is distinct from (new.verified_followup, new.request_key, new.request_fingerprint, new.actor_jinn_id, new.actor_jinn_name) then
     raise exception 'Verified Deed attribution is immutable.';
   end if;
   if tg_op = 'UPDATE' and old.verified_first is distinct from new.verified_first then
     raise exception 'Verified First Deed marker is immutable.';
   end if;
-  if tg_op = 'INSERT' and current_user = 'service_role' and new.operation = 'AI_FIRST_DRAFT' then
-    new.verified_first := true;
-  end if;
   if tg_op = 'INSERT' and (new.verified_followup or new.verified_first or new.request_key is not null
-      or new.actor_jinn_id is not null or new.actor_jinn_name is not null)
+      or new.request_fingerprint is not null or new.actor_jinn_id is not null or new.actor_jinn_name is not null)
       and current_user <> 'service_role' then
     raise exception 'Only the verified server may issue a continuation.';
+  end if;
+  if tg_op = 'INSERT' and new.operation = 'AI_FIRST_DRAFT' then
+    if current_user = 'service_role' then new.verified_first := true; end if;
+    select w.primary_jinn_id,j.name into new.actor_jinn_id,new.actor_jinn_name
+      from public.wish_records w left join public.jinns j
+        on j.id=w.primary_jinn_id and j.user_id=w.user_id
+      where w.id=new.wish_id and w.user_id=new.user_id;
+  end if;
+  if tg_op = 'INSERT' and new.verified_followup and
+    (new.request_key is null or new.request_fingerprint !~ '^[0-9a-f]{64}$') then
+    raise exception 'Verified continuation requires a request fingerprint.';
   end if;
   return new;
 end $$;
@@ -131,15 +140,18 @@ grant execute on function public.set_trusted_wish_context(uuid,integer,jsonb,jso
 
 create function public.create_verified_continuation(
   p_user_id uuid,p_wish_id uuid,p_source_artifact_id uuid,p_source_version integer,
-  p_context_revision integer,p_expected_actor_id uuid,p_latest_deed_id uuid,p_request_key uuid,
+  p_context_revision integer,p_expected_actor_id uuid,p_expected_actor_name text,
+  p_expected_actor_version timestamptz,p_latest_deed_id uuid,p_request_key uuid,
+  p_request_fingerprint text,
   p_artifact jsonb,p_draft_source text)
 returns jsonb language plpgsql security invoker set search_path = '' as $$
 declare v_wish public.wish_records%rowtype; v_source public.artifacts%rowtype;
   v_existing public.deeds%rowtype; v_deed uuid; v_artifact uuid; v_actor_name text;
-  v_latest uuid; v_receipt jsonb;
+  v_latest uuid; v_receipt jsonb; v_actor_version timestamptz;
 begin
   if current_user <> 'service_role' then raise exception 'Only the verified server may save a continuation.'; end if;
-  if p_request_key is null or p_draft_source not in ('model','repaired_model')
+  if p_request_key is null or p_request_fingerprint !~ '^[0-9a-f]{64}$'
+    or p_draft_source not in ('model','repaired_model')
     or jsonb_typeof(p_artifact)<>'object' or p_artifact->'experience'->>'version'<>'1'
     or not (p_artifact ?& array['title','sourceNote','sections','unknowns','nextDeed','boundary','experience']) then
     raise exception 'Invalid continuation payload.';
@@ -151,7 +163,8 @@ begin
   if not found then raise exception 'Wish unavailable.' using errcode='42501'; end if;
   select * into v_existing from public.deeds where user_id=p_user_id and request_key=p_request_key;
   if found then
-    if v_existing.wish_id<>p_wish_id then raise exception 'Request key belongs to another Wish.'; end if;
+    if v_existing.wish_id<>p_wish_id or v_existing.request_fingerprint is distinct from p_request_fingerprint
+      then raise exception 'Request key belongs to another approved action.' using errcode='23505'; end if;
     select id into v_artifact from public.artifacts where origin_deed_id=v_existing.id and wish_id=p_wish_id;
     return jsonb_build_object('deedId',v_existing.id,'artifactId',v_artifact,'receipt',v_existing.receipt,'replayed',true);
   end if;
@@ -172,25 +185,28 @@ begin
   if v_latest is distinct from p_latest_deed_id then
     raise exception 'A newer Deed exists. Review again.' using errcode='40001';
   end if;
-  select name into v_actor_name from public.jinns where id=v_wish.primary_jinn_id and user_id=p_user_id;
-  if v_actor_name is null then raise exception 'Assigned Jinn unavailable.' using errcode='40001'; end if;
+  select name,updated_at into v_actor_name,v_actor_version from public.jinns
+    where id=v_wish.primary_jinn_id and user_id=p_user_id;
+  if v_actor_name is null or v_actor_name is distinct from p_expected_actor_name
+    or v_actor_version is distinct from p_expected_actor_version then
+    raise exception 'Assigned Jinn changed. Review again.' using errcode='40001'; end if;
   v_receipt:=jsonb_build_object('status','PREPARED','operation','AI prepared a private follow-up draft',
     'recordedAt',now(),'scope','Private draft only. Nothing sent or externally verified.',
     'draftSource',p_draft_source,'verified',true);
-  insert into public.deeds(wish_id,user_id,operation,input,receipt,status,request_key,
+  insert into public.deeds(wish_id,user_id,operation,input,receipt,status,request_key,request_fingerprint,
     verified_followup,actor_jinn_id,actor_jinn_name)
     values(p_wish_id,p_user_id,'AI_FOLLOW_UP_DRAFT',jsonb_build_object(
       'source_artifact_id',p_source_artifact_id,'source_version',p_source_version,
-      'context_revision',p_context_revision),v_receipt,'PREPARED',p_request_key,
+      'context_revision',p_context_revision),v_receipt,'PREPARED',p_request_key,p_request_fingerprint,
       true,v_wish.primary_jinn_id,v_actor_name) returning id into v_deed;
   insert into public.artifacts(wish_id,user_id,origin_deed_id,component_type,content)
     values(p_wish_id,p_user_id,v_deed,'structured_draft',p_artifact) returning id into v_artifact;
   update public.wish_records set updated_at=now() where id=p_wish_id;
   return jsonb_build_object('deedId',v_deed,'artifactId',v_artifact,'receipt',v_receipt,'replayed',false);
 end $$;
-revoke all on function public.create_verified_continuation(uuid,uuid,uuid,integer,integer,uuid,uuid,uuid,jsonb,text)
+revoke all on function public.create_verified_continuation(uuid,uuid,uuid,integer,integer,uuid,text,timestamptz,uuid,uuid,text,jsonb,text)
   from public,anon,authenticated;
-grant execute on function public.create_verified_continuation(uuid,uuid,uuid,integer,integer,uuid,uuid,uuid,jsonb,text) to service_role;
+grant execute on function public.create_verified_continuation(uuid,uuid,uuid,integer,integer,uuid,text,timestamptz,uuid,uuid,text,jsonb,text) to service_role;
 revoke execute on function public.append_prepared_deed(uuid,uuid,integer,jsonb,jsonb) from authenticated;
 grant update (updated_at) on public.wish_records to service_role;
 grant update (content) on public.artifacts to service_role;

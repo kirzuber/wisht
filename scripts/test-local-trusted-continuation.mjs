@@ -46,7 +46,7 @@ async function signIn(email,fromGuest=true){
 async function firstWish(wish){
   await page.getByRole('button',{name:'Jinn home'}).click();
   await page.locator('#wish').fill(wish);
-  await page.getByRole('button',{name:'Continue with Jinn'}).click();
+  await page.getByRole('button',{name:/^Continue with /}).click();
   await page.getByRole('button',{name:'Skip',exact:true}).click();
   await page.getByRole('button',{name:'Let Jinn prepare it'}).click();
   await page.locator('.first-value-reader').waitFor();
@@ -98,6 +98,15 @@ try{
     return data[0];
   });
   results.ids.firstArtifactId=first.id;
+  const firstActor=await page.evaluate(async()=>{
+    const {getSupabase}=await import('/src/supabaseClient.ts');
+    const db=getSupabase();const wishId=new URL(location.href).searchParams.get('wish');
+    const {data:deed,error}=await db.from('deeds').select('actor_jinn_id,actor_jinn_name,verified_first')
+      .eq('wish_id',wishId).single();
+    if(error)throw error;
+    return deed;
+  });
+  check('First Deed saves actual Jinn ID and name',Boolean(firstActor.actor_jinn_id&&firstActor.actor_jinn_name&&firstActor.verified_first));
   await page.getByRole('button',{name:'Edit artifact'}).click();
   await page.locator('#first-source-note').fill('Sunday pancakes with Grandma');
   await page.locator('#first-source-note').blur();
@@ -126,6 +135,31 @@ try{
     return {status:response.status,result:await response.json()};
   },second.requestBody);
   check('replay returns same IDs',replay.status===200&&replay.result.deedId===second.deedId&&replay.result.artifactId===second.artifactId);
+  const recovery=await page.evaluate(async body=>{
+    const {getSupabase}=await import('/src/supabaseClient.ts');
+    const {data:{session}}=await getSupabase().auth.getSession();
+    const response=await fetch('/api/first-deed',{method:'POST',headers:{'Content-Type':'application/json',
+      Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({mode:'resolve_continuation',
+      locale:body.locale,wishId:body.wishId,requestKey:body.requestKey,
+      proposal:body.proposal,editRequest:body.editRequest})});
+    return {status:response.status,result:await response.json()};
+  },second.requestBody);
+  check('lost HTTP response recovery returns original IDs',recovery.status===200&&
+    recovery.result.deedId===second.deedId&&recovery.result.artifactId===second.artifactId);
+  const conflict=await page.evaluate(async body=>{
+    const {getSupabase}=await import('/src/supabaseClient.ts');
+    const {data:{session}}=await getSupabase().auth.getSession();
+    const headers={'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`};
+    const review=await fetch('/api/first-deed',{method:'POST',headers,body:JSON.stringify({
+      mode:'propose_continuation',locale:body.locale,wishId:body.wishId,
+      editRequest:'Write a different approved chapter'})});
+    if(!review.ok)throw new Error('Conflict proposal failed: '+await review.text());
+    const proposal=await review.json();
+    const response=await fetch('/api/first-deed',{method:'POST',headers,body:JSON.stringify({
+      ...body,sourceId:proposal.snapshot.sourceId,proposal,editRequest:proposal.editRequest})});
+    return {status:response.status,result:await response.json()};
+  },second.requestBody);
+  check('same key with different signed action returns 409',conflict.status===409&&conflict.result.code==='request_conflict');
   const forged=await page.evaluate(async body=>{
     const {getSupabase}=await import('/src/supabaseClient.ts');
     const {data:{session}}=await getSupabase().auth.getSession();
@@ -147,6 +181,21 @@ try{
     return response.status;
   },second.requestBody);
   check('stale proposal conflicts after context correction',stale===409);
+  const reassigned=await page.evaluate(async ({wishId,firstActor})=>{
+    const {getSupabase}=await import('/src/supabaseClient.ts');
+    const db=getSupabase();const {data:{user}}=await db.auth.getUser();
+    const {data:newJinn,error:createError}=await db.from('jinns').insert({user_id:user.id,
+      name:'Later Jinn',is_primary:false}).select('id').single();
+    if(createError)throw createError;
+    const {error:assignError}=await db.from('wish_records').update({primary_jinn_id:newJinn.id})
+      .eq('id',wishId).eq('user_id',user.id);
+    if(assignError)throw assignError;
+    const {error:renameError}=await db.from('jinns').update({name:'Earlier Jinn renamed'})
+      .eq('id',firstActor.actor_jinn_id).eq('user_id',user.id);
+    if(renameError)throw renameError;
+    return newJinn.id;
+  },{wishId,firstActor});
+  check('Wish assigned to a different Jinn',Boolean(reassigned));
   await page.locator('.continuation-history summary').focus();
   check('history control receives keyboard focus',await page.locator('.continuation-history summary').evaluate(el=>document.activeElement===el));
   await page.locator('.continuation-history summary').press('Enter');
@@ -167,6 +216,9 @@ try{
   await page.reload();
   await page.locator('.continuation-history summary').waitFor();
   await page.locator('.continuation-history summary').click();
+  const labels=await page.locator('.continuation-artifact-list').innerText();
+  check('First and second historical names survive reassignment and rename',
+    labels.includes(firstActor.actor_jinn_name)&&!labels.includes('Later Jinn')&&!labels.includes('Earlier Jinn renamed'));
   await page.getByRole('button',{name:/1\. Your first usable draft/}).click();
   check('first Artifact after refresh',await page.locator('.first-value-reader h2').innerText()==='Your first usable draft');
   await page.getByRole('button',{name:/2\. Your next private document/}).click();
@@ -190,7 +242,7 @@ try{
     const wishId=new URL(location.href).searchParams.get('wish');
     const [a,d,w]=await Promise.all([
       client.from('artifacts').select('id,origin_deed_id,version,content').eq('wish_id',wishId).eq('user_id',user.id),
-      client.from('deeds').select('id,verified_followup,actor_jinn_name,receipt').eq('wish_id',wishId).eq('user_id',user.id),
+      client.from('deeds').select('id,verified_first,verified_followup,actor_jinn_id,actor_jinn_name,request_fingerprint,receipt').eq('wish_id',wishId).eq('user_id',user.id),
       client.from('wish_records').select('wish_context').eq('id',wishId).single(),
     ]);
     return {artifacts:a.data,deeds:d.data,context:w.data?.wish_context};
@@ -199,6 +251,9 @@ try{
   check('context correction wins',db.context.sourceNote==='Sunday pancakes with Aunt');
   check('historical first unchanged',db.artifacts.find(a=>a.id===first.id).origin_deed_id===first.origin_deed_id);
   check('second verified marker',db.deeds.some(d=>d.verified_followup===true&&d.id===second.deedId));
+  check('both Deeds retain original Jinn ID and name',db.deeds.every(d=>
+    d.actor_jinn_id===firstActor.actor_jinn_id&&d.actor_jinn_name===firstActor.actor_jinn_name));
+  check('follow-up fingerprint persisted',db.deeds.find(d=>d.id===second.deedId)?.request_fingerprint?.length===64);
   results.database={artifactCount:db.artifacts.length,deedCount:db.deeds.length,
     contextRevision:db.context.revision,verifiedFollowups:db.deeds.filter(d=>d.verified_followup).length};
   await page.getByRole('button',{name:'Sign out'}).click();
@@ -208,15 +263,19 @@ try{
   await page.goto(base+'?wish='+wishId);
   await page.locator('.first-value-reader').waitFor();
   check('reauthentication reopened second Artifact',await page.locator('.continuation-history').count()===1);
+  await page.locator('.continuation-history summary').click();
+  check('historical attribution survives sign out and sign in',
+    (await page.locator('.continuation-artifact-list').innerText()).includes(firstActor.actor_jinn_name));
   const gardenId=await firstWish('Start a community garden; landowner permission is unknown');
-  const crossWishReplay=await page.evaluate(async ({wishId,requestKey})=>{
+  const crossWishReplay=await page.evaluate(async ({wishId,requestBody})=>{
     const {getSupabase}=await import('/src/supabaseClient.ts');
     const {data:{session}}=await getSupabase().auth.getSession();
     const response=await fetch('/api/first-deed',{method:'POST',headers:{'Content-Type':'application/json',
       Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({mode:'resolve_continuation',
-      locale:'en',wishId,requestKey})});
+      locale:'en',wishId,requestKey:requestBody.requestKey,
+      proposal:requestBody.proposal,editRequest:requestBody.editRequest})});
     return response.status;
-  },{wishId:gardenId,requestKey:second.requestBody.requestKey});
+  },{wishId:gardenId,requestBody:second.requestBody});
   check('request key cannot resolve into another Wish',crossWishReplay===409);
   const garden=await continuation('Keep this as a private unsent permission enquiry draft.');
   const gardenText=await page.locator('.first-value-prose').innerText();
@@ -231,6 +290,30 @@ try{
   check('unseen Wish uses same second-Deed pipeline',Boolean(unseen.deedId&&unseen.artifactId));
   results.ids.unseenWishId=unseenId;
   results.ids.unseenArtifactId=unseen.artifactId;
+  const raceWishId=await firstWish('Design a weekly practice plan for learning hand lettering');
+  const concurrent=await page.evaluate(async wishId=>{
+    const {getSupabase}=await import('/src/supabaseClient.ts');
+    const {data:{session}}=await getSupabase().auth.getSession();
+    const headers={'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`};
+    const review=await fetch('/api/first-deed',{method:'POST',headers,
+      body:JSON.stringify({mode:'propose_continuation',locale:'en',wishId})});
+    if(!review.ok)throw new Error('Concurrent review failed: '+await review.text());
+    const proposal=await review.json();
+    const body={mode:'execute_continuation',locale:'en',wishId,
+      sourceId:proposal.snapshot.sourceId,requestKey:crypto.randomUUID(),proposal,editRequest:''};
+    const requests=await Promise.all([0,1].map(()=>fetch('/api/first-deed',{
+      method:'POST',headers,body:JSON.stringify(body)})));
+    const results=await Promise.all(requests.map(async response=>({status:response.status,
+      payload:await response.json()})));
+    const {data:deeds,error}=await getSupabase().from('deeds').select('id,request_key')
+      .eq('wish_id',wishId).eq('request_key',body.requestKey);
+    if(error)throw error;
+    return {results,rows:deeds.length};
+  },raceWishId);
+  check('concurrent identical API requests return one Deed and Artifact',
+    concurrent.results.every(result=>result.status===200)&&concurrent.rows===1&&
+    concurrent.results[0].payload.deedId===concurrent.results[1].payload.deedId&&
+    concurrent.results[0].payload.artifactId===concurrent.results[1].payload.artifactId);
   console.log('F04 deterministic local browser continuation: PASS');
 }catch(error){
   results.error=String(error);

@@ -2,8 +2,8 @@
   command = "npm run build -w web"
   publish = "web/dist"
   functions = "netlify/functions"
-  # Publish main and the explicitly approved F04 PR preview only.
-  ignore = "if { [ \"$CONTEXT\" = \"production\" ] && [ \"$BRANCH\" = \"main\" ]; } || [ \"$REVIEW_ID\" = \"33\" ]; then exit 1; else exit 0; fi"
+  # Production only: PRs get GitHub CI, but Netlify must NOT build/publish previews.
+  ignore = "if [ \"$CONTEXT\" = \"production\" ] && [ \"$BRANCH\" = \"main\" ]; then exit 1; else exit 0; fi"
 
 [functions]
   node_bundler = "esbuild"

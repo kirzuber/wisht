@@ -5,7 +5,8 @@ import { validateExperiencePlan } from './experiencePlan.js';
 import type { Locale } from './locale.js';
 
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-type Snapshot={sourceId:string;sourceVersion:number;contextRevision:number;actorId:string;latestDeedId:string};
+type Snapshot={sourceId:string;sourceVersion:number;contextRevision:number;actorId:string;
+  actorName:string;actorVersion:string;latestDeedId:string};
 type TrustedContext={sourceNote:string;sourceNoteConfirmed:boolean;confirmedFacts:string[];unknowns:string[]};
 export class ContinuationError extends Error {
   constructor(message:string,readonly status:number,readonly code:string){super(message);}
@@ -21,6 +22,11 @@ const secret=(env:NodeJS.ProcessEnv)=>{
 function signature(value:unknown,env:NodeJS.ProcessEnv):string{
   return createHmac('sha256',secret(env)).update('wisht-continuation-v1\n')
     .update(JSON.stringify(value)).digest('base64url');
+}
+export function approvedActionFingerprint(userId:string,wishId:string,plan:unknown,
+  version:Snapshot,editRequest:string,env:NodeJS.ProcessEnv):string{
+  return createHmac('sha256',secret(env)).update('wisht-approved-action-v1\n')
+    .update(JSON.stringify({userId,wishId,plan,snapshot:version,editRequest})).digest('hex');
 }
 function verify(value:unknown,proof:unknown,env:NodeJS.ProcessEnv):void{
   if(typeof proof!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(proof))
@@ -54,7 +60,7 @@ async function snapshot(token:string,wishId:string,sourceId:string|undefined,env
     .select('id,original_intent,primary_jinn_id,wish_context')
     .eq('id',wishId).eq('user_id',user.id).maybeSingle();
   if(wishError||!wish)fail('Saved Wish unavailable.',404,'wish_not_found');
-  const {data:jinn}=await admin.from('jinns').select('id,name,settings')
+  const {data:jinn}=await admin.from('jinns').select('id,name,settings,updated_at')
     .eq('id',wish!.primary_jinn_id).eq('user_id',user.id).maybeSingle();
   if(!jinn)fail('Assigned Jinn unavailable.',409,'jinn_changed');
   let sourceQuery=admin.from('artifacts').select('id,content,version,origin_deed_id')
@@ -74,7 +80,8 @@ async function snapshot(token:string,wishId:string,sourceId:string|undefined,env
   };
   const revision=Number.isInteger(raw.revision)?Number(raw.revision):0;
   const version:Snapshot={sourceId:source!.id,sourceVersion:source!.version,
-    contextRevision:revision,actorId:jinn!.id,latestDeedId:latest!.id};
+    contextRevision:revision,actorId:jinn!.id,actorName:jinn!.name,
+    actorVersion:jinn!.updated_at,latestDeedId:latest!.id};
   const content=validateArtifact(source!.content,typeof source!.content?.sourceNote==='string'?source!.content.sourceNote:'');
   const priorDraft={title:content.title,excerpt:content.sections.filter(s=>s.type==='document')
     .map(s=>s.body).join('\n').slice(0,1000),nextDeedTitle:content.nextDeed.title};
@@ -82,13 +89,21 @@ async function snapshot(token:string,wishId:string,sourceId:string|undefined,env
 }
 function sameVersion(a:Snapshot,b:Snapshot){
   return a.sourceId===b.sourceId&&a.sourceVersion===b.sourceVersion&&
-    a.contextRevision===b.contextRevision&&a.actorId===b.actorId&&a.latestDeedId===b.latestDeedId;
+    a.contextRevision===b.contextRevision&&a.actorId===b.actorId&&
+    a.actorName===b.actorName&&a.actorVersion===b.actorVersion&&a.latestDeedId===b.latestDeedId;
 }
-async function resolve(admin:ReturnType<typeof clients>['admin'],userId:string,key:string){
-  const {data:deed,error}=await admin.from('deeds').select('id,wish_id,receipt')
+export function assertReplayBinding(existing:{wish_id:string;request_fingerprint:string|null},
+  wishId:string,fingerprint:string):void{
+  if(existing.wish_id!==wishId||existing.request_fingerprint!==fingerprint)
+    fail('Request key belongs to another approved action.',409,'request_conflict');
+}
+async function resolve(admin:ReturnType<typeof clients>['admin'],userId:string,key:string,
+  wishId:string,fingerprint:string){
+  const {data:deed,error}=await admin.from('deeds').select('id,wish_id,receipt,request_fingerprint')
     .eq('user_id',userId).eq('request_key',key).eq('verified_followup',true).maybeSingle();
   if(error)fail('Could not check the previous save.',503,'resolve_failed');
   if(!deed)return null;
+  assertReplayBinding(deed,wishId,fingerprint);
   const {data:artifact, error:artifactError}=await admin.from('artifacts').select('id')
     .eq('origin_deed_id',deed.id).eq('wish_id',deed.wish_id).eq('user_id',userId).single();
   if(artifactError||!artifact)fail('Saved Artifact unavailable.',503,'resolve_failed');
@@ -100,30 +115,20 @@ export async function serveContinuation(body:Record<string,unknown>,token:string
   const mode=body.mode;
   const fields=mode==='propose_continuation'?['mode','locale','wishId','sourceId','editRequest']:
     mode==='execute_continuation'?['mode','locale','wishId','sourceId','requestKey','proposal','editRequest']:
-    mode==='resolve_continuation'?['mode','locale','wishId','requestKey']:[];
+    mode==='resolve_continuation'?['mode','locale','wishId','requestKey','proposal','editRequest']:[];
   if(!fields.length||Object.keys(body).some(key=>!fields.includes(key)))
     fail('Unsupported continuation field.',400,'invalid_request');
-  if(mode==='resolve_continuation'){
-    if(typeof body.requestKey!=='string'||!uuid.test(body.requestKey)||
-      typeof body.wishId!=='string'||!uuid.test(body.wishId))
-      fail('Invalid request key.',400,'invalid_request');
-    const {user,admin}=await identity(token,env);
-    const existing=await resolve(admin,user.id,body.requestKey as string);
-    if(!existing)fail('No completed Deed for this request.',404,'not_saved');
-    if(existing!.wishId!==body.wishId)fail('Request key belongs to another Wish.',409,'request_conflict');
-    return existing;
-  }
   if(typeof body.wishId!=='string'||!uuid.test(body.wishId)||
      (body.sourceId!==undefined&&(typeof body.sourceId!=='string'||!uuid.test(body.sourceId))))
     fail('Invalid Wish or Artifact.',400,'invalid_request');
   if(body.editRequest!==undefined&&(typeof body.editRequest!=='string'||body.editRequest.length>280))
     fail('Edit request is too long.',400,'invalid_request');
-  if(mode==='execute_continuation' && (typeof body.requestKey!=='string'||!uuid.test(body.requestKey)))
+  if(mode!=='propose_continuation' && (typeof body.requestKey!=='string'||!uuid.test(body.requestKey)))
     fail('Invalid request key.',400,'invalid_request');
-  const state=await snapshot(token,body.wishId as string,body.sourceId as string|undefined,env);
-  if(state.context.sourceNote&&!state.context.sourceNoteConfirmed)
-    fail('Confirm the source note before continuing.',409,'source_confirmation_required');
   if(mode==='propose_continuation'){
+    const state=await snapshot(token,body.wishId as string,body.sourceId as string|undefined,env);
+    if(state.context.sourceNote&&!state.context.sourceNoteConfirmed)
+      fail('Confirm the source note before continuing.',409,'source_confirmation_required');
     const editRequest=typeof body.editRequest==='string'?body.editRequest.trim():'';
     const evidence={confirmedUserContext:state.context,priorAiDraft:state.priorDraft,
       requestedEmphasis:editRequest,capabilities:['private_draft','local_edit','account_save']};
@@ -134,24 +139,36 @@ export async function serveContinuation(body:Record<string,unknown>,token:string
       expires:Date.now()+30*60*1000};
     return {plan,snapshot:state.version,editRequest,expires:value.expires,proof:signature(value,env)};
   }
-  if(mode!=='execute_continuation')fail('Invalid request.',400,'invalid_request');
+  if(mode!=='execute_continuation'&&mode!=='resolve_continuation')fail('Invalid request.',400,'invalid_request');
   const key=body.requestKey as string;
-  const existing=await resolve(state.admin,state.user.id,key);
-  if(existing){
-    if(existing.wishId!==state.wish.id)fail('Request key belongs to another Wish.',409,'request_conflict');
-    return existing;
-  }
   const raw=body.proposal as Record<string,unknown>|undefined;
   if(!raw||typeof raw!=='object'||!raw.snapshot||typeof raw.editRequest!=='string'||
      raw.editRequest!==((typeof body.editRequest==='string'?body.editRequest.trim():''))||
-     typeof raw.expires!=='number'||
-     raw.expires<Date.now()||raw.expires>Date.now()+30*60*1000+60000)
+     typeof raw.expires!=='number'||!Number.isFinite(raw.expires)||
+     raw.expires>Date.now()+30*60*1000+60000)
     fail('Review this Deed again.',409,'proposal_stale');
   const plan=validateExperiencePlan(raw!.plan,locale);
   const version=raw!.snapshot as Snapshot;
+  const expires=raw!.expires as number;
+  if(!version||typeof version!=='object'||!uuid.test(version.sourceId)||
+    !uuid.test(version.actorId)||!uuid.test(version.latestDeedId)||
+    typeof version.actorName!=='string'||!version.actorName||
+    typeof version.actorVersion!=='string'||Number.isNaN(Date.parse(version.actorVersion))||
+    !Number.isInteger(version.sourceVersion)||!Number.isInteger(version.contextRevision)||
+    (body.sourceId!==undefined&&body.sourceId!==version.sourceId))
+    fail('Review this Deed again.',409,'proposal_stale');
+  const {user,admin}=await identity(token,env);
+  verify({userId:user.id,wishId:body.wishId,plan,snapshot:version,
+    editRequest:raw!.editRequest,expires},raw!.proof,env);
+  const fingerprint=approvedActionFingerprint(user.id,body.wishId as string,plan,version,raw!.editRequest as string,env);
+  const existing=await resolve(admin,user.id,key,body.wishId as string,fingerprint);
+  if(existing)return existing;
+  if(mode==='resolve_continuation')fail('No completed Deed for this request.',404,'not_saved');
+  if(expires<Date.now())fail('Review this Deed again.',409,'proposal_stale');
+  const state=await snapshot(token,body.wishId as string,version.sourceId,env);
+  if(state.context.sourceNote&&!state.context.sourceNoteConfirmed)
+    fail('Confirm the source note before continuing.',409,'source_confirmation_required');
   if(!sameVersion(version,state.version))fail('Wish context or Jinn changed. Review again.',409,'proposal_stale');
-  verify({userId:state.user.id,wishId:state.wish.id,plan,snapshot:version,
-    editRequest:raw!.editRequest,expires:raw!.expires},raw!.proof,env);
   const started=Date.now();
   const prepared=await prepareDeed(state.wish.original_intent,state.context.sourceNote,null,
     undefined,undefined,locale,plan,{},
@@ -164,15 +181,17 @@ export async function serveContinuation(body:Record<string,unknown>,token:string
     p_user_id:state.user.id,p_wish_id:state.wish.id,
     p_source_artifact_id:version.sourceId,p_source_version:version.sourceVersion,
     p_context_revision:version.contextRevision,p_expected_actor_id:version.actorId,
+    p_expected_actor_name:version.actorName,p_expected_actor_version:version.actorVersion,
     p_latest_deed_id:version.latestDeedId,
-    p_request_key:key,p_artifact:artifact,p_draft_source:prepared.receipt.draftSource,
+    p_request_key:key,p_request_fingerprint:fingerprint,
+    p_artifact:artifact,p_draft_source:prepared.receipt.draftSource,
   });
   if(error){
     if(error.code==='40001')fail('Wish context or Artifact changed. Review again.',409,'proposal_stale');
     if(error.code==='23505'){
-      const replay=await resolve(state.admin,state.user.id,key);
-      if(replay?.wishId===state.wish.id)return replay;
-      fail('Request key belongs to another Wish.',409,'request_conflict');
+      const replay=await resolve(state.admin,state.user.id,key,state.wish.id,fingerprint);
+      if(replay)return replay;
+      fail('Request key belongs to another approved action.',409,'request_conflict');
     }
     console.error('[Wisht] api continuation.save.failed',{code:error.code||'db_error'});
     fail('Could not confirm whether the Deed was saved. Retry with the same request.',503,'save_ambiguous');

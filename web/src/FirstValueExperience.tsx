@@ -13,7 +13,7 @@ type Props={
   wish:string;
   companionName:string;
   isFirst?:boolean;
-  actorName?:string;
+  actorName?:string|null;
   verified?:boolean;
   showNext?:boolean;
   onChange:(artifact:Artifact)=>void;
@@ -55,7 +55,7 @@ export default function FirstValueExperience({artifact,receipt,saved,wish,compan
       <button type="button" className="first-value-edit" aria-pressed={editing}
         onClick={()=>setEditing(value=>!value)}><Pencil size={15}/> {editing?t('Finish editing'):t('Edit artifact')}</button>
       <h2>{artifact.title}</h2>
-      <p className="first-value-artifact-hint">{t('A working draft you can read and use now. Suggestions are not verified personal facts.')} {t('With')}: {actorName||companionName}</p>
+      <p className="first-value-artifact-hint">{t('A working draft you can read and use now. Suggestions are not verified personal facts.')} {t('With')}: {actorName===null?t('Unknown Jinn'):actorName??companionName}</p>
     <div className="first-value-provenance" aria-label={t('Sources and unknowns')}>
       <span>{t('Based on your Wish')}</span><span>{t('AI suggestion · Not verified')}</span>
     </div>

@@ -2,6 +2,7 @@ import {describe,it} from 'node:test';
 import assert from 'node:assert/strict';
 import {planFirstValue,prepareDeed,serveFirstDeed} from '../src/firstDeed.ts';
 import {validateExperiencePlan} from '../src/experiencePlan.ts';
+import {approvedActionFingerprint,assertReplayBinding,ContinuationError} from '../src/continuation.ts';
 
 const plan=validateExperiencePlan({version:1,locale:'en',intent:'Continue one saved Wish',
   firstOutcome:'A fully written new private chapter opening',
@@ -14,6 +15,27 @@ const chapter={title:'Chapter opening',sections:[{type:'document',title:'Opening
     prompt:'Choose a detail you know'},boundary:'Private draft. Nothing sent or verified.'};
 
 describe('F04 trusted continuation boundaries',()=>{
+  it('binds a request key to approved action and source, context and Jinn versions',()=>{
+    const env={SUPABASE_SERVICE_ROLE_KEY:'x'.repeat(40)};
+    const version={sourceId:'00000000-0000-4000-8000-000000000001',sourceVersion:1,
+      contextRevision:2,actorId:'00000000-0000-4000-8000-000000000002',
+      actorName:'Original Jinn',actorVersion:'2026-11-20T12:00:00Z',
+      latestDeedId:'00000000-0000-4000-8000-000000000003'};
+    const fingerprint=approvedActionFingerprint('owner','wish',plan,version,'',env);
+    assert.match(fingerprint,/^[0-9a-f]{64}$/);
+    assert.equal(fingerprint,approvedActionFingerprint('owner','wish',plan,version,'',env));
+    assert.notEqual(fingerprint,approvedActionFingerprint('owner','wish',plan,version,'different edit',env));
+    for(const change of [{sourceVersion:2},{contextRevision:3},
+      {actorId:'00000000-0000-4000-8000-000000000004'},
+      {actorName:'Renamed Jinn'},{actorVersion:'2026-11-20T12:01:00Z'},
+      {latestDeedId:'00000000-0000-4000-8000-000000000005'}])
+      assert.notEqual(fingerprint,approvedActionFingerprint('owner','wish',plan,{...version,...change},'',env));
+    assert.doesNotThrow(()=>assertReplayBinding({wish_id:'wish',request_fingerprint:fingerprint},'wish',fingerprint));
+    assert.throws(()=>assertReplayBinding({wish_id:'wish',request_fingerprint:fingerprint},'wish','f'.repeat(64)),
+      (error:unknown)=>error instanceof ContinuationError&&error.status===409&&error.code==='request_conflict');
+    assert.throws(()=>assertReplayBinding({wish_id:'wish',request_fingerprint:null},'wish',fingerprint),
+      (error:unknown)=>error instanceof ContinuationError&&error.status===409);
+  });
   it('plans from confirmed context and labels earlier AI work as a draft',async()=>{
     const calls:Array<{system:string;user:string}>=[];
     const evidence={confirmedUserContext:{sourceNote:'Sunday pancakes with Aunt',

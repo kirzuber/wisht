@@ -346,8 +346,10 @@ do $$ declare v_wish uuid; v_revision integer; begin
     perform public.create_verified_continuation('00000000-0000-0000-0000-000000000001',v_wish,
       (select id from public.artifacts where wish_id=v_wish limit 1),1,1,
       (select primary_jinn_id from public.wish_records where id=v_wish),
+      (select name from public.jinns where id=(select primary_jinn_id from public.wish_records where id=v_wish)),
+      (select updated_at from public.jinns where id=(select primary_jinn_id from public.wish_records where id=v_wish)),
       (select id from public.deeds where wish_id=v_wish limit 1),
-      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '{}'::jsonb,'model');
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', repeat('a',64), '{}'::jsonb,'model');
     raise exception 'Client called server-only RPC';
   exception when others then
     if sqlerrm='Client called server-only RPC' then raise; end if;
@@ -364,9 +366,11 @@ begin
   select id into v_deed from public.deeds where wish_id=v_wish order by created_at desc,id desc limit 1;
   select name into v_actor from public.jinns where id=(select primary_jinn_id from public.wish_records where id=v_wish);
   v_result:=public.create_verified_continuation('00000000-0000-0000-0000-000000000001',v_wish,
-    v_source,1,1,(select primary_jinn_id from public.wish_records where id=v_wish),v_deed,v_key,v_artifact,'model');
+  v_source,1,1,(select primary_jinn_id from public.wish_records where id=v_wish),v_actor,
+  (select updated_at from public.jinns where name=v_actor),v_deed,v_key,repeat('a',64),v_artifact,'model');
   v_replay:=public.create_verified_continuation('00000000-0000-0000-0000-000000000001',v_wish,
-    v_source,1,1,(select primary_jinn_id from public.wish_records where id=v_wish),v_deed,v_key,v_artifact,'model');
+  v_source,1,1,(select primary_jinn_id from public.wish_records where id=v_wish),v_actor,
+  (select updated_at from public.jinns where name=v_actor),v_deed,v_key,repeat('a',64),v_artifact,'model');
   if v_result->>'deedId' is distinct from v_replay->>'deedId'
     or v_result->>'artifactId' is distinct from v_replay->>'artifactId'
     or (select count(*) from public.artifacts where wish_id=v_wish)<>2
@@ -376,9 +380,30 @@ begin
   if (select actor_jinn_name from public.deeds where id=(v_result->>'deedId')::uuid)<>v_actor
     or (select verified_followup from public.deeds where id=(v_result->>'deedId')::uuid) is not true then
     raise exception 'Historical actor or verified marker missing'; end if;
+  if (select actor_jinn_id from public.deeds where id=v_deed) is not null
+    or (select actor_jinn_name from public.deeds where id=v_deed) is not null then
+    raise exception 'Pre-migration First Deed was guessed from current assignment'; end if;
+  perform public.create_verified_first_value('00000000-0000-0000-0000-000000000001',
+    (select primary_jinn_id from public.wish_records where id=v_wish),
+    'F04 new First Deed actor snapshot',v_first,
+    '{"status":"PREPARED","scope":"Private draft","draftSource":"model"}'::jsonb);
+  if not exists(select 1 from public.deeds d join public.wish_records w on w.id=d.wish_id
+    where w.original_intent='F04 new First Deed actor snapshot' and d.verified_first
+      and d.actor_jinn_id=w.primary_jinn_id and d.actor_jinn_name=v_actor) then
+    raise exception 'New First Deed actor was not captured at save'; end if;
   begin
     perform public.create_verified_continuation('00000000-0000-0000-0000-000000000001',v_wish,
-      v_source,1,0,(select primary_jinn_id from public.wish_records where id=v_wish),v_deed,gen_random_uuid(),v_artifact,'model');
+      v_source,1,1,(select primary_jinn_id from public.wish_records where id=v_wish),
+      v_actor,(select updated_at from public.jinns where name=v_actor),
+      v_deed,v_key,repeat('b',64),v_artifact,'model');
+    raise exception 'Different approved action replayed an unrelated Artifact';
+  exception when unique_violation then null; end;
+  if (select count(*) from public.artifacts where wish_id=v_wish)<>2 then
+    raise exception 'Conflicting key changed saved work'; end if;
+  begin
+    perform public.create_verified_continuation('00000000-0000-0000-0000-000000000001',v_wish,
+      v_source,1,0,(select primary_jinn_id from public.wish_records where id=v_wish),v_actor,
+      (select updated_at from public.jinns where name=v_actor),v_deed,gen_random_uuid(),repeat('c',64),v_artifact,'model');
     raise exception 'Stale context accepted';
   exception when serialization_failure then null; end;
   if (select count(*) from public.artifacts where wish_id=v_wish)<>2 then
@@ -393,19 +418,27 @@ do $$ declare v_wish uuid; v_new uuid; begin
   insert into public.jinns(user_id,name,is_primary)
     values('00000000-0000-0000-0000-000000000001','Later Jinn',false) returning id into v_new;
   update public.wish_records set primary_jinn_id=v_new where id=v_wish;
+  update public.jinns set name='Earlier Jinn renamed' where id=(select actor_jinn_id
+    from public.deeds where wish_id=v_wish and verified_followup);
 end $$;
 reset role;
 set role service_role;
 do $$ declare v_wish uuid; v_old_actor uuid; begin
   select id into v_wish from public.wish_records where original_intent='Create an independent first value result';
   select actor_jinn_id into v_old_actor from public.deeds where wish_id=v_wish and verified_followup;
-  if (select actor_jinn_name from public.deeds where wish_id=v_wish and verified_followup)='Later Jinn'
+  if (select count(*) from public.deeds where wish_id=v_wish and actor_jinn_id=v_old_actor)<>1
+    or (select actor_jinn_name from public.deeds where wish_id=v_wish and verified_followup)='Later Jinn'
     then raise exception 'Reassignment rewrote historical actor'; end if;
+  if not exists(select 1 from public.deeds d join public.wish_records w on w.id=d.wish_id
+    where w.original_intent='F04 new First Deed actor snapshot' and d.actor_jinn_id=v_old_actor
+      and d.actor_jinn_name is distinct from 'Earlier Jinn renamed') then
+    raise exception 'Rename rewrote First Deed attribution'; end if;
   begin
     perform public.create_verified_continuation('00000000-0000-0000-0000-000000000001',v_wish,
       (select id from public.artifacts where wish_id=v_wish order by created_at limit 1),1,1,
-      v_old_actor,(select id from public.deeds where wish_id=v_wish order by created_at desc,id desc limit 1),
-      gen_random_uuid(),(select content from public.artifacts where wish_id=v_wish order by created_at desc limit 1),'model');
+      v_old_actor,'Earlier Jinn renamed',(select updated_at from public.jinns where id=v_old_actor),
+      (select id from public.deeds where wish_id=v_wish order by created_at desc,id desc limit 1),
+      gen_random_uuid(),repeat('d',64),(select content from public.artifacts where wish_id=v_wish order by created_at desc limit 1),'model');
     raise exception 'Stale Jinn assignment accepted';
   exception when serialization_failure then null; end;
 end $$;
@@ -435,8 +468,11 @@ select (result->>'deedId') || '|' || (result->>'artifactId') from (
     w.id,
     (select id from public.artifacts where wish_id=w.id order by created_at,id limit 1),
     1,1,w.primary_jinn_id,
+    (select name from public.jinns where id=w.primary_jinn_id),
+    (select updated_at from public.jinns where id=w.primary_jinn_id),
     (select id from public.deeds where wish_id=w.id order by created_at desc,id desc limit 1),
     'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'::uuid,
+    repeat('e',64),
     (select content from public.artifacts where wish_id=w.id order by created_at desc,id desc limit 1),
     'model') as result
   from public.wish_records w where w.original_intent='Create an independent first value result'

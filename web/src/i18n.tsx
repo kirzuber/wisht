@@ -11,6 +11,7 @@ const translations: Record<string,readonly [string,string,string]> = {
   'Using what you told me':['Использую то, что вы рассказали','D’après ce que vous m’avez dit','Según lo que me contaste'],
   'No confirmed details yet.':['Пока нет подтверждённых деталей.','Aucun détail confirmé pour le moment.','Todavía no hay detalles confirmados.'],
   'Unknowns':['Неизвестно','Inconnues','Datos pendientes'],
+  'Unknown Jinn':['Неизвестный джинн','Jinn inconnu','Jinn desconocido'],
   'None listed':['Ничего не указано','Aucune','Ninguno'],
   'Correct the source note in the Artifact editor. Draft text alone is not a confirmed fact.':['Исправьте исходную заметку в редакторе документа. Текст черновика сам по себе не подтверждённый факт.','Corrigez la note source dans l’éditeur du document. Le brouillon seul ne confirme aucun fait.','Corrige la nota original en el editor del documento. El borrador por sí solo no confirma ningún hecho.'],
   'Confirmed details, one per line':['Подтверждённые детали, по одной в строке','Détails confirmés, un par ligne','Detalles confirmados, uno por línea'],

@@ -253,7 +253,8 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
       try{result=await endpoint({mode:'execute_continuation',wishId:row.id,
         sourceId:proposal.snapshot.sourceId,requestKey,proposal,editRequest},locale,bearer);}
       catch(error){
-        try{result=await endpoint({mode:'resolve_continuation',wishId:row.id,requestKey},locale,bearer);}
+        try{result=await endpoint({mode:'resolve_continuation',wishId:row.id,requestKey,
+          proposal,editRequest},locale,bearer);}
         catch{throw error;}
       }
       const saved=await loadFirstWish(row.id);
@@ -388,7 +389,7 @@ export default function FirstWish({wish,savedId,preferredJinnId,preferredJinnOwn
         <div className="continuation-artifact-list">{row.artifacts.map((item,index)=><button type="button" key={item.id}
           aria-current={item.id===row.artifact_id?'true':undefined} disabled={busy||dirty||contextDirty}
           onClick={()=>{selectSaved(row,item.id);setProposal(null);setReviewing(false);pendingRequestKey.current=null;}}>
-          {index+1}. {item.artifact.title} · {item.actorName}</button>)}</div>
+          {index+1}. {item.artifact.title} · {item.actorName??t('Unknown Jinn')}</button>)}</div>
       </details>}
       {artifact.experience?<FirstValueExperience key={row?.artifact_id||'unsaved'} artifact={artifact} receipt={receipt} saved={!!row}
         wish={currentWish} companionName={companionName} isFirst={!row||row.artifacts[0]?.id===row.artifact_id}
