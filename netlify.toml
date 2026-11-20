@@ -3,7 +3,7 @@
   publish = "web/dist"
   functions = "netlify/functions"
   # Publish main and the explicitly approved F04 PR preview only.
-  ignore = "if { [ \"$CONTEXT\" = \"production\" ] && [ \"$BRANCH\" = \"main\" ]; } || { [ \"$CONTEXT\" = \"deploy-preview\" ] && [ \"$BRANCH\" = \"codex/f04-001-trusted-continuation\" ]; }; then exit 1; else exit 0; fi"
+  ignore = "if { [ \"$CONTEXT\" = \"production\" ] && [ \"$BRANCH\" = \"main\" ]; } || [ \"$REVIEW_ID\" = \"33\" ]; then exit 1; else exit 0; fi"
 
 [functions]
   node_bundler = "esbuild"
